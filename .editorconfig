@@ -1,0 +1,3 @@
+[*.{kt,kts}]
+# 未使用インポートの削除を含む、実験的なルールを有効にする
+ktlint_experimental = enabledt

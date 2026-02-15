@@ -1,0 +1,20 @@
+{
+  "name": "omoide-upload-android",
+  "private": true,
+  "devDependencies": {
+    "husky": "^9.0.0",
+    "lint-staged": "^15.0.0"
+  },
+  "scripts": {
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "**/*.{kt,kts}": [
+      "echo 複数プロジェクトで Lint します",
+      "sh -c 'for proj in omoide-memory-uploader; do if [ -d \"$proj\" ]; then cd \"$proj\" && ./gradlew ktlintFormat && cd ..; fi; done'"
+
+    ]
+  }
+}
+
+
