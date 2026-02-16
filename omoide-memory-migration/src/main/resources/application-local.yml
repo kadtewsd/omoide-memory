@@ -1,0 +1,14 @@
+spring:
+  application:
+    name: omoide-memory-migration
+  flyway:
+    enabled: true
+  datasource:
+    # local では梱包の docker-compose の username と password でアクセス
+    url: jdbc:postgresql://localhost:5432/omoide_memory
+    username: postgres
+    password: password
+    driver-class-name: org.postgresql.Driver
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger - %msg%n"
