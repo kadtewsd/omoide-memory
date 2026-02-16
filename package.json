@@ -11,7 +11,7 @@
   "lint-staged": {
     "**/*.{kt,kts}": [
       "echo 複数プロジェクトで Lint します",
-      "sh -c 'for proj in omoide-memory-uploader; do if [ -d \"$proj\" ]; then cd \"$proj\" && ./gradlew ktlintFormat && cd ..; fi; done'"
+      "sh -c 'for proj in omoide-memory-uploader omoide-memory-migration omoide-memory-jooq; do if [ -d \"$proj\" ]; then cd \"$proj\" && ./gradlew ktlintFormat && cd ..; fi; done'"
 
     ]
   }

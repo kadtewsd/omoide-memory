@@ -1,0 +1,16 @@
+services:
+  db:
+    image: postgres:16
+    container_name: postgres_db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres        # ユーザー名
+      POSTGRES_PASSWORD: password  # パスワード
+      POSTGRES_DB: omoide_memory    # データベース名
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - pgdata:/var/lib/postgresql/data  # パスではなく「名前」にする
+volumes:
+  pgdata:  # ここでボリュームを定義
