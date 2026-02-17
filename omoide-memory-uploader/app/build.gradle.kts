@@ -1,3 +1,5 @@
+import org.gradle.kotlin.dsl.support.kotlinCompilerOptions
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -45,6 +47,24 @@ android {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
             excludes += "META-INF/DEPENDENCIES"
+        }
+    }
+    kotlinOptions {
+        // メタデータの不整合エラーを無視させる魔法の引数
+        // 以下のメタ情報不整合のエラーが出るため。
+        // どうも、Android Studio が androidx.compose.remote:remote-creation-core:1.0.0-alpha04 をつれてきてしまうためみたい、Live Edit 機能のためとkで
+        // file:///~/.gradle/caches/modules-2/files-2.1/androidx.compose.remote/remote-creation-core/1.0.0-alpha04/b7a08b52fb581d744610b023544e7372a6a41cd9/remote-creation-core-1.0.0-alpha04.jar!/META-INF/remote-creation-core.kotlin_moduleModule was compiled with an incompatible version of Kotlin. The binary version of its metadata is 2.1.0, expected version is 1.9.0.
+        freeCompilerArgs += listOf("-Xskip-metadata-version-check")
+    }
+}
+
+// Android Studio で K2 モードは無効にすること
+configurations.all {
+    resolutionStrategy {
+        eachDependency {
+            if (requested.group == "org.jetbrains.kotlin") {
+                useVersion("1.9.24") // Android 側の Kotlin バージョンに合わせる
+            }
         }
     }
 }
