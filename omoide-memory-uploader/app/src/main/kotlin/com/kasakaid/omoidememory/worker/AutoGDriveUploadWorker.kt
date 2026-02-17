@@ -10,6 +10,7 @@ import com.kasakaid.omoidememory.data.OmoideUploadPrefsRepository
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.last
 import kotlinx.coroutines.withContext
 
 /**
@@ -37,7 +38,7 @@ class AutoGDriveUploadWorker @AssistedInject constructor(
                 Log.d(TAG, "Auto-Upload が無効。写真のアップロードはスキップ")
                 return@withContext Result.success()
             }
-            gdriveUploader.upload(tag = TAG, pendingFiles = omoideMemoryRepository.getActualPendingFiles()) { current, total ->
+            gdriveUploader.upload(tag = TAG, pendingFiles = omoideMemoryRepository.actualPendingFiles.last()) { current, total ->
                 Log.d(TAG, "$current / $total を開始")
             }
         } catch (e: Exception) {

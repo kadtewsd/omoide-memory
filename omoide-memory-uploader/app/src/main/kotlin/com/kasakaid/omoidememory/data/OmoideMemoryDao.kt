@@ -16,11 +16,11 @@ interface OmoideMemoryDao {
 
     // ハッシュのリスト（Set）だけを取得する（メモリ節約のためハッシュのみ）
     @Query("SELECT hash FROM uploaded_memories")
-    suspend fun getAllUploadedHashes(): List<String>
+    fun getAllUploadedHashes(): Flow<List<String>>
 
     // ハッシュのリスト（Set）だけを取得する（メモリ節約のためハッシュのみ）
     @Query("SELECT name FROM uploaded_memories")
-    suspend fun getAllUploadedNames(): List<String>
+    fun getAllUploadedNames(): Flow<List<String>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertUploadedFile(omoideMemory: OmoideMemory)

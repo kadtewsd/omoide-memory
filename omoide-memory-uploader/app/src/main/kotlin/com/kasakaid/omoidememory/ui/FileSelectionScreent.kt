@@ -47,26 +47,30 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.stateIn
 
 @HiltViewModel
 class FileSelectionViewModel @Inject constructor(
-    private val omoideMemoryRepository: OmoideMemoryRepository
+    omoideMemoryRepository: OmoideMemoryRepository
 ) : ViewModel() {
-
-    private val _uiState = MutableStateFlow<List<OmoideMemory>>(emptyList())
-    val uiState: StateFlow<List<OmoideMemory>> = _uiState
+    val pendingFiles: StateFlow<List<OmoideMemory>> = omoideMemoryRepository
+        .actualPendingFiles
+        .onEach { files ->
+            // 🚀 データが流れてきたタイミングで、まだ選択状態が空なら全選択にする
+            if (selectedHashes.isEmpty() && files.isNotEmpty()) {
+                files.forEach { selectedHashes[it.hash] = true }
+            }
+        }
+        .stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Lazily,
+        initialValue = emptyList()
+    )
 
     // 選択されたハッシュを管理する Set
     val selectedHashes = mutableStateMapOf<String, Boolean>()
-
-    init {
-        viewModelScope.launch {
-            val files = omoideMemoryRepository.getActualPendingFiles()
-            _uiState.value = files
-            // 初期状態は全選択
-            files.forEach { selectedHashes[it.hash] = true }
-        }
-    }
 
     fun toggleSelection(hash: String) {
         selectedHashes[hash] = !(selectedHashes[hash] ?: false)
@@ -78,7 +82,7 @@ fun FileSelectionRoute(
     viewModel: FileSelectionViewModel = hiltViewModel(),
     onFinished: () -> Unit,
 ) {
-    val pendingFiles by viewModel.uiState.collectAsState()
+    val pendingFiles by viewModel.pendingFiles.collectAsState()
     val context = LocalContext.current
 
     FileSelectionScreen(
