@@ -8,19 +8,24 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface OmoideMemoryDao {
+
     @Query("SELECT * FROM uploaded_memories ORDER BY uploadedAt DESC")
     fun getAllUploadedFiles(): Flow<List<OmoideMemory>>
 
     @Query("SELECT count(*) FROM uploaded_memories")
     fun getUploadedCount(): Flow<Int>
 
-    // ハッシュのリスト（Set）だけを取得する（メモリ節約のためハッシュのみ）
+    // ハッシュのリスト（Set）だけを Flow で取得する（メモリ節約のためハッシュのみ）
     @Query("SELECT hash FROM uploaded_memories")
-    fun getAllUploadedHashes(): Flow<List<String>>
+    fun getAllUploadedHashesAsFlow(): Flow<List<String>>
 
     // ハッシュのリスト（Set）だけを取得する（メモリ節約のためハッシュのみ）
+    @Query("SELECT hash FROM uploaded_memories")
+    suspend fun getAllUploadedHashes(): List<String>
+
+    // ファイル名のリスト（Set）だけを取得する（メモリ節約のためハッシュのみ）
     @Query("SELECT name FROM uploaded_memories")
-    fun getAllUploadedNames(): Flow<List<String>>
+    suspend fun getAllUploadedNames(): List<String>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertUploadedFile(omoideMemory: OmoideMemory)

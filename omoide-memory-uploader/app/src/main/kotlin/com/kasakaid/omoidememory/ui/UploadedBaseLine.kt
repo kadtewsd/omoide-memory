@@ -31,15 +31,13 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kasakaid.omoidememory.data.OmoideUploadPrefsRepository
+import com.kasakaid.omoidememory.extension.toZonedInstant
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
@@ -49,12 +47,8 @@ class UploadSettingViewModel @Inject constructor(
     private val prefsRepository: OmoideUploadPrefsRepository
 ) : ViewModel() {
 
-    // 初期値を取得（nullならエポック0など適宜調整）
-    private val _baselineInstant = MutableStateFlow(prefsRepository.getUploadBaseLineInstant())
-    val baselineInstant: StateFlow<Instant?> = _baselineInstant.asStateFlow()
-
     // UI表示用に整形した文字列（YYYY/MM/DD）
-    val displayDate: StateFlow<String> = _baselineInstant.map { instant ->
+    val displayDate: StateFlow<String> = prefsRepository.getUploadBaseLineInstant().map { instant ->
         instant?.let {
             DateTimeFormatter.ofPattern("yyyy/MM/dd")
                 .withZone(ZoneId.systemDefault())
@@ -68,19 +62,10 @@ class UploadSettingViewModel @Inject constructor(
     fun onDateSelected(utcMillis: Long?) {
         utcMillis ?: return
 
-        // 1. 返ってきた UTCミリ秒を LocalDate (日付のみ) に変換
-        // これで「ユーザーが選んだカレンダー上の日付」が確定する
-        val localDate = Instant.ofEpochMilli(utcMillis)
-            .atZone(ZoneId.of("UTC")) // DatePicker は UTC で日付を出すのでここまでは UTC
-            .toLocalDate()
-
-        // 2. その日付の「システムデフォルト時間での開始時間 (00:00)」を Instant にする
-        // これで JST 00:00:00 の Instant が手に入る
-        val startOfDayInstant = localDate.atStartOfDay(ZoneId.systemDefault()).toInstant()
-
-        viewModelScope.launch {
-            prefsRepository.updateUploadBaseLineInstant(startOfDayInstant)
-            _baselineInstant.value = startOfDayInstant
+        utcMillis.toZonedInstant().let { instantMillis ->
+            viewModelScope.launch {
+                prefsRepository.updateUploadBaseLineInstant(instantMillis)
+            }
         }
     }
 }
@@ -91,14 +76,16 @@ class UploadSettingViewModel @Inject constructor(
  */
 @Composable
 fun UploadedBaseLineRoute(
-    viewModel: UploadSettingViewModel = hiltViewModel()
+    viewModel: UploadSettingViewModel = hiltViewModel(),
 ) {
     val displayDate by viewModel.displayDate.collectAsState()
 
     UploadDateCard(
         displayDate = displayDate,
-        onDateSelected = { millis ->
-            viewModel.onDateSelected(millis)
+        onUploadedBaseLineSelected = { millis ->
+            millis?.toZonedInstant()?.let { zonedInstant ->
+                viewModel.onDateSelected(millis)
+            }
         }
     )
 }
@@ -107,7 +94,7 @@ fun UploadedBaseLineRoute(
 @Composable
 fun UploadDateCard(
     displayDate: String,
-    onDateSelected: (Long?) -> Unit
+    onUploadedBaseLineSelected: (Long?) -> Unit
 ) {
     var showModal by remember { mutableStateOf(false) }
 
@@ -115,7 +102,9 @@ fun UploadDateCard(
     val datePickerState = rememberDatePickerState()
 
     Card(
-        modifier = Modifier.fillMaxWidth().padding(16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -147,7 +136,7 @@ fun UploadDateCard(
             onDismissRequest = { showModal = false },
             confirmButton = {
                 TextButton(onClick = {
-                    onDateSelected(datePickerState.selectedDateMillis)
+                    onUploadedBaseLineSelected(datePickerState.selectedDateMillis)
                     showModal = false
                 }) { Text("決定") }
             },
