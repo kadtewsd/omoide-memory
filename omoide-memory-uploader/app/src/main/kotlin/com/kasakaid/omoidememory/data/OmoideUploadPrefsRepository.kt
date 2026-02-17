@@ -6,6 +6,9 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 import androidx.core.content.edit
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 import java.time.Instant
 
 @Singleton
@@ -49,9 +52,26 @@ class OmoideUploadPrefsRepository @Inject constructor(
     /**
      * 動画、写真をアップロードする際のベースとなる日付。この日付より前の日付は画面上にも現れないし、自動アップロードの対象にもならない
      */
-    fun getUploadBaseLineInstant(): Instant? {
-        val millis = prefs.getLong(OmoideUploadPrefs.UPLOAD_BASELINE, -1L)
-        return if (millis > 0) Instant.ofEpochMilli(millis) else null
+    fun getUploadBaseLineInstant(): Flow<Instant?> = callbackFlow {
+        // 1. 現在の値をまず送る
+        val getCurrent = {
+            val millis = prefs.getLong(OmoideUploadPrefs.UPLOAD_BASELINE, -1L)
+            if (millis > 0) Instant.ofEpochMilli(millis) else null
+        }
+        trySend(getCurrent())
+
+        // 2. Prefs の変更を監視するリスナーを登録
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { p, key ->
+            if (key == OmoideUploadPrefs.UPLOAD_BASELINE) {
+                trySend(getCurrent()) // 値が変わったら再送！
+            }
+        }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+
+        // 3. Flow がキャンセルされたらリスナーを解除（メモリリーク防止）
+        awaitClose {
+            prefs.unregisterOnSharedPreferenceChangeListener(listener)
+        }
     }
 
     fun updateUploadBaseLineInstant(instant: Instant) {

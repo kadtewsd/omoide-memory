@@ -3,19 +3,21 @@ package com.kasakaid.omoidememory.data
 import android.content.Context
 import android.net.Uri
 import android.provider.MediaStore
+import android.util.Log
 import arrow.core.Option
 import arrow.core.toOption
 import com.kasakaid.omoidememory.extension.CursorExtension.asSequence
-import com.kasakaid.omoidememory.extension.flattenOption
+import com.kasakaid.omoidememory.extension.toLocalDateTime
 import com.kasakaid.omoidememory.os.FolderUri
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
+import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -29,25 +31,32 @@ class LocalFileRepository @Inject constructor(
     private val omoideUploadPrefsRepository: OmoideUploadPrefsRepository,
 ) {
 
+    companion object {
+        val TAG = "LocalFileRepository"
+    }
+
     // 1. メタデータだけで「たぶん未アップロード」なものをガバッと取る（高速）
-    @OptIn(ExperimentalCoroutinesApi::class)
-    val potentialPendingFiles: Flow<List<LocalFile>> = run {
+    fun getPotentialPendingFiles(): Flow<LocalFile> = flow {
         // MediaStore から名前・サイズ・パスを取得
         // Room から「アップロード済みメタデータ一覧」を取得して、名前・サイズで簡易フィルタ
         // 1. 最初の一回だけ DB から全ハッシュをロードして Set にする
-        omoideMemoryDao.getAllUploadedNames()
-            .map { it.toSet() } // 🚀 ここで「川」の中で Set に変換
-            .flatMapLatest { uploadedNameSet ->
-                getPendingFiles { file ->
-                    file.takeIf { !uploadedNameSet.contains(it.name) }.toOption()
-                }
-            }
+        val uploadedNameSet = omoideMemoryDao.getAllUploadedNames().toSet()
+        getPendingFiles { file ->
+            file.takeIf { !uploadedNameSet.contains(it.name) }.toOption()
+        }.let {
+            emitAll(it)
+        }
     }
+
+    /**
+     * 見つかったら一つづつちょろちょろと川を流して呼び出し元に教えて (send) してあげる
+     */
     fun <T> getPendingFiles(
         filterUnuploadedFile: (LocalFile) -> Option<T>,
-    ): Flow<List<T>> = channelFlow {
+    ): Flow<T> = channelFlow {
         // channelFlow の中は、デフォルトで適切なスコープで動くので
         // そのまま IO 処理を書いて OK です
+        Log.d(TAG, "指定されたフィルタでアップロード候補のファイルを取得します。")
         val projection = arrayOf(
             MediaStore.Files.FileColumns._ID,
             MediaStore.Files.FileColumns.DISPLAY_NAME,
@@ -62,15 +71,15 @@ class LocalFileRepository @Inject constructor(
         AND ${MediaStore.Files.FileColumns.DATE_ADDED} >= ?
     """.trimIndent()
 
+        val baseline: Instant? = omoideUploadPrefsRepository.getUploadBaseLineInstant().first()
+        Log.d(TAG, "基準日 : ${baseline?.toLocalDateTime()} で検索開始")
         val selectionArgs = arrayOf(
             MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE.toString(),
             MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO.toString(),
-            (omoideUploadPrefsRepository.getUploadBaseLineInstant()?.epochSecond ?: 0L).toString()
+            (baseline?.epochSecond ?: 0L).toString(),
         )
 
         val sortOrder = "${MediaStore.Files.FileColumns.DATE_ADDED} DESC"
-
-        val currentList = mutableListOf<T>()
 
         context.contentResolver.query(
             FolderUri.content,
@@ -91,25 +100,13 @@ class LocalFileRepository @Inject constructor(
 
                 if (localFile.filePath != null) {
                     // 未アップロード判定を通ったものだけ currentList に追加
-                    filterUnuploadedFile(localFile).fold(
-                        { /* None の場合は何もしない */ },
-                        { item ->
-                            currentList.add(item)
-                            // 🚀 20件ごとに最新のリストを「川」に流す（非同期描画！）
-                            // 「少しずつ流す」ためには、今までの「一括で変換して最後にリストを返す」という書き方から、「1件ずつ調べて、溜まったら送る」という書き方に変える必要があります。
-                            // .map{...}.toList() のような書き方だと、最後の1件の処理が終わるまで結果が確定しない（＝川に流せない） からです。
-                            if (currentList.size % 20 == 0) {
-                                // send で川を流しながら、たまったものを送りつける、というようなことができる
-                                send(currentList.toList())
-                            }
-                        }
-                    )
+                    filterUnuploadedFile(localFile).onSome { item ->
+                        send(item)
+                    }
                 }
             }
         }
-        // 最後に全件入ったリストを流して完了
-        send(currentList.toList())
-    }
+    }.flowOn(Dispatchers.IO) // 🚀 これを付けておけば、どこで呼んでも安全
 }
 
 

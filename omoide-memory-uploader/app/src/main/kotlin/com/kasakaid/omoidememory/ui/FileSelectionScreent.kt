@@ -54,26 +54,27 @@ import coil.decode.VideoFrameDecoder
 import coil.request.ImageRequest
 import coil.request.videoFrameMillis
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.scan
 import kotlinx.coroutines.flow.stateIn
 
 @HiltViewModel
 class FileSelectionViewModel @Inject constructor(
-    omoideMemoryRepository: OmoideMemoryRepository
+    omoideMemoryRepository: OmoideMemoryRepository,
 ) : ViewModel() {
     val pendingFiles: StateFlow<List<OmoideMemory>> = omoideMemoryRepository
-        .actualPendingFiles
-        .onEach { files ->
+        .getActualPendingFiles()
+        .onEach { file ->
             // 🚀 データが流れてきたタイミングで、まだ選択状態が空なら全選択にする
-            if (selectedHashes.isEmpty() && files.isNotEmpty()) {
-                files.forEach { selectedHashes[it.hash] = true }
-            }
+            selectedHashes[file.hash] = true
         }
+        .scan(emptyList<OmoideMemory>()) { acc, value -> acc + value } // リストに成長させる
         .stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.Lazily,
-        initialValue = emptyList()
-    )
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
 
     // 選択されたハッシュを管理する Set
     val selectedHashes = mutableStateMapOf<String, Boolean>()
@@ -98,6 +99,7 @@ fun FileSelectionRoute(
             // 🚀 ここで Worker をキック
             val uploadRequest = OneTimeWorkRequestBuilder<GdriveUploadWorker>()
                 .setInputData(workDataOf("TARGET_HASHES" to hashes))
+                .setInputData(workDataOf("TOTAL_COUNT" to viewModel.selectedHashes.count { it.value }))
                 .addTag(GdriveUploadWorker.TAG)
                 .build()
 
@@ -120,7 +122,7 @@ fun FileSelectionScreen(
 ) {
 
     Scaffold(
-        topBar = { AppBarWithBackIcon(onFinished)},
+        topBar = { AppBarWithBackIcon(onFinished) },
         bottomBar = {
             Button(
                 onClick = {
@@ -137,7 +139,6 @@ fun FileSelectionScreen(
             }
         }
     ) { innerPadding ->
-        @OptIn(ExperimentalMaterial3Api::class)
         Column(modifier = Modifier.fillMaxSize()) {
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(100.dp),
@@ -177,6 +178,7 @@ fun Context.imageLoader(): ImageLoader {
         }
         .build()
 }
+
 @Composable
 fun FileItemCard(item: OmoideMemory, isSelected: Boolean, onToggle: () -> Unit) {
     // 選択状態に応じた色の定義

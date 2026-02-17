@@ -5,12 +5,16 @@ import android.util.Log
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import com.kasakaid.omoidememory.data.LocalFileRepository
+import com.kasakaid.omoidememory.data.OmoideMemory
+import com.kasakaid.omoidememory.data.OmoideMemoryDao
 import com.kasakaid.omoidememory.data.OmoideMemoryRepository
 import com.kasakaid.omoidememory.data.OmoideUploadPrefsRepository
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.last
+import kotlinx.coroutines.flow.count
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 
 /**
@@ -38,9 +42,16 @@ class AutoGDriveUploadWorker @AssistedInject constructor(
                 Log.d(TAG, "Auto-Upload が無効。写真のアップロードはスキップ")
                 return@withContext Result.success()
             }
-            gdriveUploader.upload(tag = TAG, pendingFiles = omoideMemoryRepository.actualPendingFiles.last()) { current, total ->
-                Log.d(TAG, "$current / $total を開始")
+
+            val uploadResult = mutableListOf<Result>()
+            var current = 0
+            omoideMemoryRepository.getActualPendingFiles().collect { currentList: OmoideMemory ->
+                // currentList には、その時点で「見つかっている分（20, 40, 60...）」が流れてくる
+                Log.d(TAG, "${++current}件目を開始")
+                gdriveUploader.upload(tag = TAG, pendingFile = currentList)
             }
+            if (uploadResult.distinct().size == 1) Result.success()
+            else Result.failure()
         } catch (e: Exception) {
             Log.e(TAG, "例外が発生", e)
             return@withContext Result.retry()
