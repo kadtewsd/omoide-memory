@@ -1,5 +1,7 @@
 package com.kasakaid.omoidememory.ui
 
+import android.content.Context
+import android.os.Build
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -38,15 +40,19 @@ import com.kasakaid.omoidememory.data.OmoideMemory
 import com.kasakaid.omoidememory.data.OmoideMemoryRepository
 import com.kasakaid.omoidememory.worker.GdriveUploadWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.launch
 import javax.inject.Inject
 import kotlin.collections.set
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import coil.ImageLoader
+import coil.decode.GifDecoder
+import coil.decode.ImageDecoderDecoder
+import coil.decode.VideoFrameDecoder
+import coil.request.ImageRequest
+import coil.request.videoFrameMillis
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
@@ -156,6 +162,21 @@ fun FileSelectionScreen(
     }
 }
 
+fun Context.imageLoader(): ImageLoader {
+
+    // Activity や Application クラス、または DI モジュールで設定
+    return ImageLoader.Builder(this)
+        .components {
+            if (Build.VERSION.SDK_INT >= 28) {
+                add(ImageDecoderDecoder.Factory())
+            } else {
+                add(GifDecoder.Factory())
+            }
+            // 🚀 これが動画サムネイルの正体！
+            add(VideoFrameDecoder.Factory())
+        }
+        .build()
+}
 @Composable
 fun FileItemCard(item: OmoideMemory, isSelected: Boolean, onToggle: () -> Unit) {
     // 選択状態に応じた色の定義
@@ -171,11 +192,16 @@ fun FileItemCard(item: OmoideMemory, isSelected: Boolean, onToggle: () -> Unit) 
             .clickable { onToggle() } // clip の後に clickable を書くのがコツ
     ) {
         AsyncImage(
-            model = item.filePath,
+            model = ImageRequest.Builder(LocalContext.current)
+                .data(item.filePath)
+                .videoFrameMillis(1000) // 🚀 1秒目のフレームを指定 (画像の場合は関係ないようよしなに Coil がやってくれる)
+                .crossfade(true) // じわっと表示させる（非同期感が出る）
+                .build(),
+            imageLoader = LocalContext.current.imageLoader(),
             contentDescription = null,
             modifier = Modifier
                 .fillMaxSize()
-                .alpha(if (isSelected) 0.6f else 1f), // 選択時に少し強めに暗くする
+                .alpha(if (isSelected) 1f else 1.5f), // 選択時に少し強めに暗くする
             contentScale = ContentScale.Crop
         )
 
