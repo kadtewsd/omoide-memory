@@ -41,6 +41,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.last
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -72,7 +73,7 @@ class UploadStatusViewModel @Inject constructor(
      */
     fun refreshPendingFiles() {
         viewModelScope.launch {
-            val pending: List<LocalFile> = localFileRepository.getPotentialPendingFiles()
+            val pending: List<LocalFile> = localFileRepository.potentialPendingFiles.last()
             _pendingFilesCount.value = pending.size
         }
     }

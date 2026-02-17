@@ -6,10 +6,14 @@ import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import com.kasakaid.omoidememory.data.OmoideMemory
 import com.kasakaid.omoidememory.data.OmoideMemoryRepository
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.last
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.withContext
 
 /**
@@ -30,7 +34,8 @@ class GdriveUploadWorker @AssistedInject constructor(
         // 引数からハッシュリストを取得
         val targetHashes = inputData.getStringArray("TARGET_HASHES")?.toList() ?: emptyList()
         try {
-            val allPendingFiles = omoideMemoryRepository.getActualPendingFiles()
+            // ここでは Flow (川) は不要。ViewModel 側の川はそのままになり、ここでは都度どんととってきてしまう。last で全部のデータが取ってこられたあとのものをガツっと取得
+            val allPendingFiles: List<OmoideMemory> = omoideMemoryRepository.actualPendingFiles.last()
             val pendingFiles = allPendingFiles.filter { it.hash in targetHashes }
             Log.d(TAG, "手動アップロード開始")
             gdriveUploader.upload(tag= TAG, pendingFiles = pendingFiles) { current, total ->
