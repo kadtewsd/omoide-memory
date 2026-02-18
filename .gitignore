@@ -34,3 +34,6 @@ captures/
 # release
 **/release/
 **/bin/
+
+# intellij
+**/out/

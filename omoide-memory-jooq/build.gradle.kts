@@ -30,6 +30,7 @@ dependencies {
     jooqGenerator("org.jooq:jooq-meta-extensions")
 	testImplementation("org.springframework.boot:spring-boot-starter-jooq-test")
 	testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
+    implementation("com.github.spotbugs:spotbugs-annotations:4.8.3")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 	// kotlin-logging 本体
 	implementation("io.github.oshai:kotlin-logging-jvm:7.0.3")
