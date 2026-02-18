@@ -31,9 +31,11 @@ import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import arrow.core.some
 import com.kasakaid.omoidememory.data.LocalFileRepository
+import com.kasakaid.omoidememory.data.OmoideMemoryDao
 import com.kasakaid.omoidememory.data.OmoideMemoryRepository
 import com.kasakaid.omoidememory.data.OmoideUploadPrefsRepository
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.enqueueWManualUpload
+import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeProgress
 import com.kasakaid.omoidememory.worker.GdriveUploadWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -57,6 +59,7 @@ class UploadStatusViewModel @Inject constructor(
     private val localFileRepository: LocalFileRepository,
     private val omoideMemoryRepository: OmoideMemoryRepository,
     omoideUploadPrefsRepository: OmoideUploadPrefsRepository,
+    omoideMemoryDao: OmoideMemoryDao,
 ) : ViewModel() {
 
     /**
@@ -88,8 +91,10 @@ class UploadStatusViewModel @Inject constructor(
     @OptIn(ExperimentalCoroutinesApi::class)
     val pendingFilesCount: StateFlow<Int> = combine(
         _canUpload, // 現場からの報告（Flow）
-        omoideUploadPrefsRepository.getUploadBaseLineInstant() // リポジトリの蛇口（Flow）
-    ) { granted, _ ->
+        omoideUploadPrefsRepository.getUploadBaseLineInstant(), // リポジトリの蛇口（Flow）
+        // 🚀 DBの「アップロード済みハッシュ」の変更を監視するFlowを追加！これにより MainScreen で一括アップロードが完了して永続化されたら再描画してくれる。
+         omoideMemoryDao.getAllUploadedHashesAsFlow(),
+    ) { granted, _, _ ->
         // 許可と基準日のペアを届ける
         if (granted) {
             // 🚀 ここで「1件ずつ流れる川」を「リスト（個数）」に変換する
@@ -129,20 +134,7 @@ class UploadStatusViewModel @Inject constructor(
     private val workManager = WorkManager.getInstance(application)
 
     // WorkInfo から進捗を取り出して StateFlow に変換
-    val uploadProgress: StateFlow<Pair<Int, Int>?> =
-        workManager.getWorkInfosByTagFlow(GdriveUploadWorker.TAG)
-            .map { workInfos ->
-                Log.d("アップロード監視", "${workInfos.size}件のワークフロー")
-                val runningWork = workInfos.find { it.state == WorkInfo.State.RUNNING }
-                val progress = runningWork?.progress
-                if (progress != null) {
-                    val current = progress.getInt("PROGRESS_CURRENT", 0)
-                    val total = progress.getInt("PROGRESS_TOTAL", 0)
-                    current to total
-                } else {
-                    null
-                }
-            }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+    val uploadProgress: StateFlow<Pair<Int, Int>?> = workManager.observeProgress(viewModelScope)
 }
 
 

@@ -133,7 +133,7 @@ fun FileSelectionRoute(
 
     LaunchedEffect(isUploading) {
         /**
-         * 手動でアップロードが完了していたら元の画面ん井遷移させます。
+         * 手動でアップロードが完了していたら元の画面に遷移させます。
          * Ux 的には戻らない方が良いですが、実装のシンプルさを優先
          */
         if (!isUploading && hasStartedUploading) {

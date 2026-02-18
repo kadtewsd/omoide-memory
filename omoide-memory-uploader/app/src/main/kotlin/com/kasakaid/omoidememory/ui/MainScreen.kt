@@ -14,6 +14,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -63,6 +64,31 @@ fun MainScreen(
     }
 
     val scrollState = rememberScrollState() //
+
+    val isUploading = viewModel.isUploading.collectAsState().value
+    val progress = viewModel.progress.collectAsState().value
+
+    /**
+     * 一括アップロードされたか？
+     */
+    var hasStartedUploading by remember {
+        mutableStateOf(false)
+    }
+
+    LaunchedEffect(isUploading) {
+        /**
+         * 手動でアップロードが完了していたら再度候補を取得するため
+         * 一括アップロードが完了したら画面を再描画して現状のファイルのアップロード状況を表示する
+         */
+        if (!isUploading && hasStartedUploading) {
+            // 一括アップロードが完了したとみなす。そのため、フラグを落として、アップロードが始まってない状態にする
+            hasStartedUploading = false
+        }
+        if (isUploading) {
+            // アップロードが開始したら開始状態にする
+            hasStartedUploading = true
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -118,6 +144,12 @@ fun MainScreen(
         UploadStatusRoute(
             canUpload = isGranted && isGoogleSignIn,
             onNavigateToContentSelection = onNavigateToSelection,
+        )
+    }
+    // 🚀 アップロード中のみ表示されるロック層
+    if (isUploading) {
+        UploadIndicator(
+            uploadProgress = progress,
         )
     }
 }
