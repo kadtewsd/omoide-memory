@@ -126,7 +126,7 @@ class UploadStatusViewModel @Inject constructor(
         }
     }
 
-    val workManager = WorkManager.getInstance(application)
+    private val workManager = WorkManager.getInstance(application)
 
     // WorkInfo から進捗を取り出して StateFlow に変換
     val uploadProgress: StateFlow<Pair<Int, Int>?> =

@@ -3,7 +3,6 @@ package com.kasakaid.omoidememory.ui
 import android.app.Application
 import android.content.Context
 import android.os.Build
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -13,7 +12,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -22,7 +20,6 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -35,7 +32,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -52,9 +48,9 @@ import coil.request.ImageRequest
 import coil.request.videoFrameMillis
 import com.kasakaid.omoidememory.data.OmoideMemory
 import com.kasakaid.omoidememory.data.OmoideMemoryRepository
-import com.kasakaid.omoidememory.extension.WorkManagerExtension.createUploadingState
+import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeUploadingState
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.enqueueWManualUpload
-import com.kasakaid.omoidememory.worker.GdriveUploadWorker
+import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeProgress
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -105,7 +101,8 @@ class FileSelectionViewModel @Inject constructor(
     }
 
     private val workManager = WorkManager.getInstance(application)
-    val isUploading: StateFlow<Boolean> = workManager.createUploadingState(viewModelScope)
+    val isUploading: StateFlow<Boolean> = workManager.observeUploadingState(viewModelScope)
+    val progress: StateFlow<Pair<Int, Int>?> = workManager.observeProgress(viewModelScope)
 
     fun enqueueWManualUpload(
         hashes: Array<String>,
@@ -125,6 +122,7 @@ fun FileSelectionRoute(
     val pendingFiles by viewModel.pendingFiles.collectAsState()
     val onOff by viewModel.onOff.collectAsState()
     val isUploading by viewModel.isUploading.collectAsState()
+    val progress by viewModel.progress.collectAsState()
 
     FileSelectionScreen(
         selectedHashes = viewModel.selectedHashes,
@@ -142,6 +140,7 @@ fun FileSelectionRoute(
             viewModel.toggleAll(onOff)
         },
         isUploading = isUploading,
+        progress = progress,
     )
 }
 
@@ -155,6 +154,7 @@ fun FileSelectionScreen(
     onOff: OnOff,
     onSwitchChanged: (OnOff) -> Unit,
     isUploading: Boolean,
+    progress: Pair<Int, Int>?,
 ) {
 
     Scaffold(
@@ -210,20 +210,9 @@ fun FileSelectionScreen(
     }
     // 🚀 アップロード中のみ表示されるロック層
     if (isUploading) {
-        // 背景を少し白くして、クリックを無効化する
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.White.copy(alpha = 0.7f))
-                .pointerInput(Unit) {}, // 🚀 これで下の層へのクリックを完全にブロック
-            contentAlignment = Alignment.Center
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                CircularProgressIndicator() // くるくる
-                Spacer(modifier = Modifier.height(16.dp))
-                Text("アップロード中...", style = MaterialTheme.typography.titleMedium)
-            }
-        }
+        UploadIndicator(
+            uploadProgress = progress,
+        )
     }
 }
 

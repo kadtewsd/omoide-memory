@@ -1,8 +1,6 @@
 package com.kasakaid.omoidememory.extension
 
-import android.app.Application
 import android.util.Log
-import androidx.lifecycle.viewModelScope
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkInfo
@@ -48,12 +46,31 @@ object WorkManagerExtension {
 
     /**
      * アップロード状態を監視します。
+     * 現在の進捗とほぼ同じですが、念の為 Worker のステートで確認
      */
-    fun WorkManager.createUploadingState(viewModelScope: CoroutineScope): StateFlow<Boolean> {
+    fun WorkManager.observeUploadingState(viewModelScope: CoroutineScope): StateFlow<Boolean> {
         return getWorkInfosByTagFlow(GdriveUploadWorker.TAG)
             .map { infos ->
                 infos.any { it.state == WorkInfo.State.RUNNING || it.state == WorkInfo.State.ENQUEUED }
             }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+    }
+
+    /**
+     * 現在の進捗を確認します。
+     */
+    fun WorkManager.observeProgress(viewModelScope: CoroutineScope): StateFlow<Pair<Int, Int>?> {
+        return getWorkInfosByTagFlow(GdriveUploadWorker.TAG).map { workInfos ->
+            Log.d("アップロード監視", "${workInfos.size}件のワークフロー")
+            val runningWork = workInfos.find { it.state == WorkInfo.State.RUNNING }
+            val progress = runningWork?.progress
+            if (progress != null) {
+                val current = progress.getInt("PROGRESS_CURRENT", 0)
+                val total = progress.getInt("PROGRESS_TOTAL", 0)
+                current to total
+            } else {
+                null
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
     }
 }
