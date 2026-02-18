@@ -35,14 +35,11 @@ import com.kasakaid.omoidememory.data.OmoideUploadPrefsRepository
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.enqueueWManualUpload
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeProgressByManual
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.scan
+import kotlinx.coroutines.flow.count
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
@@ -84,7 +81,6 @@ class UploadStatusViewModel @Inject constructor(
      * 2. 検索条件の基準日は、Repository の flow から
      * この 2 つを合成するために, combine を実施しています。
      */
-    @OptIn(ExperimentalCoroutinesApi::class)
     val pendingFilesCount: StateFlow<Int> = combine(
         _canUpload, // 現場からの報告（Flow）
         omoideUploadPrefsRepository.getUploadBaseLineInstant(), // リポジトリの蛇口（Flow）
@@ -93,16 +89,10 @@ class UploadStatusViewModel @Inject constructor(
     ) { granted, _, _ ->
         // 許可と基準日のペアを届ける
         if (granted) {
-            // 🚀 ここで「1件ずつ流れる川」を「リスト（個数）」に変換する
-            // baseline が null なら全取得するロジックを repository 側に持たせる
-            localFileRepository.getPotentialPendingFiles()
-                .scan(0) { accumulator, _ -> accumulator + 1 } // 🚀 1件届くたびに +1 する
+            localFileRepository.getPotentialPendingFiles().count()
         } else {
-            flowOf(0)
+            0
         }
-    }.flatMapLatest {
-        // Flow でできたものを flatMap で取り出して後続の state に繋げて StateFlow にして流してあげる
-        it
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
