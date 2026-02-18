@@ -19,7 +19,7 @@ CREATE TABLE omoide_memory.synced_omoide_video (
     audio_bitrate_kbps  INT,
     audio_channels      SMALLINT,
     audio_sample_rate   INT,
-    file_size_bytes     BIGINT,
+    file_size     INT,
     thumbnail_image     BYTEA,
     thumbnail_mime_type VARCHAR(50),
     created_at          TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -49,7 +49,7 @@ COMMENT ON COLUMN omoide_memory.synced_omoide_video.audio_codec IS '音声コー
 COMMENT ON COLUMN omoide_memory.synced_omoide_video.audio_bitrate_kbps IS '音声ビットレート（kbps）';
 COMMENT ON COLUMN omoide_memory.synced_omoide_video.audio_channels IS '音声チャンネル数 例: 2=ステレオ';
 COMMENT ON COLUMN omoide_memory.synced_omoide_video.audio_sample_rate IS '音声サンプリングレート（Hz）';
-COMMENT ON COLUMN omoide_memory.synced_omoide_video.file_size_bytes IS 'ファイルサイズ（バイト）';
+COMMENT ON COLUMN omoide_memory.synced_omoide_video.file_size IS 'ファイルサイズ（バイト）';
 COMMENT ON COLUMN omoide_memory.synced_omoide_video.thumbnail_image IS 'サムネイル画像バイナリ（1秒目）';
 COMMENT ON COLUMN omoide_memory.synced_omoide_video.thumbnail_mime_type IS 'サムネイルのMIMEタイプ 例: image/jpeg';
 COMMENT ON COLUMN omoide_memory.synced_omoide_video.created_at IS 'レコード作成日時（タイムゾーン付き）';

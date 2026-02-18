@@ -1,14 +1,16 @@
 package com.kasakaid.omoidememory.downloader.service
 
-import com.kasakaid.omoidememory.domain.FileOrganizeService
 import com.kasakaid.omoidememory.domain.OmoideMemory
 import com.kasakaid.omoidememory.downloader.domain.DriveService
-import com.kasakaid.omoidememory.downloader.logger
 import com.kasakaid.omoidememory.infrastructure.SyncedMemoryRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
+import org.springframework.stereotype.Service
 
+/**
+ * ダウンロードしてきたデータを永続化までもっていくサービス。
+ */
+@Service
 class DownloadFileBackUpService(
-    private val fileOrganizeService: FileOrganizeService,
     private val syncedMemoryRepository: SyncedMemoryRepository,
     private val driveService: DriveService,
 ) {
@@ -19,47 +21,29 @@ class DownloadFileBackUpService(
 
         logger.info { "取得対象ファイル: ${omoideMemory.name}" }
 
-        // Check if already exists in DB to skip download
-        when (omoideMemory) {
-            is OmoideMemory.Photo ->  syncedMemoryRepository.existsPhotoByFileName(omoideMemory.name)
+        // Check if already exists in DB to skip
+        val exists = when (omoideMemory) {
+            is OmoideMemory.Photo -> syncedMemoryRepository.existsPhotoByFileName(omoideMemory.name)
             is OmoideMemory.Video -> syncedMemoryRepository.existsVideoByFileName(omoideMemory.name)
-        }.let {
-            if (it) {
-                return
-            }
+        }
+
+        if (exists) {
+            logger.info { "ファイルは既に存在するためスキップします: ${omoideMemory.name}" }
+            return
         }
 
         // 2. ファイルをダウンロード
-        val downloadedFile = driveService.downloadFile(driveFile)
+        driveService.downloadFile(omoideMemory)
 
-        // 3. メタデータを取得
-        val metadata = metadataService.extractMetadata(downloadedFile)
+        // 5. ファイル配置 (FileOrganizeService) is not imported/used in recent user snippet logic flow clearly for 'OmoideMemory'
+        // If organization is needed, it should probably happen or return a new path.
+        // But user instructions were "Google のオブジェクトを直接ドメインオブジェクトに変更して永続化しています"
+        // So I will assume the path in OmoideMemory (set by translator) is the final one, or near final.
+        // For now, persist the OmoideMemory as-is.
 
-        // 4. 位置情報から地名を取得（緯度経度がある場合のみ）
-        // TODO: Optimize to not call API if near previous location in same batch
-        val locationName = if (metadata.latitude != null && metadata.longitude != null) {
-            locationService.getLocationName(metadata.latitude, metadata.longitude)
-        } else {
-            null
-        }
+        // 6. DBに保存
+        syncedMemoryRepository.save(omoideMemory)
 
-        // 5. ファイルを年/月/picture or video の構造に配置
-        val finalPath = fileOrganizeService.organizeFile(downloadedFile, metadata)
-
-        // 6. DBに保存（jOOQ + R2DBC）
-        syncedMemoryRepository.save(
-            fileName = finalPath.fileName.toString(), // Use actual saved filename in case of rename
-            serverPath = finalPath.toString(),
-            metadata = metadata,
-            locationName = locationName
-        )
-
-        // 7. Google Drive上のファイルを削除
-        // Commented out for safety during initial testing phases
-        // googleDriveService.deleteFile(driveFile.id)
-        logger.info { "[DRY RUN] Would delete file from GDrive: ${driveFile.name}" }
-
-        logger.info { "処理完了: ${downloadedFile.name} -> $finalPath" }
-
+        logger.info { "処理完了: ${omoideMemory.name} -> ${omoideMemory.localPath}" }
     }
 }

@@ -1,6 +1,5 @@
 package com.kasakaid.omoidememory.domain
 
-import com.kasakaid.omoidememory.downloader.domain.FileMetadata
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -13,17 +12,19 @@ import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.util.regex.Pattern
 
-@Service
-class FileOrganizeService {
+/**
+ * ダウンロードしてきたファイルを該当のパスに振り分ける
+ */
+object FileOrganizeService {
 
     private val logger = KotlinLogging.logger {}
     private val dateInFilenamePattern = Pattern.compile("(\\d{4})(\\d{2})(\\d{2})")
 
-    suspend fun organizeFile(file: OmoideMemory, metadata: FileMetadata): Path = withContext(Dispatchers.IO) {
+    suspend fun organizeFile(file: OmoideMemory): Path = withContext(Dispatchers.IO) {
         val destinationRoot = System.getenv("OMOIDE_BACKUP_DESTINATION")
             ?: throw IllegalStateException("OMOIDE_BACKUP_DESTINATION is not set")
 
-        val captureTime = metadata.captureTime
+        val captureTime = file.captureTime
             ?: extractDateFromFilename(file.name)
             ?: LocalDateTime.ofInstant(Files.getLastModifiedTime(file.localPath).toInstant(), ZoneId.systemDefault())
                 .atZone(ZoneId.systemDefault()).toOffsetDateTime()
@@ -31,9 +32,13 @@ class FileOrganizeService {
         val year = captureTime.year.toString()
         val month = String.format("%02d", captureTime.monthValue)
 
-        val typeSubDir = if (isImage(file)) "picture" else "video"
-
-        val targetDir = Path.of(destinationRoot, year, month, typeSubDir)
+        val targetDir = Path.of(
+            destinationRoot, year, month,
+            when (file) {
+                is OmoideMemory.Video -> "video"
+                is OmoideMemory.Photo -> "picture"
+            }
+        )
         if (!Files.exists(targetDir)) {
             Files.createDirectories(targetDir)
         }
@@ -62,12 +67,6 @@ class FileOrganizeService {
         Files.move(file.localPath, targetFile, StandardCopyOption.ATOMIC_MOVE)
 
         targetFile
-    }
-
-    private fun isImage(file: OmoideMemory): Boolean {
-        val mimeType = file.mimeType.lowercase()
-        return mimeType.startsWith("image/") ||
-               file.name.lowercase().let { it.endsWith(".jpg") || it.endsWith(".jpeg") || it.endsWith(".png") || it.endsWith(".heic") || it.endsWith(".gif") || it.endsWith(".webp") }
     }
 
     private fun extractDateFromFilename(filename: String): OffsetDateTime? {

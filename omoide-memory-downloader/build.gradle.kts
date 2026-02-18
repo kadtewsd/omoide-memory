@@ -17,7 +17,14 @@ java {
         languageVersion = JavaLanguageVersion.of(21)
     }
 }
+ktlint {
+    version.set("1.5.0") // 最新バージョンを指定
+    verbose.set(true)
 
+    reporters {
+        reporter(org.jlleitschuh.gradle.ktlint.reporter.ReporterType.CHECKSTYLE)
+    }
+}
 repositories {
     mavenCentral()
 }

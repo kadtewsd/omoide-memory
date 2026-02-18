@@ -10,21 +10,26 @@ import com.kasakaid.omoidememory.downloader.domain.DriveService
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.springframework.core.env.Environment
 import org.springframework.stereotype.Service
 import java.io.FileInputStream
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
 
+/**
+ * Google のドライブにアクセスするためのサービス
+ */
 @Service
 class GoogleDriveService(
     private val omoideMemoryTranslator: OmoideMemoryTranslator,
-): DriveService {
+    private val environment: Environment,
+) : DriveService {
 
     private val logger = KotlinLogging.logger {}
 
     private val driveService: Drive by lazy {
-        val credentialsPath = System.getenv("OMOIDE_GDRIVE_CREDENTIALS_PATH")
+        val credentialsPath = environment.getProperty("OMOIDE_GDRIVE_CREDENTIALS_PATH")
             ?: throw IllegalArgumentException("OMOIDE_GDRIVE_CREDENTIALS_PATH env var is not set")
         
         val credentials = FileInputStream(credentialsPath).use {
@@ -39,50 +44,49 @@ class GoogleDriveService(
         ).setApplicationName("OmoideMemoryDownloader").build()
     }
 
-    override suspend fun listFiles(): List<OmoideMemory> = withContext(Dispatchers.IO) {
-        val files = mutableListOf<OmoideMemory>()
+    override suspend fun listFiles(): List<OmoideMemory> {
+        val memories = mutableListOf<OmoideMemory>()
         var pageToken: String? = null
         
+        // Fields to fetch: include imageMediaMetadata, videoMediaMetadata for OmoideMemory population
+        val fields = "nextPageToken, files(id, name, mimeType, createdTime, size, imageMediaMetadata, videoMediaMetadata)"
+
         do {
             val result = driveService.files().list()
                 .setQ("trashed = false and mimeType != 'application/vnd.google-apps.folder'")
-                .setFields("nextPageToken, files(id, name, mimeType, createdTime)")
+                .setFields(fields)
                 .setPageToken(pageToken)
                 .execute()
             
-            result.files?.map { file ->
-                omoideMemoryTranslator.translate(file)
-            }?.let { files.addAll(it) }
+            result.files?.forEach { file ->
+                logger.debug { "Processing file: ${file.name} (${file.mimeType})" }
+                omoideMemoryTranslator.translate(file).map { memory ->
+                    memories.add(memory)
+                }
+            }
             
             pageToken = result.nextPageToken
         } while (pageToken != null)
         
-        logger.info { "Found ${files.size} files in Google Drive" }
-        files
+        logger.info { "Found ${memories.size} files in Google Drive compatible with OmoideMemory" }
+        return memories
     }
 
-    suspend fun downloadFile(driveFile: DriveFile): OmoideMemory = withContext(Dispatchers.IO) {
-        val tmpDir = Path.of(System.getProperty("java.io.tmpdir"))
-        val targetPath = tmpDir.resolve(driveFile.name)
+    override suspend fun downloadFile(omoideMemory: OmoideMemory): Path = withContext(Dispatchers.IO) {
+        val targetPath = omoideMemory.localPath
         
-        logger.info { "Downloading ${driveFile.name} to $targetPath" }
+        // Ensure parent directories exist
+        if (targetPath.parent != null && !Files.exists(targetPath.parent)) {
+            Files.createDirectories(targetPath.parent)
+        }
+
+        logger.info { "Downloading ${omoideMemory.name} to $targetPath" }
         
         Files.newOutputStream(targetPath, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING).use { outputStream ->
-            driveService.files().get(driveFile.id)
+            driveService.files().get(omoideMemory.driveFileId)
                 .executeMediaAndDownloadTo(outputStream)
         }
         
-        OmoideMemory(
-            localPath = targetPath,
-            name = driveFile.name,
-            mimeType = driveFile.mimeType,
-            driveFileId = driveFile.id
-        )
-    }
-
-    suspend fun deleteFile(fileId: String) = withContext(Dispatchers.IO) {
-        logger.info { "Deleting file from Google Drive: $fileId" }
-        driveService.files().delete(fileId).execute()
+        targetPath
     }
 }
-

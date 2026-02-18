@@ -1,8 +1,6 @@
 package com.kasakaid.omoidememory.downloader.adapter
 
-import arrow.core.left
 import arrow.core.right
-import com.kasakaid.omoidememor.r2dbc.transaction.TransactionAttemptFailure
 import com.kasakaid.omoidememor.r2dbc.transaction.TransactionExecutor
 import com.kasakaid.omoidememor.utility.CoroutineHelper.mapWithCoroutine
 import com.kasakaid.omoidememory.APPLICATION_RUNNER_KEY
@@ -19,7 +17,7 @@ import org.springframework.stereotype.Component
 
 private val logger = KotlinLogging.logger {}
 
-@Component("downloadFromGDrive")
+@Component
 @ConditionalOnProperty(name = [APPLICATION_RUNNER_KEY], havingValue = "download-from-gdrive")
 class DownloadFromGDrive(
     private val driveService: DriveService,
@@ -30,13 +28,14 @@ class DownloadFromGDrive(
     override fun run(args: ApplicationArguments): Unit = runBlocking {
         logger.info { "Google Driveからのダウンロード処理を開始します" }
         // 1. Google Driveから対象フォルダ配下の全ファイルを取得
-        driveService.listFiles().mapWithCoroutine(Semaphore(300)) { omoideMemory ->
-            transactionExecutor.executeWithPerLineLeftRollback {
+        val omoideMemories: List<OmoideMemory> = driveService.listFiles()
+        omoideMemories.mapWithCoroutine(Semaphore(300)) { omoideMemory ->
+            transactionExecutor.executeWithPerLineLeftRollback(
+                "${omoideMemory.name}:${omoideMemory.driveFileId}"
+            ) {
                 downloadFileBackUpService.execute(omoideMemory)
-            }.fold(
-                ifLeft = { TransactionAttemptFailure.Unmanaged(it).left() },
-                ifRight = { omo.right() }
-            )
+                omoideMemory.right()
+            }
         }
     }
 }

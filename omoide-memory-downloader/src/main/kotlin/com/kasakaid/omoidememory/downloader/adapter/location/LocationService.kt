@@ -39,7 +39,7 @@ object LocationService {
                 header("User-Agent", "OmoideMemoryDownloader/1.0")
             }.body()
 
-            response.displayName
+            response?.displayName
         } catch (e: Exception) {
             logger.warn(e) { "Failed to get location name for $latitude, $longitude" }
             null
@@ -54,4 +54,5 @@ object LocationService {
         val displayName: String? get() = display_name
     }
 }
+
 

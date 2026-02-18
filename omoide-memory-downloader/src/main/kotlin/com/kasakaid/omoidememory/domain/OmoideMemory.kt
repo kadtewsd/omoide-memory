@@ -3,6 +3,10 @@ package com.kasakaid.omoidememory.domain
 import java.nio.file.Path
 import java.time.OffsetDateTime
 
+/**
+ * ドライブ上にアップロードされたコンテンツ
+ * 写真か動画かいずれかになる
+ */
 sealed interface OmoideMemory {
     val localPath: Path
     val name: String
@@ -11,17 +15,20 @@ sealed interface OmoideMemory {
     val captureTime: OffsetDateTime?
     val deviceMake: String?
     val deviceModel: String?
-
+    val fileSizeBytes: Int
+    val locationName: String?
 
     data class Photo(
         override val localPath: Path,
         override val name: String,
         override val mediaType: String,
         override val driveFileId: String,
-        val aperture: Double?,
+        override val fileSizeBytes: Int,
+        override val locationName: String?,
+        val aperture: Float?,
         val shutterSpeed: String?,
         val isoSpeed: Int?,
-        val focalLength: Double?,
+        val focalLength: Float?,
         val focalLength35mm: Int?,
         val whiteBalance: String?,
         val imageWidth: Int?,
@@ -40,7 +47,9 @@ sealed interface OmoideMemory {
         override val name: String,
         override val mediaType: String,
         override val driveFileId: String,
-        val durationSeconds: Double?,
+        override val fileSizeBytes: Int,
+        override val locationName: String?,
+        val durationSeconds: Double?, // Changed to Double to match GDrive/Metadata extraction
         val videoWidth: Int?,
         val videoHeight: Int?,
         val frameRate: Double?,
@@ -52,9 +61,10 @@ sealed interface OmoideMemory {
         val audioSampleRate: Int?,
         val thumbnailImage: ByteArray?,   // 動画の1秒目のサムネイル
         val thumbnailMimeType: String?,   // "image/jpeg"
-        val fileSizeBytes: Long,
         override val captureTime: OffsetDateTime?,
         override val deviceMake: String?,
         override val deviceModel: String?,
+        val latitude: Double?,
+        val longitude: Double?,
     ) : OmoideMemory
 }
