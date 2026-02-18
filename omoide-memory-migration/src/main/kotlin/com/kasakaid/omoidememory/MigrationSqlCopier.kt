@@ -18,6 +18,9 @@ object MigrationSqlCopier {
             "コピー元のDDLディレクトリが見つかりません: ${source.absolutePath}"
         }
 
+        if (destination.exists()) {
+            destination.deleteRecursively()
+        }
         destination.mkdirs()
 
         source.walkTopDown()
