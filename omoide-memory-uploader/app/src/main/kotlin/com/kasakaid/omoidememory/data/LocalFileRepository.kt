@@ -101,6 +101,7 @@ class LocalFileRepository @Inject constructor(
                 if (localFile.filePath != null) {
                     // 未アップロード判定を通ったものだけ currentList に追加
                     filterUnuploadedFile(localFile).onSome { item ->
+                        Log.d(TAG, "${localFile.name}未アップロード判定")
                         send(item)
                     }
                 }

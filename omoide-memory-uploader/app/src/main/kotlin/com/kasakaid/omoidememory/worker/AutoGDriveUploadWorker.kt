@@ -48,7 +48,7 @@ class AutoGDriveUploadWorker @AssistedInject constructor(
             omoideMemoryRepository.getActualPendingFiles().collect { currentList: OmoideMemory ->
                 // currentList には、その時点で「見つかっている分（20, 40, 60...）」が流れてくる
                 Log.d(TAG, "${++current}件目を開始")
-                gdriveUploader.upload(tag = TAG, pendingFile = currentList)
+                gdriveUploader.upload(sourceWorker = TAG, pendingFile = currentList)
             }
             if (uploadResult.distinct().size == 1) Result.success()
             else Result.failure()
