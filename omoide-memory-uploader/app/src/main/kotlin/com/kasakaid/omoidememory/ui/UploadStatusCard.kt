@@ -27,16 +27,13 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.work.WorkInfo
 import androidx.work.WorkManager
-import arrow.core.some
 import com.kasakaid.omoidememory.data.LocalFileRepository
 import com.kasakaid.omoidememory.data.OmoideMemoryDao
 import com.kasakaid.omoidememory.data.OmoideMemoryRepository
 import com.kasakaid.omoidememory.data.OmoideUploadPrefsRepository
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.enqueueWManualUpload
-import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeProgress
-import com.kasakaid.omoidememory.worker.GdriveUploadWorker
+import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeProgressByManual
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -45,7 +42,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.scan
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.toList
@@ -93,7 +89,7 @@ class UploadStatusViewModel @Inject constructor(
         _canUpload, // 現場からの報告（Flow）
         omoideUploadPrefsRepository.getUploadBaseLineInstant(), // リポジトリの蛇口（Flow）
         // 🚀 DBの「アップロード済みハッシュ」の変更を監視するFlowを追加！これにより MainScreen で一括アップロードが完了して永続化されたら再描画してくれる。
-         omoideMemoryDao.getAllUploadedHashesAsFlow(),
+        omoideMemoryDao.getAllUploadedHashesAsFlow(),
     ) { granted, _, _ ->
         // 許可と基準日のペアを届ける
         if (granted) {
@@ -134,7 +130,9 @@ class UploadStatusViewModel @Inject constructor(
     private val workManager = WorkManager.getInstance(application)
 
     // WorkInfo から進捗を取り出して StateFlow に変換
-    val uploadProgress: StateFlow<Pair<Int, Int>?> = workManager.observeProgress(viewModelScope)
+    val uploadProgress: StateFlow<Pair<Int, Int>?> = workManager.observeProgressByManual(
+        viewModelScope = viewModelScope,
+    )
 }
 
 

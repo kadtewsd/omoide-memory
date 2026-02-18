@@ -27,10 +27,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -52,9 +52,9 @@ import coil.request.ImageRequest
 import coil.request.videoFrameMillis
 import com.kasakaid.omoidememory.data.OmoideMemory
 import com.kasakaid.omoidememory.data.OmoideMemoryRepository
-import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeUploadingState
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.enqueueWManualUpload
-import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeProgress
+import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeProgressByManual
+import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeUploadingStateByManualTag
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -105,8 +105,12 @@ class FileSelectionViewModel @Inject constructor(
     }
 
     private val workManager = WorkManager.getInstance(application)
-    val isUploading: StateFlow<Boolean> = workManager.observeUploadingState(viewModelScope)
-    val progress: StateFlow<Pair<Int, Int>?> = workManager.observeProgress(viewModelScope)
+    val isUploading: StateFlow<Boolean> = workManager.observeUploadingStateByManualTag(
+        viewModelScope = viewModelScope,
+    )
+    val progress: StateFlow<Pair<Int, Int>?> = workManager.observeProgressByManual(
+        viewModelScope = viewModelScope,
+    )
 
     fun enqueueWManualUpload(
         hashes: Array<String>,

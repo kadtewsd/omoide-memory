@@ -30,9 +30,9 @@ class GdriveUploader @Inject constructor(
      */
     suspend fun upload(
         pendingFile: OmoideMemory,
-        sourceWorker: String,
+        sourceWorker: WorkManagerTag,
     ): ListenableWorker.Result {
-        val tag = "$sourceWorker -> $TAG"
+        val tag = "${sourceWorker.value} -> $TAG"
         // first() に条件（述語）を渡すことで、「Found になるまで（またはタイムアウトまで）待ち続ける」 という挙動に変える
         val currentWifiSetting = withTimeout(5000) { // 5 秒のタイムアウト
             wifiRepository.observeWifiSSID().first {

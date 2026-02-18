@@ -7,6 +7,7 @@ import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.workDataOf
 import com.kasakaid.omoidememory.worker.GdriveUploadWorker
+import com.kasakaid.omoidememory.worker.WorkManagerTag
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -48,19 +49,42 @@ object WorkManagerExtension {
      * アップロード状態を監視します。
      * 現在の進捗とほぼ同じですが、念の為 Worker のステートで確認
      */
-    fun WorkManager.observeUploadingState(viewModelScope: CoroutineScope): StateFlow<Boolean> {
-        return getWorkInfosByTagFlow(GdriveUploadWorker.TAG)
+    fun WorkManager.observeUploadingStateByManualTag(
+        viewModelScope: CoroutineScope,
+    ): StateFlow<Boolean> {
+        return observeUploadingState(
+            viewModelScope = viewModelScope,
+            workManagerTag = WorkManagerTag.Manual,
+        )
+    }
+
+    private fun WorkManager.observeUploadingState(
+        viewModelScope: CoroutineScope,
+        workManagerTag: WorkManagerTag,
+    ): StateFlow<Boolean> {
+        return getWorkInfosByTagFlow(workManagerTag.value)
             .map { infos ->
                 infos.any { it.state == WorkInfo.State.RUNNING || it.state == WorkInfo.State.ENQUEUED }
             }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
     }
 
+    fun WorkManager.observeProgressByManual(
+        viewModelScope: CoroutineScope
+    ): StateFlow<Pair<Int, Int>?> {
+        return observeProgress(
+            viewModelScope = viewModelScope,
+            workManagerTag = WorkManagerTag.Manual,
+        )
+    }
     /**
      * 現在の進捗を確認します。
      */
-    fun WorkManager.observeProgress(viewModelScope: CoroutineScope): StateFlow<Pair<Int, Int>?> {
-        return getWorkInfosByTagFlow(GdriveUploadWorker.TAG).map { workInfos ->
+    private fun WorkManager.observeProgress(
+        viewModelScope: CoroutineScope,
+        workManagerTag: WorkManagerTag,
+    ): StateFlow<Pair<Int, Int>?> {
+        return getWorkInfosByTagFlow(workManagerTag.value).map { workInfos ->
             Log.d("アップロード監視", "${workInfos.size}件のワークフロー")
             val runningWork = workInfos.find { it.state == WorkInfo.State.RUNNING }
             val progress = runningWork?.progress
