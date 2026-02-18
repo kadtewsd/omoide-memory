@@ -2,12 +2,15 @@ package com.kasakaid.omoidememory.ui
 
 import android.app.Application
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.kasakaid.omoidememory.data.OmoideUploadPrefsRepository
+import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeProgress
+import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeUploadingState
 import com.kasakaid.omoidememory.worker.AutoGDriveUploadWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,6 +30,9 @@ class MainViewModel @Inject constructor(
     val isAutoUploadEnabled: StateFlow<Boolean> = _isAutoUploadEnabled.asStateFlow()
 
     private val workManager = WorkManager.getInstance(application)
+    val isUploading: StateFlow<Boolean> = workManager.observeUploadingState(viewModelScope)
+    val progress: StateFlow<Pair<Int, Int>?> = workManager.observeProgress(viewModelScope)
+
     fun toggleAutoUpload(enabled: Boolean) {
         omoideUploadPrefsRepository.setAutoUploadEnabled(enabled)
         _isAutoUploadEnabled.value = enabled
