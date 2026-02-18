@@ -26,7 +26,6 @@ class GdriveUploadWorker @AssistedInject constructor(
     companion object {
         const val TAG = "ManualUploadWorker"
     }
-
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         // 引数からハッシュリストを取得
         val targetHashes = inputData.getStringArray("TARGET_HASHES")?.toList() ?: emptyList()
@@ -38,7 +37,7 @@ class GdriveUploadWorker @AssistedInject constructor(
             omoideMemoryRepository.getActualPendingFiles().collect { file ->
                 if (file.hash in targetHashes) {
                     Log.d(TAG, "手動アップロード開始 ${file.name}")
-                    gdriveUploader.upload(sourceWorker = TAG, pendingFile = file).also {
+                    gdriveUploader.upload(sourceWorker = WorkManagerTag.Manual, pendingFile = file).also {
                         successCount++
                         Log.i(TAG, "$successCount / $totalCount アップロード完了")
                     }

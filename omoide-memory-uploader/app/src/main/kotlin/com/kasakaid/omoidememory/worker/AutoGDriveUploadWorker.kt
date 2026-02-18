@@ -29,7 +29,6 @@ class AutoGDriveUploadWorker @AssistedInject constructor(
     private val omoideMemoryRepository: OmoideMemoryRepository,
 ) : CoroutineWorker(appContext, workerParams) {
 
-
     companion object {
         const val TAG = "AutoUploadWorker"
     }
@@ -48,7 +47,7 @@ class AutoGDriveUploadWorker @AssistedInject constructor(
             omoideMemoryRepository.getActualPendingFiles().collect { currentList: OmoideMemory ->
                 // currentList には、その時点で「見つかっている分（20, 40, 60...）」が流れてくる
                 Log.d(TAG, "${++current}件目を開始")
-                gdriveUploader.upload(sourceWorker = TAG, pendingFile = currentList)
+                gdriveUploader.upload(sourceWorker = WorkManagerTag.Auto, pendingFile = currentList)
             }
             if (uploadResult.distinct().size == 1) Result.success()
             else Result.failure()
