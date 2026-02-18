@@ -71,6 +71,17 @@ class FileSelectionViewModel @Inject constructor(
     omoideMemoryRepository: OmoideMemoryRepository,
     private val application: Application,
 ) : ViewModel() {
+    /**
+     * 下記の挙動であるため、画面上に「なにも表示されない」時間がない。scan を使うことで UX を向上 (改善の余地はある)
+     * scan を使ったリスト構築の挙動
+     * 現在のコードだと、以下のような挙動になります：
+     * fileA が届く → [fileA] を流す
+     * fileB が届く → [fileA, fileB] を流す
+     * fileC が届く → [fileA, fileB, fileC] を流す
+     *
+     * メリット: 画面（LazyColumnなど）に、ファイルが一つずつ「ポポポッ」と追加されていくような、視覚的に面白い動きになります。
+     * デメリット: * 100件ある場合、UI は 100 回更新されます。また、途中の「未完成のリスト」を UI が受け取ることになります。
+     */
     val pendingFiles: StateFlow<List<OmoideMemory>> = omoideMemoryRepository
         .getActualPendingFiles()
         .onEach { file ->
