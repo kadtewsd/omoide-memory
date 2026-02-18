@@ -119,14 +119,14 @@ class UploadStatusViewModel @Inject constructor(
              * まとめて取得したい時は、last でも first でもなくて、toList。R2DBC の Flux を取り出す時と同じ。
              */
             val files = omoideMemoryRepository.getActualPendingFiles().toList()
-            application.enqueueWManualUpload(
+            workManager.enqueueWManualUpload(
                 hashes = files.map { it.hash }.toTypedArray(),
                 totalCount = files.size,
             )
         }
     }
 
-    val workManager = WorkManager.getInstance(application)
+    private val workManager = WorkManager.getInstance(application)
 
     // WorkInfo から進捗を取り出して StateFlow に変換
     val uploadProgress: StateFlow<Pair<Int, Int>?> =

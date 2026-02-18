@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.work.WorkManager
 import coil.ImageLoader
 import coil.compose.AsyncImage
 import coil.decode.GifDecoder
@@ -47,7 +48,9 @@ import coil.request.ImageRequest
 import coil.request.videoFrameMillis
 import com.kasakaid.omoidememory.data.OmoideMemory
 import com.kasakaid.omoidememory.data.OmoideMemoryRepository
+import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeUploadingState
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.enqueueWManualUpload
+import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeProgress
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -97,10 +100,14 @@ class FileSelectionViewModel @Inject constructor(
         }
     }
 
+    private val workManager = WorkManager.getInstance(application)
+    val isUploading: StateFlow<Boolean> = workManager.observeUploadingState(viewModelScope)
+    val progress: StateFlow<Pair<Int, Int>?> = workManager.observeProgress(viewModelScope)
+
     fun enqueueWManualUpload(
         hashes: Array<String>,
     ) {
-        application.enqueueWManualUpload(
+        workManager.enqueueWManualUpload(
             hashes = hashes,
             totalCount = selectedHashes.count { it.value },
         )
@@ -110,10 +117,12 @@ class FileSelectionViewModel @Inject constructor(
 @Composable
 fun FileSelectionRoute(
     viewModel: FileSelectionViewModel = hiltViewModel(),
-    onFinished: () -> Unit,
+    toMainScreen: () -> Unit,
 ) {
     val pendingFiles by viewModel.pendingFiles.collectAsState()
     val onOff by viewModel.onOff.collectAsState()
+    val isUploading by viewModel.isUploading.collectAsState()
+    val progress by viewModel.progress.collectAsState()
 
     FileSelectionScreen(
         selectedHashes = viewModel.selectedHashes,
@@ -125,11 +134,13 @@ fun FileSelectionRoute(
         onToggle = { hash ->
             viewModel.toggleSelection(hash)
         },
-        onFinished = onFinished,
+        toMainScreen = toMainScreen,
         onOff = onOff,
         onSwitchChanged = { onOff ->
             viewModel.toggleAll(onOff)
-        }
+        },
+        isUploading = isUploading,
+        progress = progress,
     )
 }
 
@@ -139,24 +150,26 @@ fun FileSelectionScreen(
     pendingFiles: List<OmoideMemory>,
     onContentFixed: (hashes: Array<String>) -> Unit,
     onToggle: (hash: String) -> Unit,
-    onFinished: () -> Unit,
+    toMainScreen: () -> Unit,
     onOff: OnOff,
     onSwitchChanged: (OnOff) -> Unit,
+    isUploading: Boolean,
+    progress: Pair<Int, Int>?,
 ) {
 
     Scaffold(
-        topBar = { AppBarWithBackIcon(onFinished) },
+        topBar = { AppBarWithBackIcon(toMainScreen) },
         bottomBar = {
             Button(
                 onClick = {
                     val hashes = selectedHashes.filter { it.value }.keys.toTypedArray()
                     onContentFixed(hashes)
-                    onFinished() // 遷移元（ホーム）に戻る
                 },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
-                enabled = selectedHashes.values.any { it }
+                enabled = !isUploading && selectedHashes.values.any { it } // 🚀 アップロード中は無効化
+
             ) {
                 Text("${selectedHashes.values.count { it }} 件をアップロード")
             }
@@ -194,6 +207,12 @@ fun FileSelectionScreen(
                 }
             }
         }
+    }
+    // 🚀 アップロード中のみ表示されるロック層
+    if (isUploading) {
+        UploadIndicator(
+            uploadProgress = progress,
+        )
     }
 }
 
