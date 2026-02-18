@@ -7,16 +7,17 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -53,8 +54,9 @@ import coil.decode.ImageDecoderDecoder
 import coil.decode.VideoFrameDecoder
 import coil.request.ImageRequest
 import coil.request.videoFrameMillis
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.scan
 import kotlinx.coroutines.flow.stateIn
@@ -67,7 +69,7 @@ class FileSelectionViewModel @Inject constructor(
         .getActualPendingFiles()
         .onEach { file ->
             // 🚀 データが流れてきたタイミングで、まだ選択状態が空なら全選択にする
-            selectedHashes[file.hash] = true
+            selectedHashes[file.hash] = _onOff.value.isChecked
         }
         .scan(emptyList<OmoideMemory>()) { acc, value -> acc + value } // リストに成長させる
         .stateIn(
@@ -82,6 +84,21 @@ class FileSelectionViewModel @Inject constructor(
     fun toggleSelection(hash: String) {
         selectedHashes[hash] = !(selectedHashes[hash] ?: false)
     }
+
+    val _onOff: MutableStateFlow<OnOff> = MutableStateFlow(OnOff.On)
+    val onOff: StateFlow<OnOff> = _onOff.asStateFlow()
+
+    /**
+     *  すべてのコンテンツを反転
+     */
+    fun toggleAll(onOff: OnOff) {
+        _onOff.value = onOff
+        selectedHashes.forEach { (hash, _) ->
+            selectedHashes[hash] = onOff.isChecked
+        }
+    }
+
+
 }
 
 @Composable
@@ -90,6 +107,7 @@ fun FileSelectionRoute(
     onFinished: () -> Unit,
 ) {
     val pendingFiles by viewModel.pendingFiles.collectAsState()
+    val onOff by viewModel.onOff.collectAsState()
     val context = LocalContext.current
 
     FileSelectionScreen(
@@ -106,9 +124,13 @@ fun FileSelectionRoute(
             WorkManager.getInstance(context).enqueue(uploadRequest)
         },
         onToggle = { hash ->
-            viewModel.selectedHashes[hash] = !(viewModel.selectedHashes[hash] ?: false)
+            viewModel.toggleSelection(hash)
         },
         onFinished = onFinished,
+        onOff = onOff,
+        onSwitchChanged = { onOff ->
+            viewModel.toggleAll(onOff)
+        }
     )
 }
 
@@ -119,6 +141,8 @@ fun FileSelectionScreen(
     onContentFixed: (hashes: Array<String>) -> Unit,
     onToggle: (hash: String) -> Unit,
     onFinished: () -> Unit,
+    onOff: OnOff,
+    onSwitchChanged: (OnOff) -> Unit,
 ) {
 
     Scaffold(
@@ -138,14 +162,25 @@ fun FileSelectionScreen(
                 Text("${selectedHashes.values.count { it }} 件をアップロード")
             }
         }
-    ) { innerPadding ->
-        Column(modifier = Modifier.fillMaxSize()) {
+    ) { innerPadding -> // 🚀 Scaffold が「ここがコンテンツの表示可能領域だよ」と教えてくれている
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding),
+        ) {
+            MySwitch(
+                onOff = onOff,
+                onSwitchChanged
+            )
+
+            Spacer(Modifier.size(1.dp))
+
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(100.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    // Scaffold が計算した上下の隙間をセット
-                    .padding(innerPadding),
+                    // グリッド内の余白も Scaffold に合わせるならここでも padding を使う
+                    .padding(8.dp),
                 contentPadding = PaddingValues(4.dp)
             ) {
                 items(
@@ -185,6 +220,7 @@ fun FileItemCard(item: OmoideMemory, isSelected: Boolean, onToggle: () -> Unit) 
     val borderColor = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
     val borderStroke = if (isSelected) 3.dp else 0.dp
 
+    // Box で AsyncImage と CheckBox を重ねる
     Box(
         modifier = Modifier
             .padding(4.dp)
@@ -203,7 +239,7 @@ fun FileItemCard(item: OmoideMemory, isSelected: Boolean, onToggle: () -> Unit) 
             contentDescription = null,
             modifier = Modifier
                 .fillMaxSize()
-                .alpha(if (isSelected) 1f else 1.5f), // 選択時に少し強めに暗くする
+                .alpha(if (isSelected) 1f else 0.8f), // 選択時に少し強めに暗くする
             contentScale = ContentScale.Crop
         )
 
@@ -211,6 +247,7 @@ fun FileItemCard(item: OmoideMemory, isSelected: Boolean, onToggle: () -> Unit) 
         Checkbox(
             checked = isSelected,
             onCheckedChange = { onToggle() },
+            // チェックボックスはトップに吸い寄せられてコンテンツの上側に描画
             modifier = Modifier.align(Alignment.TopEnd)
         )
     }
