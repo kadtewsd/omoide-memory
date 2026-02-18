@@ -24,9 +24,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -123,6 +127,22 @@ fun FileSelectionRoute(
     val onOff by viewModel.onOff.collectAsState()
     val isUploading by viewModel.isUploading.collectAsState()
     val progress by viewModel.progress.collectAsState()
+    var hasStartedUploading by remember {
+        mutableStateOf(false)
+    }
+
+    LaunchedEffect(isUploading) {
+        /**
+         * 手動でアップロードが完了していたら元の画面ん井遷移させます。
+         * Ux 的には戻らない方が良いですが、実装のシンプルさを優先
+         */
+        if (!isUploading && hasStartedUploading) {
+            toMainScreen()
+        }
+        if (isUploading) {
+            hasStartedUploading = true
+        }
+    }
 
     FileSelectionScreen(
         selectedHashes = viewModel.selectedHashes,
