@@ -23,7 +23,7 @@ fun AppRouter() {
         composable("selection") {
             FileSelectionRoute(
                 // navController.popBackStack で ジェスチャ対応もしている
-                onFinished = { navController.popBackStack() }
+                toMainScreen = { navController.popBackStack() }
             )
         }
     }
