@@ -1,8 +1,8 @@
 package com.kasakaid.omoidememory.ui
 
+import android.app.Application
 import android.content.Context
 import android.os.Build
-import android.util.Log
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -16,9 +16,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,46 +29,40 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.WorkManager
-import androidx.work.workDataOf
-import coil.compose.AsyncImage
-import com.kasakaid.omoidememory.data.OmoideMemory
-import com.kasakaid.omoidememory.data.OmoideMemoryRepository
-import com.kasakaid.omoidememory.worker.GdriveUploadWorker
-import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.StateFlow
-import javax.inject.Inject
-import kotlin.collections.set
-import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.graphics.Color
-import androidx.work.ExistingWorkPolicy
 import coil.ImageLoader
+import coil.compose.AsyncImage
 import coil.decode.GifDecoder
 import coil.decode.ImageDecoderDecoder
 import coil.decode.VideoFrameDecoder
 import coil.request.ImageRequest
 import coil.request.videoFrameMillis
+import com.kasakaid.omoidememory.data.OmoideMemory
+import com.kasakaid.omoidememory.data.OmoideMemoryRepository
+import com.kasakaid.omoidememory.extension.WorkManagerExtension.enqueueWManualUpload
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.scan
 import kotlinx.coroutines.flow.stateIn
-import java.time.LocalDateTime
+import javax.inject.Inject
+import kotlin.collections.set
 
 @HiltViewModel
 class FileSelectionViewModel @Inject constructor(
     omoideMemoryRepository: OmoideMemoryRepository,
+    private val application: Application,
 ) : ViewModel() {
     val pendingFiles: StateFlow<List<OmoideMemory>> = omoideMemoryRepository
         .getActualPendingFiles()
@@ -101,7 +97,14 @@ class FileSelectionViewModel @Inject constructor(
         }
     }
 
-
+    fun enqueueWManualUpload(
+        hashes: Array<String>,
+    ) {
+        application.enqueueWManualUpload(
+            hashes = hashes,
+            totalCount = selectedHashes.count { it.value },
+        )
+    }
 }
 
 @Composable
@@ -111,32 +114,13 @@ fun FileSelectionRoute(
 ) {
     val pendingFiles by viewModel.pendingFiles.collectAsState()
     val onOff by viewModel.onOff.collectAsState()
-    val context = LocalContext.current
 
     FileSelectionScreen(
         selectedHashes = viewModel.selectedHashes,
         pendingFiles = pendingFiles,
         onContentFixed = { hashes ->
             // 🚀 ここで Worker をキック
-            val workData = workDataOf(
-                "TARGET_HASHES" to hashes,
-                "TOTAL_COUNT" to viewModel.selectedHashes.count { it.value },
-            )
-            val uploadRequest = OneTimeWorkRequestBuilder<GdriveUploadWorker>()
-                .setInputData(workData)
-                .addTag(GdriveUploadWorker.TAG)
-                .build()
-            val tag = "FileSelectionRoute"
-            Log.d(tag, "選択されたhash ${hashes.size}件")
-
-            // enqueueUniqueWork + REPLACE は 「名前（Unique Name）」を指定することで、ひとつの管理枠を作ります。
-            // 唯一性の保証: 同じ名前のジョブがすでにキューにある場合、WorkManager が介入します。
-            //REPLACE の魔法: 新しいリクエストが来たら、**古い方を即座にキャンセル（中断）**して、新しい方を最初から実行します。
-            WorkManager.getInstance(context).enqueueUniqueWork(
-                "manual_upload",
-                ExistingWorkPolicy.REPLACE, // これで「都度上書き」される
-                uploadRequest,
-            )
+            viewModel.enqueueWManualUpload(hashes)
         },
         onToggle = { hash ->
             viewModel.toggleSelection(hash)
