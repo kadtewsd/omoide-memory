@@ -27,18 +27,16 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.work.Constraints
-import androidx.work.NetworkType
-import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
+import arrow.core.some
 import com.kasakaid.omoidememory.data.LocalFileRepository
 import com.kasakaid.omoidememory.data.OmoideMemoryRepository
 import com.kasakaid.omoidememory.data.OmoideUploadPrefsRepository
+import com.kasakaid.omoidememory.extension.WorkManagerExtension.enqueueWManualUpload
 import com.kasakaid.omoidememory.worker.GdriveUploadWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -48,14 +46,16 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.scan
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 
 @HiltViewModel
 class UploadStatusViewModel @Inject constructor(
-    application: Application,
+    private val application: Application,
     private val localFileRepository: LocalFileRepository,
-    omoideMemoryRepository: OmoideMemoryRepository,
+    private val omoideMemoryRepository: OmoideMemoryRepository,
     omoideUploadPrefsRepository: OmoideUploadPrefsRepository,
 ) : ViewModel() {
 
@@ -113,19 +113,20 @@ class UploadStatusViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
 
-    private val workManager = WorkManager.getInstance(application)
-
     fun triggerManualUpload() {
-        val uploadWorkRequest = OneTimeWorkRequestBuilder<GdriveUploadWorker>()
-            .setConstraints(
-                Constraints.Builder()
-                    .setRequiredNetworkType(NetworkType.UNMETERED)
-                    .build()
+        viewModelScope.launch {
+            /**
+             * まとめて取得したい時は、last でも first でもなくて、toList。R2DBC の Flux を取り出す時と同じ。
+             */
+            val files = omoideMemoryRepository.getActualPendingFiles().toList()
+            application.enqueueWManualUpload(
+                hashes = files.map { it.hash }.toTypedArray(),
+                totalCount = files.size,
             )
-            .build()
-
-        workManager.enqueue(uploadWorkRequest)
+        }
     }
+
+    val workManager = WorkManager.getInstance(application)
 
     // WorkInfo から進捗を取り出して StateFlow に変換
     val uploadProgress: StateFlow<Pair<Int, Int>?> =
