@@ -55,10 +55,12 @@ class OmoideMemoryRepository @Inject constructor(
             val hash = context.calculateFileHash(
                 file.getContentUri(FolderUri.content)
             )
+            Log.d(TAG, "$hash を算出")
             hash.fold(
                 onFailure = { None },
                 onSuccess = { hashValue ->
                     if (!uploadedHashSet.contains(hashValue)) { // DBになければ Pending
+                        Log.d(TAG, "${file.name} がヒット")
                         OmoideMemory.of(hash = hashValue, localFile = file).some()
                     } else {
                         None

@@ -1,6 +1,7 @@
 package com.kasakaid.omoidememory.ui
 
 import android.app.Application
+import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -130,6 +131,7 @@ class UploadStatusViewModel @Inject constructor(
     val uploadProgress: StateFlow<Pair<Int, Int>?> =
         workManager.getWorkInfosByTagFlow(GdriveUploadWorker.TAG)
             .map { workInfos ->
+                Log.d("アップロード監視", "${workInfos.size}件のワークフロー")
                 val runningWork = workInfos.find { it.state == WorkInfo.State.RUNNING }
                 val progress = runningWork?.progress
                 if (progress != null) {
@@ -220,15 +222,20 @@ fun UploadStatusCard(
 
             // 進捗バー
             progress?.let { (current, total) ->
-                Spacer(modifier = Modifier.height(8.dp))
-                LinearProgressIndicator(
-                    progress = { current.toFloat() / total.toFloat() },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Text(
-                    text = "アップロード中: $current / $total",
-                    style = MaterialTheme.typography.bodySmall
-                )
+                Log.d("進捗バー", "current: $current, total: $total を実行中")
+                if (total > 0) {
+                    // getWorkInfosByTagFlow で監視している際、状態変化のタイミングによっては、一瞬だけ 「Progress は存在するが、中身が空（デフォルト値の0）」 というデータが UI に流れることがあります。
+                    // 0除算が発生する問題を回避するため分岐入れます。
+                    Spacer(modifier = Modifier.height(8.dp))
+                    LinearProgressIndicator(
+                        progress = { current.toFloat() / total.toFloat() },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Text(
+                        text = "アップロード中: $current / $total",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
             }
 
             if (!canUpload) {

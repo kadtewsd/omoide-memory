@@ -2,6 +2,7 @@ package com.kasakaid.omoidememory.ui
 
 import android.content.Context
 import android.os.Build
+import android.util.Log
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -48,6 +49,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.work.ExistingWorkPolicy
 import coil.ImageLoader
 import coil.decode.GifDecoder
 import coil.decode.ImageDecoderDecoder
@@ -60,6 +62,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.scan
 import kotlinx.coroutines.flow.stateIn
+import java.time.LocalDateTime
 
 @HiltViewModel
 class FileSelectionViewModel @Inject constructor(
@@ -115,13 +118,25 @@ fun FileSelectionRoute(
         pendingFiles = pendingFiles,
         onContentFixed = { hashes ->
             // 🚀 ここで Worker をキック
+            val workData = workDataOf(
+                "TARGET_HASHES" to hashes,
+                "TOTAL_COUNT" to viewModel.selectedHashes.count { it.value },
+            )
             val uploadRequest = OneTimeWorkRequestBuilder<GdriveUploadWorker>()
-                .setInputData(workDataOf("TARGET_HASHES" to hashes))
-                .setInputData(workDataOf("TOTAL_COUNT" to viewModel.selectedHashes.count { it.value }))
+                .setInputData(workData)
                 .addTag(GdriveUploadWorker.TAG)
                 .build()
+            val tag = "FileSelectionRoute"
+            Log.d(tag, "選択されたhash ${hashes.size}件")
 
-            WorkManager.getInstance(context).enqueue(uploadRequest)
+            // enqueueUniqueWork + REPLACE は 「名前（Unique Name）」を指定することで、ひとつの管理枠を作ります。
+            // 唯一性の保証: 同じ名前のジョブがすでにキューにある場合、WorkManager が介入します。
+            //REPLACE の魔法: 新しいリクエストが来たら、**古い方を即座にキャンセル（中断）**して、新しい方を最初から実行します。
+            WorkManager.getInstance(context).enqueueUniqueWork(
+                "manual_upload",
+                ExistingWorkPolicy.REPLACE, // これで「都度上書き」される
+                uploadRequest,
+            )
         },
         onToggle = { hash ->
             viewModel.toggleSelection(hash)

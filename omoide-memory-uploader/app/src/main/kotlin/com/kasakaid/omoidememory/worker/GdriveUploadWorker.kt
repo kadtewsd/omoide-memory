@@ -24,20 +24,21 @@ class GdriveUploadWorker @AssistedInject constructor(
 ) : CoroutineWorker(appContext, workerParams) {
 
     companion object {
-        const val TAG = "UploadWorker"
+        const val TAG = "ManualUploadWorker"
     }
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         // 引数からハッシュリストを取得
         val targetHashes = inputData.getStringArray("TARGET_HASHES")?.toList() ?: emptyList()
         val totalCount = inputData.getInt("TOTAL_COUNT", 0)
+        Log.d(TAG, "受け取ったハッシュ件数: ${targetHashes.size}, 合計件数: $totalCount")
         var successCount = 0
         try {
             // ここでは Flow (川) は不要。ViewModel 側の川はそのままになり、ここでは都度どんととってきてしまう。last で全部のデータが取ってこられたあとのものをガツっと取得
             omoideMemoryRepository.getActualPendingFiles().collect { file ->
                 if (file.hash in targetHashes) {
-                    Log.d(TAG, "手動アップロード開始")
-                    gdriveUploader.upload(tag = TAG, pendingFile = file).also {
+                    Log.d(TAG, "手動アップロード開始 ${file.name}")
+                    gdriveUploader.upload(sourceWorker = TAG, pendingFile = file).also {
                         successCount++
                         Log.i(TAG, "$successCount / $totalCount アップロード完了")
                     }

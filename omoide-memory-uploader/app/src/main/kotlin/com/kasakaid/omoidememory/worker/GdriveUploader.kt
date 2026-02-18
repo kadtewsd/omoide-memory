@@ -22,13 +22,17 @@ class GdriveUploader @Inject constructor(
     private val driveService: GoogleDriveService,
 ) {
 
+    companion object {
+        const val TAG = "GdriveUoloader"
+    }
     /**
      * 写真と Video のコンテンツをアップロードする実態
      */
     suspend fun upload(
-        tag: String,
         pendingFile: OmoideMemory,
+        sourceWorker: String,
     ): ListenableWorker.Result {
+        val tag = "$sourceWorker -> $TAG"
         // first() に条件（述語）を渡すことで、「Found になるまで（またはタイムアウトまで）待ち続ける」 という挙動に変える
         val currentWifiSetting = withTimeout(5000) { // 5 秒のタイムアウト
             wifiRepository.observeWifiSSID().first {
@@ -47,7 +51,8 @@ class GdriveUploader @Inject constructor(
             }
 
             is WifiSetting.Found -> {
-                executeUpload(tag = tag, found = currentWifiSetting, pendinFile = pendingFile)
+                Log.d(tag, "Wifi が見つかったのでアップロード開始")
+                executeUpload(tag = tag, found = currentWifiSetting, pendingFile = pendingFile)
                 ListenableWorker.Result.success()
             }
 
@@ -61,7 +66,7 @@ class GdriveUploader @Inject constructor(
     private suspend fun executeUpload(
         tag: String,
         found: WifiSetting.Found,
-        pendinFile: OmoideMemory,
+        pendingFile: OmoideMemory,
     ): ListenableWorker.Result {
 
         val registeredSecureSsid = omoideUploadPrefsRepository.getSecureWifiSsid()
@@ -80,16 +85,16 @@ class GdriveUploader @Inject constructor(
             )
             return ListenableWorker.Result.retry()
         }
-        Log.d(tag, "Found ${pendinFile.name} pending files.")
+        Log.d(tag, "Found ${pendingFile.name} pending files.")
 
         // 4. Upload Files
         try {
-            val fileId = driveService.uploadFile(pendinFile)
+            val fileId = driveService.uploadFile(pendingFile)
             if (fileId != null) {
                 omoideMemoryRepository.markAsUploaded(
-                    pendinFile.onUploaded(fileId)
+                    pendingFile.onUploaded(fileId)
                 )
-                Log.d(tag, "Uploaded: ${pendinFile.name}")
+                Log.d(tag, "Uploaded: ${pendingFile.name}")
             }
         } catch (e: SecurityException) {
             Log.e(tag, "Auth Error: ${e.message}")
@@ -97,11 +102,11 @@ class GdriveUploader @Inject constructor(
             // For now, fail so we might retry later, but better to stop if auth is broken.
             return ListenableWorker.Result.failure()
         } catch (e: Exception) {
-            Log.e(tag, "Upload Failed for ${pendinFile.name}: ${e.message}")
+            Log.e(tag, "Upload Failed for ${pendingFile.name}: ${e.message}")
             return ListenableWorker.Result.failure()
         }
         return ListenableWorker.Result.success().also {
-            Log.i(tag, "${pendinFile.name}が正常にアップロードされました")
+            Log.i(tag, "${pendingFile.name}が正常にアップロードされました")
         }
     }
 }
