@@ -23,7 +23,7 @@ repositories {
 }
 
 dependencies {
-	implementation("org.springframework.boot:spring-boot-starter-jooq")
+	api("org.springframework.boot:spring-boot-starter-jooq")
 	implementation("org.jetbrains.kotlin:kotlin-reflect")
 	implementation("org.flywaydb:flyway-database-postgresql")
 	runtimeOnly("org.postgresql:postgresql")
@@ -36,6 +36,16 @@ dependencies {
 	implementation("io.github.oshai:kotlin-logging-jvm:7.0.3")
 	// ログの実装体 (例: Logback) も合わせて必要です
     implementation("ch.qos.logback:logback-classic")
+
+    //R2DBC
+    implementation("org.springframework.boot:spring-boot-starter-data-r2dbc")
+    api("io.arrow-kt:arrow-core:2.2.0")
+
+    // Kotlin Coroutines
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-slf4j")
+    implementation("org.jooq:jooq-kotlin-coroutines")
 }
 
 kotlin {

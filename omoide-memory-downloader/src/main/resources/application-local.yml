@@ -1,7 +1,5 @@
 spring:
-  datasource:
-    # local では梱包の docker-compose の username と password でアクセス
+  r2dbc:
     url: jdbc:postgresql://localhost:5432/omoide_memory?currentSchema=omoide_memory
     username: postgres
     password: password
-    driver-class-name: org.postgresql.Driver

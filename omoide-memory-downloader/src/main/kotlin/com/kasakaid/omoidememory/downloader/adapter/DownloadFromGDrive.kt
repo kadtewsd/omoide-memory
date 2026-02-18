@@ -1,19 +1,42 @@
 package com.kasakaid.omoidememory.downloader.adapter
 
+import arrow.core.left
+import arrow.core.right
+import com.kasakaid.omoidememor.r2dbc.transaction.TransactionAttemptFailure
+import com.kasakaid.omoidememor.r2dbc.transaction.TransactionExecutor
+import com.kasakaid.omoidememor.utility.CoroutineHelper.mapWithCoroutine
 import com.kasakaid.omoidememory.APPLICATION_RUNNER_KEY
+import com.kasakaid.omoidememory.domain.OmoideMemory
+import com.kasakaid.omoidememory.downloader.domain.DriveService
+import com.kasakaid.omoidememory.downloader.service.DownloadFileBackUpService
+import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.Semaphore
 import org.springframework.boot.ApplicationArguments
 import org.springframework.boot.ApplicationRunner
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.stereotype.Component
 
-@Component
+private val logger = KotlinLogging.logger {}
+
+@Component("downloadFromGDrive")
 @ConditionalOnProperty(name = [APPLICATION_RUNNER_KEY], havingValue = "download-from-gdrive")
 class DownloadFromGDrive(
-    private val downloadFromGDrive: DownloadFromGDrive,
-): ApplicationRunner {
-    override fun run(args: ApplicationArguments) {
-        // 1. GDrive の直下から写真・動画を取得
-        // 2. まずは永続化する
-    }
+    private val driveService: DriveService,
+    private val downloadFileBackUpService: DownloadFileBackUpService,
+    private val transactionExecutor: TransactionExecutor,
+) : ApplicationRunner {
 
+    override fun run(args: ApplicationArguments): Unit = runBlocking {
+        logger.info { "Google Driveからのダウンロード処理を開始します" }
+        // 1. Google Driveから対象フォルダ配下の全ファイルを取得
+        driveService.listFiles().mapWithCoroutine(Semaphore(300)) { omoideMemory ->
+            transactionExecutor.executeWithPerLineLeftRollback {
+                downloadFileBackUpService.execute(omoideMemory)
+            }.fold(
+                ifLeft = { TransactionAttemptFailure.Unmanaged(it).left() },
+                ifRight = { omo.right() }
+            )
+        }
+    }
 }
