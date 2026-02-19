@@ -37,3 +37,5 @@ captures/
 
 # intellij
 **/out/
+
+**/ai_script/
