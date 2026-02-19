@@ -5,7 +5,12 @@ import android.database.Cursor
 import android.net.Uri
 import android.provider.MediaStore
 import android.util.Log
+import arrow.core.Either
+import arrow.core.None
 import arrow.core.Option
+import arrow.core.left
+import arrow.core.right
+import arrow.core.some
 import arrow.core.toOption
 import com.kasakaid.omoidememory.extension.CursorExtension.asSequence
 import com.kasakaid.omoidememory.extension.toLocalDateTime
@@ -49,8 +54,9 @@ class LocalFileRepository @Inject constructor(
         }
     }
 
+    class PathNoneError(val name: String?)
     // 2. 取得処理
-    fun Cursor.toLocalFile(): LocalFile {
+    fun Cursor.toLocalFile(): Either<PathNoneError, LocalFile> {
         // getColumnIndex は存在しないと -1 を返す
         val idIdx = getColumnIndex(MediaStore.Files.FileColumns._ID)
         val nameIdx = getColumnIndex(MediaStore.Files.FileColumns.DISPLAY_NAME)
@@ -60,31 +66,36 @@ class LocalFileRepository @Inject constructor(
 
         // 2. 値の取得とフォールバック
         val addedIdx = getColumnIndex(MediaStore.Files.FileColumns.DATE_ADDED)
-        val dateAdded = if (addedIdx != -1) getLong(addedIdx) * 1000L else System.currentTimeMillis()
+        val dateAdded = if (addedIdx != -1) getLong(addedIdx) * 1000L else null
         val modifiedIdx = getColumnIndex(MediaStore.Files.FileColumns.DATE_MODIFIED)
         val modTime = if (modifiedIdx != -1) getLong(modifiedIdx) * 1000L else dateAdded
         // 画像/動画特有のカラム（Files テーブルでも内部的に持っていることが多い）
         val takenIdx = getColumnIndex("datetaken") // 画像以外は存在しないことが多い
         val orientationIdx = getColumnIndex("orientation")
 
-        return LocalFile(
-            id = if (idIdx != -1) getLong(idIdx) else -1L,
-            name = if (nameIdx != -1) getString(nameIdx) ?: "unknown" else "unknown",
-            filePath = if (pathIdx != -1) getString(pathIdx) ?: "" else "",
-            fileSize = if (sizeIdx != -1) getLong(sizeIdx) else 0L,
-            mimeType = if (mimeIdx != -1) getString(mimeIdx)
-                ?: "application/octet-stream" else "application/octet-stream",
+        val name = if (nameIdx != -1) getString(nameIdx) ?: "unknown" else "unknown"
+        return if (pathIdx == -1 || getString(pathIdx).isNullOrEmpty()) {
+            PathNoneError(name).left()
+        } else {
+            LocalFile(
+                id = if (idIdx != -1) getLong(idIdx) else -1L,
+                name = name,
+                filePath = getString(pathIdx)!!,
+                fileSize = if (sizeIdx != -1) getLong(sizeIdx) else 0L,
+                mimeType = if (mimeIdx != -1) getString(mimeIdx)
+                    ?: "application/octet-stream" else "application/octet-stream",
 
-            dateModified = modTime,
-            // 日時系：取れない場合は date_added や 現在時刻でフォールバック
-            // dateTaken: 無ければ null
-            dateTaken = when {
-                takenIdx != -1 && !isNull(takenIdx) -> getLong(takenIdx)
-                else -> null
-            },
-            // orientation: 無ければ null
-            orientation = if (orientationIdx != -1) getInt(orientationIdx) else null
-        )
+                dateModified = modTime,
+                // 日時系：取れない場合は date_added や 現在時刻でフォールバック
+                // dateTaken: 無ければ null
+                dateTaken = when {
+                    takenIdx != -1 && !isNull(takenIdx) -> getLong(takenIdx)
+                    else -> null
+                },
+                // orientation: 無ければ null
+                orientation = if (orientationIdx != -1) getInt(orientationIdx) else null
+            ).right()
+        }
     }
 
     /**
@@ -131,14 +142,18 @@ class LocalFileRepository @Inject constructor(
         )?.use { cursor ->
             // sequence として 1 件ずつ処理
             cursor.asSequence().forEach { _ ->
-                val localFile = cursor.toLocalFile()
-                if (localFile.filePath != null) {
-                    // 未アップロード判定を通ったものだけ currentList に追加
-                    filterUnuploadedFile(localFile).onSome { item ->
-                        Log.d(TAG, "${localFile.name}未アップロード判定")
-                        send(item)
+                cursor.toLocalFile().fold(
+                    ifLeft = {
+                        Log.i(TAG, "${it.name}のパスが取得できないのでスキップ")
+                    },
+                    ifRight = { localFile ->
+                        // 未アップロード判定を通ったものだけ currentList に追加
+                        filterUnuploadedFile(localFile).onSome { item ->
+                            Log.d(TAG, "${localFile.name}未アップロード判定")
+                            send(item)
+                        }
                     }
-                }
+                )
             }
         }
     }.flowOn(Dispatchers.IO) // 🚀 これを付けておけば、どこで呼んでも安全
