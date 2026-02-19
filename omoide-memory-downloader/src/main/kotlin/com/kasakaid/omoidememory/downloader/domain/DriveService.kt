@@ -1,7 +1,6 @@
 package com.kasakaid.omoidememory.downloader.domain
 
 import com.kasakaid.omoidememory.domain.OmoideMemory
-import java.nio.file.Path
 
 /**
  * DIP にしたがってドライブのアクセスの実装は切り離す
@@ -10,11 +9,12 @@ interface DriveService {
     /**
      * ドライブからファイルを持ってきます。
      * 実装は Google や OneDrive などいずれかのドライブのアクセスになります。
+     * まずはメタデータを取得します。
      */
     suspend fun listFiles(): List<OmoideMemory>
 
     /**
-     * 指定されたメモリをローカルにダウンロードします。
+     * 取得されたファイルのメタデータから実体を取得してメモリをローカル PC のストレージに書き込みます。
      */
-    suspend fun downloadFile(omoideMemory: OmoideMemory): Path
+    suspend fun writeOmoideMemoryToTargetPath(omoideMemory: OmoideMemory)
 }

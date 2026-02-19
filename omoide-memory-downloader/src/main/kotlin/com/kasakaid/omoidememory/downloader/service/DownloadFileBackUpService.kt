@@ -33,7 +33,7 @@ class DownloadFileBackUpService(
         }
 
         // 2. ファイルをダウンロード
-        driveService.downloadFile(omoideMemory)
+        driveService.writeOmoideMemoryToTargetPath(omoideMemory)
 
         // 5. ファイル配置 (FileOrganizeService) is not imported/used in recent user snippet logic flow clearly for 'OmoideMemory'
         // If organization is needed, it should probably happen or return a new path.

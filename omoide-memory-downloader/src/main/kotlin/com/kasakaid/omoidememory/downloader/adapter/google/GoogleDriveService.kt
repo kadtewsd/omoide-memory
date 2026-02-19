@@ -90,22 +90,20 @@ class GoogleDriveService(
         return memories
     }
 
-    override suspend fun downloadFile(omoideMemory: OmoideMemory): Path = withContext(Dispatchers.IO) {
+    override suspend fun writeOmoideMemoryToTargetPath(omoideMemory: OmoideMemory) {
         val targetPath = omoideMemory.localPath
 
         // Ensure parent directories exist
         if (targetPath.parent != null && !Files.exists(targetPath.parent)) {
-            Files.createDirectories(targetPath.parent)
-        }
-
-        logger.info { "Downloading ${omoideMemory.name} to $targetPath" }
-
-        Files.newOutputStream(targetPath, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)
-            .use { outputStream ->
-                driveService.files().get(omoideMemory.driveFileId)
-                    .executeMediaAndDownloadTo(outputStream)
+            withContext(Dispatchers.IO) {
+                Files.createDirectories(targetPath.parent)
+                Files.newOutputStream(targetPath, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)
+                    .use { outputStream ->
+                        driveService.files().get(omoideMemory.driveFileId)
+                            .executeMediaAndDownloadTo(outputStream)
+                    }
             }
-
-        targetPath
+        }
+        logger.debug { " ${omoideMemory.name} to $targetPath を書き込み完了" }
     }
 }
