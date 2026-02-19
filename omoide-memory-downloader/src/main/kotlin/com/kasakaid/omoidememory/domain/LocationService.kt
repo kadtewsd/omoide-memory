@@ -1,7 +1,9 @@
-package com.kasakaid.omoidememory.downloader.adapter.location
+package com.kasakaid.omoidememory.domain
 
+import com.kasakaid.omoidememory.downloader.adapter.location.StringOrNullSerializer
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.HttpClient
+import io.ktor.client.HttpClientConfig
 import io.ktor.client.call.body
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
@@ -12,7 +14,6 @@ import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.delay
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import org.springframework.stereotype.Service
 
 object LocationService {
 
@@ -56,5 +57,3 @@ object LocationService {
         val displayName: String? get() = display_name
     }
 }
-
-

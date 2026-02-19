@@ -1,0 +1,116 @@
+package com.kasakaid.omoidememory.domain
+
+import arrow.core.Either
+import arrow.core.left
+import arrow.core.right
+import com.drew.metadata.exif.ExifIFD0Directory
+import com.drew.metadata.exif.ExifSubIFDDirectory
+import com.drew.metadata.exif.GpsDirectory
+import com.google.api.services.drive.model.File
+import com.kasakaid.omoidememory.domain.OmoideMemoryTranslator.generateThumbnail
+import io.github.oshai.kotlinlogging.KotlinLogging
+import ws.schild.jave.MultimediaObject
+import java.nio.file.Files
+import java.nio.file.Path
+import java.time.Instant
+import java.time.OffsetDateTime
+import java.time.ZoneId
+
+sealed interface MediaMetadata {
+    val capturedTime: OffsetDateTime?
+    val filePath: Path
+    suspend fun toMedia(googleFile: File): Either<MetadataExtractError, OmoideMemory>
+}
+
+data class VideoMetadata(
+    override val capturedTime: OffsetDateTime,
+    override val filePath: Path
+) : MediaMetadata {
+    override suspend fun toMedia(googleFile: File): Either<MetadataExtractError, OmoideMemory> {
+        return try {
+            val thumbnail = generateThumbnail(filePath)
+            MultimediaObject(filePath.toFile()).info.let { info ->
+                OmoideMemory.Video(
+                    localPath = filePath,
+                    name = googleFile.name,
+                    mediaType = googleFile.mimeType,
+                    driveFileId = googleFile.id,
+                    fileSize = googleFile.size,
+                    locationName = null, // 動画のGPS情報は標準的には取得困難
+                    durationSeconds = info.duration / 1000.0,
+                    videoWidth = info.video?.size?.width,
+                    videoHeight = info.video?.size?.height,
+                    frameRate = info.video?.frameRate?.toDouble(),
+                    videoCodec = info.video?.decoder,
+                    videoBitrateKbps = info.video?.bitRate?.div(1000),
+                    audioCodec = info.audio?.decoder,
+                    audioBitrateKbps = info.audio?.bitRate?.div(1000),
+                    audioChannels = info.audio?.channels,
+                    audioSampleRate = info.audio?.samplingRate,
+                    thumbnailImage = thumbnail.getOrNull()?.first,
+                    thumbnailMimeType = thumbnail.getOrNull()?.second,
+                    captureTime = OffsetDateTime.ofInstant(
+                        Instant.ofEpochMilli(Files.getLastModifiedTime(filePath).toMillis()),
+                        ZoneId.systemDefault()
+                    ),
+                ).right()
+            }
+        } catch (e: Exception) {
+            logger.error(e) { "動画メタデータの抽出に失敗: $filePath" }
+            MetadataExtractError(e).left()
+        }
+    }
+
+}
+
+
+val logger = KotlinLogging.logger {}
+
+class PhotoMetadata(
+    val exifIFD0: ExifIFD0Directory?,
+    val exifSubIFD: ExifSubIFDDirectory?,
+    val gpsDirectory: GpsDirectory?,
+    override val capturedTime: OffsetDateTime?,
+    override val filePath: Path,
+) : MediaMetadata {
+    override suspend fun toMedia(googleFile: File): Either<MetadataExtractError, OmoideMemory> {
+        return try {
+            OmoideMemory.Photo(
+                localPath = filePath,
+                name = googleFile.name,
+                mediaType = googleFile.mimeType,
+                driveFileId = googleFile.id,
+                fileSize = googleFile.size,
+                locationName = gpsDirectory?.geoLocation?.let { geo ->
+                    if (geo.latitude != null && geo.longitude != null) {
+                        LocationService.getLocationName(geo.latitude, geo.longitude)
+                    } else null
+                },
+                aperture = exifSubIFD?.getDoubleObject(ExifSubIFDDirectory.TAG_FNUMBER)?.toFloat(),
+                shutterSpeed = exifSubIFD?.getString(ExifSubIFDDirectory.TAG_EXPOSURE_TIME),
+                isoSpeed = exifSubIFD?.getInteger(ExifSubIFDDirectory.TAG_ISO_EQUIVALENT),
+                focalLength = exifSubIFD?.getDoubleObject(ExifSubIFDDirectory.TAG_FOCAL_LENGTH)?.toFloat(),
+                focalLength35mm = exifSubIFD?.getInteger(ExifSubIFDDirectory.TAG_35MM_FILM_EQUIV_FOCAL_LENGTH),
+                whiteBalance = exifSubIFD?.getString(ExifSubIFDDirectory.TAG_WHITE_BALANCE),
+                imageWidth = exifSubIFD?.getInteger(ExifSubIFDDirectory.TAG_EXIF_IMAGE_WIDTH)
+                    ?: exifIFD0?.getInteger(ExifIFD0Directory.TAG_IMAGE_WIDTH),
+                imageHeight = exifSubIFD?.getInteger(ExifSubIFDDirectory.TAG_EXIF_IMAGE_HEIGHT)
+                    ?: exifIFD0?.getInteger(ExifIFD0Directory.TAG_IMAGE_HEIGHT),
+                orientation = exifIFD0?.getInteger(ExifIFD0Directory.TAG_ORIENTATION),
+                latitude = gpsDirectory?.geoLocation?.latitude,
+                longitude = gpsDirectory?.geoLocation?.longitude,
+                altitude = gpsDirectory?.getDouble(GpsDirectory.TAG_ALTITUDE),
+                captureTime = exifSubIFD?.getDate(ExifSubIFDDirectory.TAG_DATETIME_ORIGINAL)?.let {
+                    OffsetDateTime.ofInstant(it.toInstant(), ZoneId.systemDefault())
+                },
+                deviceMake = exifIFD0?.getString(ExifIFD0Directory.TAG_MAKE),
+                deviceModel = exifIFD0?.getString(ExifIFD0Directory.TAG_MODEL),
+            ).right()
+        } catch (e: Exception) {
+            logger.error(e) { "画像メタデータの抽出に失敗: ${this.filePath}" }
+            MetadataExtractError(e).left()
+        }
+    }
+}
+
+

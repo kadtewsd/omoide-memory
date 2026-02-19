@@ -7,7 +7,6 @@ import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMO
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_VIDEO
 import kotlinx.coroutines.reactive.awaitSingle
 import org.springframework.stereotype.Repository
-import reactor.core.publisher.Mono
 import java.time.OffsetDateTime
 
 @Repository
@@ -27,47 +26,60 @@ class SyncedMemoryRepository(
         }
         return memory
     }
-
     private suspend fun savePhoto(memory: OmoideMemory.Photo) {
-        val record = dslContext.get().insertInto(SYNCED_OMOIDE_PHOTO)
-            .set(SYNCED_OMOIDE_PHOTO.FILE_NAME, memory.name)
-            .set(SYNCED_OMOIDE_PHOTO.SERVER_PATH, memory.localPath.toString())
-            .set(SYNCED_OMOIDE_PHOTO.CAPTURE_TIME, memory.captureTime ?: OffsetDateTime.now())
-            .set(SYNCED_OMOIDE_PHOTO.LATITUDE, memory.latitude?.toBigDecimal())
-            .set(SYNCED_OMOIDE_PHOTO.LONGITUDE, memory.longitude?.toBigDecimal())
-            .set(SYNCED_OMOIDE_PHOTO.LOCATION_NAME, memory.locationName)
-            .set(SYNCED_OMOIDE_PHOTO.IMAGE_WIDTH, memory.imageWidth)
-            .set(SYNCED_OMOIDE_PHOTO.IMAGE_HEIGHT, memory.imageHeight)
-            .set(SYNCED_OMOIDE_PHOTO.FILE_SIZE, memory.fileSizeBytes)
-            .set(SYNCED_OMOIDE_PHOTO.CREATED_BY, "downloader")
-            .set(SYNCED_OMOIDE_PHOTO.CREATED_AT, OffsetDateTime.now())
-            .returning()
-
-        Mono.from(record).awaitSingle()
+        SYNCED_OMOIDE_PHOTO.run {
+            dslContext.get().insertInto(this)
+                .set(FILE_NAME, memory.name)
+                .set(SERVER_PATH, memory.localPath.toString())
+                .set(CAPTURE_TIME, memory.captureTime)
+                .set(LATITUDE, memory.latitude?.toBigDecimal())
+                .set(LONGITUDE, memory.longitude?.toBigDecimal())
+                .set(ALTITUDE, memory.altitude?.toBigDecimal())
+                .set(LOCATION_NAME, memory.locationName)
+                .set(DEVICE_MAKE, memory.deviceMake)
+                .set(DEVICE_MODEL, memory.deviceModel)
+                .set(APERTURE, memory.aperture?.toBigDecimal())
+                .set(SHUTTER_SPEED, memory.shutterSpeed)
+                .set(ISO_SPEED, memory.isoSpeed)
+                .set(FOCAL_LENGTH, memory.focalLength?.toBigDecimal())
+                .set(FOCAL_LENGTH_35MM, memory.focalLength35mm)
+                .set(WHITE_BALANCE, memory.whiteBalance)
+                .set(IMAGE_WIDTH, memory.imageWidth)
+                .set(IMAGE_HEIGHT, memory.imageHeight)
+                .set(ORIENTATION, memory.orientation?.toShort())
+                .set(FILE_SIZE, memory.fileSize)
+                .set(CREATED_BY, "downloader")
+                .set(CREATED_AT, OffsetDateTime.now())
+                .returning()
+                .awaitSingle()
+        }
     }
 
     private suspend fun saveVideo(memory: OmoideMemory.Video) {
-        val record = dslContext.get().insertInto(SYNCED_OMOIDE_VIDEO)
-            .set(SYNCED_OMOIDE_VIDEO.FILE_NAME, memory.name)
-            .set(SYNCED_OMOIDE_VIDEO.SERVER_PATH, memory.localPath.toString())
-            .set(SYNCED_OMOIDE_VIDEO.CAPTURE_TIME, memory.captureTime ?: OffsetDateTime.now())
-            .set(SYNCED_OMOIDE_VIDEO.LATITUDE, memory.latitude?.toBigDecimal())
-            .set(SYNCED_OMOIDE_VIDEO.LONGITUDE, memory.longitude?.toBigDecimal())
-            .set(SYNCED_OMOIDE_VIDEO.LOCATION_NAME, memory.locationName)
-            .set(
-                SYNCED_OMOIDE_VIDEO.DURATION_SECONDS,
-                memory.durationSeconds?.toBigDecimal()
-            )
-            .set(SYNCED_OMOIDE_VIDEO.VIDEO_WIDTH, memory.videoWidth)
-            .set(SYNCED_OMOIDE_VIDEO.VIDEO_HEIGHT, memory.videoHeight)
-            .set(SYNCED_OMOIDE_VIDEO.FILE_SIZE, memory.fileSizeBytes)
-            .set(SYNCED_OMOIDE_VIDEO.CREATED_BY, "downloader")
-            .set(SYNCED_OMOIDE_VIDEO.CREATED_AT, OffsetDateTime.now())
-            .returning()
-
-        Mono.from(record).awaitSingle()
+        SYNCED_OMOIDE_VIDEO.run {
+            dslContext.get().insertInto(this)
+                .set(FILE_NAME, memory.name)
+                .set(SERVER_PATH, memory.localPath.toString())
+                .set(CAPTURE_TIME, memory.captureTime)
+                .set(DURATION_SECONDS, memory.durationSeconds?.toBigDecimal())
+                .set(VIDEO_WIDTH, memory.videoWidth)
+                .set(VIDEO_HEIGHT, memory.videoHeight)
+                .set(FRAME_RATE, memory.frameRate?.toBigDecimal())
+                .set(VIDEO_CODEC, memory.videoCodec)
+                .set(VIDEO_BITRATE_KBPS, memory.videoBitrateKbps)
+                .set(AUDIO_CODEC, memory.audioCodec)
+                .set(AUDIO_BITRATE_KBPS, memory.audioBitrateKbps)
+                .set(AUDIO_CHANNELS, memory.audioChannels?.toShort())
+                .set(AUDIO_SAMPLE_RATE, memory.audioSampleRate)
+                .set(THUMBNAIL_IMAGE, memory.thumbnailImage)
+                .set(THUMBNAIL_MIME_TYPE, memory.thumbnailMimeType)
+                .set(FILE_SIZE, memory.fileSize)
+                .set(CREATED_BY, "downloader")
+                .set(CREATED_AT, OffsetDateTime.now())
+                .returning()
+                .awaitSingle()
+        }
     }
-
     override suspend fun existsPhotoByFileName(fileName: String): Boolean {
         // Check both tables
         val photoExists =

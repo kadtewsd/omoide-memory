@@ -1,5 +1,8 @@
 package com.kasakaid.omoidememory.downloader.domain
 
+import arrow.core.Either
+import com.google.api.services.drive.model.File
+import com.kasakaid.omoidememory.domain.MetadataExtractError
 import com.kasakaid.omoidememory.domain.OmoideMemory
 import java.nio.file.Path
 
@@ -10,11 +13,13 @@ interface DriveService {
     /**
      * ドライブからファイルを持ってきます。
      * 実装は Google や OneDrive などいずれかのドライブのアクセスになります。
+     * まずはメタデータを取得します。
      */
-    suspend fun listFiles(): List<OmoideMemory>
+    suspend fun listFiles(): List<File>
 
     /**
-     * 指定されたメモリをローカルにダウンロードします。
+     * 取得されたファイルのメタデータから実体を取得してメモリをローカル PC のストレージに書き込みます。
+     * omoideBackupPath -> コンテンツをバックアップするディレクトリ
      */
-    suspend fun downloadFile(omoideMemory: OmoideMemory): Path
+    suspend fun writeOmoideMemoryToTargetPath(googleFile: File, omoideBackupPath: Path, mediaType: MediaType): Either<MetadataExtractError, OmoideMemory>
 }

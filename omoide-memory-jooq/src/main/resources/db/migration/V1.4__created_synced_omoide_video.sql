@@ -3,12 +3,6 @@ CREATE TABLE omoide_memory.synced_omoide_video (
     file_name           VARCHAR(255)    NOT NULL,
     server_path         TEXT            NOT NULL,
     capture_time        TIMESTAMP WITH TIME ZONE,
-    latitude            DECIMAL(10, 7),
-    longitude           DECIMAL(10, 7),
-    altitude            DECIMAL(10, 2),
-    location_name       TEXT,
-    device_make         VARCHAR(255),
-    device_model        VARCHAR(255),
     duration_seconds    DECIMAL(10, 3),
     video_width         INT,
     video_height        INT,
@@ -33,12 +27,6 @@ COMMENT ON COLUMN omoide_memory.synced_omoide_video.id IS 'サロゲートキー
 COMMENT ON COLUMN omoide_memory.synced_omoide_video.file_name IS 'ファイル名（ユニーク）';
 COMMENT ON COLUMN omoide_memory.synced_omoide_video.server_path IS 'サーバー上のパス';
 COMMENT ON COLUMN omoide_memory.synced_omoide_video.capture_time IS '撮影日時（タイムゾーン付き）';
-COMMENT ON COLUMN omoide_memory.synced_omoide_video.latitude IS '緯度';
-COMMENT ON COLUMN omoide_memory.synced_omoide_video.longitude IS '経度';
-COMMENT ON COLUMN omoide_memory.synced_omoide_video.altitude IS '高度（メートル）';
-COMMENT ON COLUMN omoide_memory.synced_omoide_video.location_name IS '逆ジオコーディングによる地名';
-COMMENT ON COLUMN omoide_memory.synced_omoide_video.device_make IS 'デバイスメーカー';
-COMMENT ON COLUMN omoide_memory.synced_omoide_video.device_model IS 'デバイスモデル';
 COMMENT ON COLUMN omoide_memory.synced_omoide_video.duration_seconds IS '動画時間（秒）';
 COMMENT ON COLUMN omoide_memory.synced_omoide_video.video_width IS '動画幅（px）';
 COMMENT ON COLUMN omoide_memory.synced_omoide_video.video_height IS '動画高さ（px）';
