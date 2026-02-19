@@ -12,20 +12,20 @@ class OmoideMemoryDownloader
 
 fun main(args: Array<String>) {
 
-    val destination = System.getenv("omoide_backup_destination")
+    val destination = System.getenv("OMOIDE_BACKUP_DESTINATION")
 
     if (destination.isNullOrBlank()) {
         throw IllegalArgumentException("ダウンロードファイルの保存先を指定してください。")
     }
 
-    val gdriveAccount = System.getenv("omoide_backup_gdrive_account")
+    val gdriveAccount = System.getenv("OMOIDE_GDRIVE_CREDENTIALS_PATH")
     if (gdriveAccount.isNullOrBlank()) {
         throw IllegalArgumentException("ダウンロード先のアカウントは環境変数にセットしてください。")
     }
 
-    val gdrivePassword = System.getenv("omoide_backup_gdrive_password")
-    if (gdrivePassword.isNullOrBlank()) {
-        throw IllegalArgumentException("ダウンロード先のアカウントのパスワードは環境変数にセットしてください。")
+    val omoideMemoryFolderId = System.getenv("OMOIDE_FOLDER_ID")
+    if (omoideMemoryFolderId.isNullOrBlank()) {
+        throw IllegalArgumentException("コンテンツがはいったフォルダの ID を指定してください。")
     }
 
     val commandName = System.getenv(APPLICATION_RUNNER_KEY)

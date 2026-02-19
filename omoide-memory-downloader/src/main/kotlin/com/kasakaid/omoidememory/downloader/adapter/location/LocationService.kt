@@ -20,16 +20,18 @@ object LocationService {
 
     private val client = HttpClient(CIO) {
         install(ContentNegotiation) {
-            json(Json { 
-                ignoreUnknownKeys = true 
-            })
+            json(
+                Json {
+                    ignoreUnknownKeys = true
+                }
+            )
         }
     }
 
     suspend fun getLocationName(latitude: Double, longitude: Double): String? {
         // Rate limiting: Nominatim requires at least 1 second between requests per User-Agent
         delay(1100)
-        
+
         return try {
             val response: NominatimResponse = client.get("https://nominatim.openstreetmap.org/reverse") {
                 parameter("format", "json")
