@@ -19,23 +19,26 @@ fun main(args: Array<String>) {
     // 必要な環境変数チェック
     val destination = System.getenv("OMOIDE_BACKUP_DESTINATION")
         ?: throw IllegalArgumentException("環境変数 OMOIDE_BACKUP_DESTINATION が設定されていません。ダウンロード先ディレクトリを指定してください。例: G:\\my-memory")
+    if (!Path.of(destination).isAbsolute) {
+        throw IllegalArgumentException("絶対パスを指定します。")
+    }
 
     // Google Drive API認証情報（OAuth2のcredentials.jsonのパス、またはサービスアカウントJSONのパス）
-    val relativePath = System.getenv("OMOIDE_GDRIVE_CREDENTIALS_PATH_FROM_HOME")
+    val relativePath = System.getenv("OMOIDE_GDRIVE_CREDENTIALS_PATH")
         ?: throw IllegalArgumentException(
             """
-        環境変数 OMOIDE_GDRIVE_CREDENTIALS_PATH_FROM_HOME が設定されていません。
-        この値には「ユーザーのホームディレクトリ配下の相対パス」を '/' 区切りで指定してください。
-        OS が Windows でも同様です。windows のパス区切りが \ 文化なのでやむを得ず変なパスの指定のさせ方にしています。
-        例:
-          dev/secrets/omoide-memory/omoide-memory-sa.json
-        
-        ※ 先頭に '/' を付けないでください。
+        環境変数 OMOIDE_GDRIVE_CREDENTIALS_PATH が設定されていません。
+        区切り文字を '/' 区切りで指定してください。
+        OS が Windows でも同様です。windows のパス区切りが \ 文化ですが Path.of で読み込んで透過的にパスを解決します。
+        例: Windows
+          C:/dev/secrets/omoide-memory/omoide-memory-sa.json
+            Mac
+          /Users/user/secrets/omoide-memory/omoide-memory-sa.json
         """.trimIndent()
         )
 
-    if (Path.of(relativePath).isAbsolute) {
-        throw IllegalArgumentException("絶対パスは指定できません")
+    if (!Path.of(relativePath).isAbsolute) {
+        throw IllegalArgumentException("絶対パスを指定します。")
     }
 
     val omoideMemoryFolderId = System.getenv("OMOIDE_FOLDER_ID")

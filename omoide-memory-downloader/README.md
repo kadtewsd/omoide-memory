@@ -145,23 +145,20 @@ Windowsの環境変数に以下を設定します。
 
 「システムのプロパティ」→「環境変数」→「ユーザー環境変数」に以下を追加:
 
-| 変数名 | 説明 | 例 |
-|---|---|---|
-| `OMOIDE_BACKUP_DESTINATION` | ダウンロード先ディレクトリ | `G:\my-memory` |
-| `OMOIDE_GDRIVE_CREDENTIALS_PATH_FROM_HOME` | サービスアカウントJSONの相対パス（ホームディレクトリから） | `dev/secrets/omoide-memory/omoide-memory-sa.json` |
-| `OMOIDE_FOLDER_ID` | Google DriveのフォルダID | `1a2b3c4d5e6f7g8h9i0j` |
+| 変数名 | 説明                              | 例                                                             |
+|---|---------------------------------|---------------------------------------------------------------|
+| `OMOIDE_BACKUP_DESTINATION` | ダウンロード先ディレクトリ                   | `G:\my-memory`                                                |
+| `OMOIDE_GDRIVE_CREDENTIALS_PATH` | サービスアカウントJSONの絶対パス | `/Users/user/dev/secrets/omoide-memory/omoide-memory-sa.json` |
+| `OMOIDE_FOLDER_ID` | Google DriveのフォルダID             | `1a2b3c4d5e6f7g8h9i0j`                                        |
 
 **注意事項:**
-- `OMOIDE_GDRIVE_CREDENTIALS_PATH_FROM_HOME` は**相対パス**で指定してください
 - パス区切りは**スラッシュ (`/`)** を使用してください（Windowsでも同様）
-- 先頭にスラッシュは不要です
-- 絶対パスを指定するとエラーになります
 
 #### コマンドラインでの設定例
 
 ```cmd
 set OMOIDE_BACKUP_DESTINATION=G:\my-memory
-set OMOIDE_GDRIVE_CREDENTIALS_PATH_FROM_HOME=dev/secrets/omoide-memory/omoide-memory-sa.json
+set OMOIDE_GDRIVE_CREDENTIALS_PATH=c:/dev/secrets/omoide-memory/omoide-memory-sa.json
 set OMOIDE_FOLDER_ID=1a2b3c4d5e6f7g8h9i0j
 ```
 
@@ -224,7 +221,7 @@ java -Dspring.profiles.active=local -Drunner_name=downloadFromGDrive -jar app.ja
 ```batch
 @echo off
 set OMOIDE_BACKUP_DESTINATION=G:\my-memory
-set OMOIDE_GDRIVE_CREDENTIALS_PATH_FROM_HOME=dev/secrets/omoide-memory/omoide-memory-sa.json
+set OMOIDE_GDRIVE_CREDENTIALS_PATH=/Users/user/dev/secrets/omoide-memory/omoide-memory-sa.json
 set OMOIDE_FOLDER_ID=1a2b3c4d5e6f7g8h9i0j
 
 java -Dspring.profiles.active=local -Drunner_name=downloadFromGDrive -jar C:\path\to\omoide-memory-downloader-0.0.1-SNAPSHOT.jar >> C:\logs\omoide-downloader.log 2>&1
@@ -254,7 +251,7 @@ java -Dspring.profiles.active=local -Drunner_name=downloadFromGDrive -jar C:\pat
 
 ### エラー: `絶対パスは指定できません`
 
-→ `OMOIDE_GDRIVE_CREDENTIALS_PATH_FROM_HOME` に絶対パスを指定していませんか？相対パスで指定してください。
+→ `OMOIDE_GDRIVE_CREDENTIALS_PATH` に絶対パスを指定してください。
 
 ### エラー: `User credentials are required to call the Google Drive API`
 

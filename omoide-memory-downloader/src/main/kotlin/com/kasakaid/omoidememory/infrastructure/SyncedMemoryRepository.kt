@@ -7,7 +7,6 @@ import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMO
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_VIDEO
 import kotlinx.coroutines.reactive.awaitSingle
 import org.springframework.stereotype.Repository
-import reactor.core.publisher.Mono
 import java.time.OffsetDateTime
 
 @Repository
@@ -48,7 +47,7 @@ class SyncedMemoryRepository(
                 .set(IMAGE_WIDTH, memory.imageWidth)
                 .set(IMAGE_HEIGHT, memory.imageHeight)
                 .set(ORIENTATION, memory.orientation?.toShort())
-                .set(FILE_SIZE_BYTES, memory.fileSizeBytes.toLong())
+                .set(FILE_SIZE, memory.fileSize)
                 .set(CREATED_BY, "downloader")
                 .set(CREATED_AT, OffsetDateTime.now())
                 .returning()
@@ -74,7 +73,7 @@ class SyncedMemoryRepository(
                 .set(AUDIO_SAMPLE_RATE, memory.audioSampleRate)
                 .set(THUMBNAIL_IMAGE, memory.thumbnailImage)
                 .set(THUMBNAIL_MIME_TYPE, memory.thumbnailMimeType)
-                .set(FILE_SIZE, memory.fileSizeBytes)
+                .set(FILE_SIZE, memory.fileSize)
                 .set(CREATED_BY, "downloader")
                 .set(CREATED_AT, OffsetDateTime.now())
                 .returning()

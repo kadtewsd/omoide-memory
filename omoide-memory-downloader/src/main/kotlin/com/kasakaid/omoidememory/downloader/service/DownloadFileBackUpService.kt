@@ -1,10 +1,14 @@
 package com.kasakaid.omoidememory.downloader.service
 
-import com.kasakaid.omoidememory.domain.OmoideMemory
+import arrow.core.raise.either
+import com.google.api.services.drive.model.File
+import com.kasakaid.omoidememory.downloader.domain.MediaType
 import com.kasakaid.omoidememory.downloader.domain.DriveService
 import com.kasakaid.omoidememory.infrastructure.SyncedMemoryRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
+import org.springframework.core.env.Environment
 import org.springframework.stereotype.Service
+import java.nio.file.Path
 
 /**
  * ダウンロードしてきたデータを永続化までもっていくサービス。
@@ -13,37 +17,45 @@ import org.springframework.stereotype.Service
 class DownloadFileBackUpService(
     private val syncedMemoryRepository: SyncedMemoryRepository,
     private val driveService: DriveService,
+    private val environment: Environment,
 ) {
 
     private val logger = KotlinLogging.logger {}
 
-    suspend fun execute(omoideMemory: OmoideMemory) {
+    suspend fun execute(googleFile: File, omoideBackupPath: Path) {
 
-        logger.info { "取得対象ファイル: ${omoideMemory.name}" }
+        logger.info { "取得対象ファイル: ${googleFile.name}" }
 
         // Check if already exists in DB to skip
-        val exists = when (omoideMemory) {
-            is OmoideMemory.Photo -> syncedMemoryRepository.existsPhotoByFileName(omoideMemory.name)
-            is OmoideMemory.Video -> syncedMemoryRepository.existsVideoByFileName(omoideMemory.name)
-        }
-
-        if (exists) {
-            logger.info { "ファイルは既に存在するためスキップします: ${omoideMemory.name}" }
+        val type = MediaType.of(googleFile.name).getOrNull() ?: run {
+            logger.warn { "関連性のない拡張子なのでスキップ ${googleFile.name}" }
             return
         }
 
-        // 2. ファイルをダウンロード
-        driveService.writeOmoideMemoryToTargetPath(omoideMemory)
+        when (type) {
+            MediaType.PHOTO -> syncedMemoryRepository.existsPhotoByFileName(googleFile.name)
+            MediaType.VIDEO -> syncedMemoryRepository.existsVideoByFileName(googleFile.name)
+        }.let { exists ->
+            if (exists) {
+                logger.info { "ファイルは既に存在するためスキップします: ${googleFile.name}" }
+                return
+            }
+        }
 
-        // 5. ファイル配置 (FileOrganizeService) is not imported/used in recent user snippet logic flow clearly for 'OmoideMemory'
-        // If organization is needed, it should probably happen or return a new path.
-        // But user instructions were "Google のオブジェクトを直接ドメインオブジェクトに変更して永続化しています"
-        // So I will assume the path in OmoideMemory (set by translator) is the final one, or near final.
-        // For now, persist the OmoideMemory as-is.
+        either {
+            val omoideMemory =
+                driveService.writeOmoideMemoryToTargetPath(
+                    googleFile = googleFile,
+                    omoideBackupPath = omoideBackupPath,
+                    mediaType = type,
+                ).bind()
 
-        // 6. DBに保存
-        syncedMemoryRepository.save(omoideMemory)
+            // 6. DBに保存
+            syncedMemoryRepository.save(omoideMemory)
 
-        logger.info { "処理完了: ${omoideMemory.name} -> ${omoideMemory.localPath}" }
+            logger.info { "処理完了: ${googleFile.name} -> ${omoideMemory.localPath}" }
+        }.onLeft {
+            logger.error { "問題が発生したため永続化を行いませんでした ${googleFile.name}" }
+        }
     }
 }

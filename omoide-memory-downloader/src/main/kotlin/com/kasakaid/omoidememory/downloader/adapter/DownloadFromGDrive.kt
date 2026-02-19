@@ -1,10 +1,10 @@
 package com.kasakaid.omoidememory.downloader.adapter
 
 import arrow.core.right
+import com.google.api.services.drive.model.File
 import com.kasakaid.omoidememory.r2dbc.transaction.TransactionExecutor
 import com.kasakaid.omoidememory.utility.CoroutineHelper.mapWithCoroutine
 import com.kasakaid.omoidememory.APPLICATION_RUNNER_KEY
-import com.kasakaid.omoidememory.domain.OmoideMemory
 import com.kasakaid.omoidememory.downloader.domain.DriveService
 import com.kasakaid.omoidememory.downloader.service.DownloadFileBackUpService
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -13,7 +13,9 @@ import kotlinx.coroutines.sync.Semaphore
 import org.springframework.boot.ApplicationArguments
 import org.springframework.boot.ApplicationRunner
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
+import org.springframework.core.env.Environment
 import org.springframework.stereotype.Component
+import java.nio.file.Path
 
 private val logger = KotlinLogging.logger {}
 
@@ -23,18 +25,20 @@ class DownloadFromGDrive(
     private val driveService: DriveService,
     private val downloadFileBackUpService: DownloadFileBackUpService,
     private val transactionExecutor: TransactionExecutor,
+    private val environment: Environment,
 ) : ApplicationRunner {
 
     override fun run(args: ApplicationArguments): Unit = runBlocking {
         logger.info { "Google Driveからのダウンロード処理を開始します" }
         // 1. Google Driveから対象フォルダ配下の全ファイルを取得
-        val omoideMemories: List<OmoideMemory> = driveService.listFiles()
-        omoideMemories.mapWithCoroutine(Semaphore(300)) { omoideMemory ->
+        val googleDriveFilesInfo: List<File> = driveService.listFiles()
+        // Google API のレートに引っ掛かるなどの可能性があるので 10 程度にする
+        googleDriveFilesInfo.mapWithCoroutine(Semaphore(10)) { googleFile ->
             transactionExecutor.executeWithPerLineLeftRollback(
-                "${omoideMemory.name}:${omoideMemory.driveFileId}"
+                "${googleFile.name}:${googleFile.id}"
             ) {
-                downloadFileBackUpService.execute(omoideMemory)
-                omoideMemory.right()
+                downloadFileBackUpService.execute(googleFile = googleFile, omoideBackupPath = Path.of(environment.getProperty("OMOIDE_BACKUP_DESTINATION")!!))
+                googleFile.right()
             }
         }
     }
