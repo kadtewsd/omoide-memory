@@ -1,4 +1,4 @@
-package com.kasakaid.omoidememor.utility
+package com.kasakaid.omoidememory.utility
 
 import java.io.PrintWriter
 import java.io.StringWriter

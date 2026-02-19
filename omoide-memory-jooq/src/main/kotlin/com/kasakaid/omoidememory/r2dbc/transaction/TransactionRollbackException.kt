@@ -1,4 +1,4 @@
-package com.kasakaid.omoidememor.r2dbc.transaction
+package com.kasakaid.omoidememory.r2dbc.transaction
 
 /**
  * トランザクションをロールバックさせるための例外です。

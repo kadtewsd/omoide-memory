@@ -1,4 +1,4 @@
-package com.kasakaid.omoidememor.r2dbc
+package com.kasakaid.omoidememory.r2dbc
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.github.oshai.kotlinlogging.KLogger

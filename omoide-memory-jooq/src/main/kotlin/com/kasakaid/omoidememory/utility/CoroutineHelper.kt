@@ -1,4 +1,4 @@
-package com.kasakaid.omoidememor.utility
+package com.kasakaid.omoidememory.utility
 
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll

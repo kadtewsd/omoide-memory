@@ -17,6 +17,7 @@ import java.io.FileInputStream
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
+import kotlin.io.path.name
 
 /**
  * Google のドライブにアクセスするためのサービス
@@ -30,21 +31,28 @@ class GoogleDriveService(
     private val logger = KotlinLogging.logger {}
 
     private val driveService: Drive by lazy {
-        val credentialsPath = environment.getProperty("OMOIDE_GDRIVE_CREDENTIALS_PATH")
-            ?: throw IllegalArgumentException("OMOIDE_GDRIVE_CREDENTIALS_PATH env var is not set")
+        environment.getProperty("OMOIDE_GDRIVE_CREDENTIALS_PATH_FROM_HOME").let { pathFromHome ->
+            if (pathFromHome.isNullOrBlank()) {
+                throw IllegalArgumentException("OMOIDE_GDRIVE_CREDENTIALS_PATH_FROM_HOME がセットされていない")
+            }
 
-        val credentials = FileInputStream(credentialsPath).use {
-            GoogleCredentials.fromStream(it)
-                .createScoped(listOf(DriveScopes.DRIVE))
+            val credentialsPath = Path.of(System.getProperty("user.home"))
+                .resolve(pathFromHome)
+                .normalize()
+
+            val credentials = FileInputStream(credentialsPath.toFile()).use {
+                GoogleCredentials.fromStream(it)
+                    .createScoped(listOf(DriveScopes.DRIVE))
+            }
+
+            val requestInitializer = HttpCredentialsAdapter(credentials)
+
+            Drive.Builder(
+                GoogleNetHttpTransport.newTrustedTransport(),
+                GsonFactory.getDefaultInstance(),
+                requestInitializer
+            ).setApplicationName("OmoideMemoryDownloader").build()
         }
-
-        val requestInitializer = HttpCredentialsAdapter(credentials)
-
-        Drive.Builder(
-            GoogleNetHttpTransport.newTrustedTransport(),
-            GsonFactory.getDefaultInstance(),
-            requestInitializer
-        ).setApplicationName("OmoideMemoryDownloader").build()
     }
 
     override suspend fun listFiles(): List<OmoideMemory> {

@@ -1,8 +1,8 @@
 package com.kasakaid.omoidememory.downloader.adapter
 
 import arrow.core.right
-import com.kasakaid.omoidememor.r2dbc.transaction.TransactionExecutor
-import com.kasakaid.omoidememor.utility.CoroutineHelper.mapWithCoroutine
+import com.kasakaid.omoidememory.r2dbc.transaction.TransactionExecutor
+import com.kasakaid.omoidememory.utility.CoroutineHelper.mapWithCoroutine
 import com.kasakaid.omoidememory.APPLICATION_RUNNER_KEY
 import com.kasakaid.omoidememory.domain.OmoideMemory
 import com.kasakaid.omoidememory.downloader.domain.DriveService

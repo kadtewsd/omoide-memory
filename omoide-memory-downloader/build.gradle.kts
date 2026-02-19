@@ -14,7 +14,7 @@ description = "Omoide Memory を GDrive からダウンロードする"
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
+        languageVersion = JavaLanguageVersion.of(17)
     }
 }
 ktlint {

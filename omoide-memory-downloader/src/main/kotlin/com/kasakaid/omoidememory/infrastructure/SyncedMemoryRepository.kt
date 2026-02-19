@@ -1,25 +1,26 @@
 package com.kasakaid.omoidememory.infrastructure
 
+import com.kasakaid.omoidememory.r2dbc.R2DBCDSLContext
 import com.kasakaid.omoidememory.domain.OmoideMemory
 import com.kasakaid.omoidememory.domain.OmoideMemoryRepository
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_PHOTO
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_VIDEO
 import kotlinx.coroutines.reactive.awaitSingle
-import org.jooq.DSLContext
 import org.springframework.stereotype.Repository
 import reactor.core.publisher.Mono
 import java.time.OffsetDateTime
 
 @Repository
 class SyncedMemoryRepository(
-    private val dslContext: DSLContext,
-): OmoideMemoryRepository {
+    private val dslContext: R2DBCDSLContext,
+) : OmoideMemoryRepository {
 
     override suspend fun save(memory: OmoideMemory): OmoideMemory {
         when (memory) {
             is OmoideMemory.Video -> {
                 saveVideo(memory)
             }
+
             is OmoideMemory.Photo -> {
                 savePhoto(memory)
             }
@@ -28,7 +29,7 @@ class SyncedMemoryRepository(
     }
 
     private suspend fun savePhoto(memory: OmoideMemory.Photo) {
-        val record = dslContext.insertInto(SYNCED_OMOIDE_PHOTO)
+        val record = dslContext.get().insertInto(SYNCED_OMOIDE_PHOTO)
             .set(SYNCED_OMOIDE_PHOTO.FILE_NAME, memory.name)
             .set(SYNCED_OMOIDE_PHOTO.SERVER_PATH, memory.localPath.toString())
             .set(SYNCED_OMOIDE_PHOTO.CAPTURE_TIME, memory.captureTime ?: OffsetDateTime.now())
@@ -41,12 +42,12 @@ class SyncedMemoryRepository(
             .set(SYNCED_OMOIDE_PHOTO.CREATED_BY, "downloader")
             .set(SYNCED_OMOIDE_PHOTO.CREATED_AT, OffsetDateTime.now())
             .returning()
-            
+
         Mono.from(record).awaitSingle()
     }
 
     private suspend fun saveVideo(memory: OmoideMemory.Video) {
-        val record = dslContext.insertInto(SYNCED_OMOIDE_VIDEO)
+        val record = dslContext.get().insertInto(SYNCED_OMOIDE_VIDEO)
             .set(SYNCED_OMOIDE_VIDEO.FILE_NAME, memory.name)
             .set(SYNCED_OMOIDE_VIDEO.SERVER_PATH, memory.localPath.toString())
             .set(SYNCED_OMOIDE_VIDEO.CAPTURE_TIME, memory.captureTime ?: OffsetDateTime.now())
@@ -69,21 +70,21 @@ class SyncedMemoryRepository(
 
     override suspend fun existsPhotoByFileName(fileName: String): Boolean {
         // Check both tables
-        val photoExists = Mono.from(
-            dslContext.selectCount()
+        val photoExists =
+            dslContext.get().selectCount()
                 .from(SYNCED_OMOIDE_PHOTO)
                 .where(SYNCED_OMOIDE_PHOTO.FILE_NAME.eq(fileName))
-        ).awaitSingle().component1() ?: 0
+                .awaitSingle().component1() ?: 0
 
         return (photoExists > 0)
     }
 
     override suspend fun existsVideoByFileName(fileName: String): Boolean {
-        val videoExists = Mono.from(
-            dslContext.selectCount()
+        val videoExists =
+            dslContext.get().selectCount()
                 .from(SYNCED_OMOIDE_VIDEO)
                 .where(SYNCED_OMOIDE_VIDEO.FILE_NAME.eq(fileName))
-        ).awaitSingle().component1() ?: 0
+                .awaitSingle().component1() ?: 0
 
         return videoExists > 0
     }

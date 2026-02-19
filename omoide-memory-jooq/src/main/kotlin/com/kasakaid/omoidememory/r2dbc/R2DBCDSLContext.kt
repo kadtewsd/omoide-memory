@@ -1,4 +1,4 @@
-package com.kasakaid.omoidememor.r2dbc
+package com.kasakaid.omoidememory.r2dbc
 
 import kotlinx.coroutines.currentCoroutineContext
 import org.jooq.DSLContext

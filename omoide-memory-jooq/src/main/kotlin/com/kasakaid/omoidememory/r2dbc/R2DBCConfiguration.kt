@@ -1,4 +1,4 @@
-package com.kasakaid.omoidememor.r2dbc
+package com.kasakaid.omoidememory.r2dbc
 
 import io.r2dbc.spi.ConnectionFactories
 import io.r2dbc.spi.ConnectionFactory
@@ -23,12 +23,12 @@ class R2DBCConfiguration(
             ?: throw IllegalArgumentException("spring.r2dbc.url を application.yml にセットすること")
         val username = environment.getProperty("spring.r2dbc.username")
             ?: throw IllegalArgumentException("spring.r2dbc.username を application.yml にセットすること")
-        val password = System.getenv("spring.r2dbc.password")
+        val password = environment.getProperty("spring.r2dbc.password")
             ?: throw IllegalArgumentException("spring.r2dbc.password を application.yml にセットすること")
 
         // r2dbc:postgresql://localhost:5432/omoide_memory?currentSchema=omoide_memory
         // からホスト・ポート・データベース名を抽出
-        val regex = """r2dbc:postgresql://([^:]+):(\d+)/([^?]+)""".toRegex()
+        val regex = """r2dbc:pool:postgresql://([^:]+):(\d+)/([^?]+)""".toRegex()
         val matchResult = regex.find(url) ?: throw IllegalArgumentException("Invalid R2DBC URL format")
         val (host, port, database) = matchResult.destructured
 
