@@ -75,7 +75,27 @@ GCPのコンソールで、**「Google Drive API」が本当に「有効」に�
 
 ---
 
-## 5. アプリの使いかた
+## 5. ビルド前の設定
+
+### local.properties の設定
+
+プロジェクトルートに `local.properties` を作成し、OMOIDE_FOLDER_ID を追加してください。
+ダウンロード時にサービスアカウントが触りに行くため、このフォルダをサービスアカウントと共有するために、明示的にアップロード先のフォルダを指定します。
+```properties
+sdk.dir=/path/to/Android/sdk
+OMOIDE_FOLDER_ID=1a2b3c4d5e
+```
+
+- `sdk.dir`: Android SDKのパス（Android Studioが自動生成）
+- `omoide.folderId`: Google Driveのアップロード先フォルダID（サービスアカウントがこのフォルダにアクセスします）
+
+**フォルダIDの取得方法:**
+1. Google Driveでフォルダを開く
+2. URLの末尾がフォルダID
+    - 例: `https://drive.google.com/drive/folders/1a2b3c4d5e` → ID は `1a2b3c4d5e`
+3. 上記の例のように、取得したIDを `omoide.folderId` に指定してください
+
+## 6. アプリの使いかた
 
 1. アプリを起動し、Google アカウントでログインします。
 2. **手動アップロード**: メイン画面の「選択してUP」から好きな写真を選んで実行します。

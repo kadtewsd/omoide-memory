@@ -1,4 +1,4 @@
-import org.gradle.kotlin.dsl.support.kotlinCompilerOptions
+import java.util.Properties
 
 plugins {
     id("com.android.application")
@@ -6,6 +6,8 @@ plugins {
     id("com.google.devtools.ksp")
     id("com.google.dagger.hilt.android")
 }
+
+
 
 android {
     namespace = "com.kasakaid.omoidememory"
@@ -21,6 +23,19 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
             useSupportLibrary = true
+        }
+
+        // 1. local.properties を読み込む準備
+        val localProperties = Properties()
+        val localPropertiesFile = rootProject.file("local.properties")
+        if (localPropertiesFile.exists()) {
+            localProperties.load(localPropertiesFile.inputStream())
+        }
+        val folderId = localProperties.getProperty("OMOIDE_FOLDER_ID") ?: throw IllegalStateException("OMOIDE_FOLDER_ID を指定してアップロード先を決めてください。Google ドライブのサービスアカウントと共有します。")
+        buildConfigField("String", "OMOIDE_FOLDER_ID", folderId)
+        // BuildConfig を生成する設定（最近の Gradle では明示が必要な場合があります）
+        buildFeatures {
+            buildConfig = true
         }
     }
 
