@@ -19,7 +19,7 @@ CREATE TABLE omoide_memory.synced_omoide_photo (
     image_width         INT,
     image_height        INT,
     orientation         SMALLINT,
-    file_size_bytes     BIGINT,
+    file_size            INT,
     created_at          TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     created_by          VARCHAR(255),
     CONSTRAINT pk_synced_omoide_photo PRIMARY KEY (id),
@@ -46,6 +46,6 @@ COMMENT ON COLUMN omoide_memory.synced_omoide_photo.white_balance IS 'ホワイ�
 COMMENT ON COLUMN omoide_memory.synced_omoide_photo.image_width IS '画像幅（px）';
 COMMENT ON COLUMN omoide_memory.synced_omoide_photo.image_height IS '画像高さ（px）';
 COMMENT ON COLUMN omoide_memory.synced_omoide_photo.orientation IS 'EXIF回転情報（1〜8）';
-COMMENT ON COLUMN omoide_memory.synced_omoide_photo.file_size_bytes IS 'ファイルサイズ（バイト）';
+COMMENT ON COLUMN omoide_memory.synced_omoide_photo.file_size IS 'ファイルサイズ（バイト）';
 COMMENT ON COLUMN omoide_memory.synced_omoide_photo.created_at IS 'レコード作成日時（タイムゾーン付き）';
 COMMENT ON COLUMN omoide_memory.synced_omoide_photo.created_by IS 'レコード作成者';
