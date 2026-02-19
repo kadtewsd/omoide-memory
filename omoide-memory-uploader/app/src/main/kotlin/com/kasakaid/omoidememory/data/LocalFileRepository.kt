@@ -1,6 +1,7 @@
 package com.kasakaid.omoidememory.data
 
 import android.content.Context
+import android.database.Cursor
 import android.net.Uri
 import android.provider.MediaStore
 import android.util.Log
@@ -48,6 +49,44 @@ class LocalFileRepository @Inject constructor(
         }
     }
 
+    // 2. 取得処理
+    fun Cursor.toLocalFile(): LocalFile {
+        // getColumnIndex は存在しないと -1 を返す
+        val idIdx = getColumnIndex(MediaStore.Files.FileColumns._ID)
+        val nameIdx = getColumnIndex(MediaStore.Files.FileColumns.DISPLAY_NAME)
+        val pathIdx = getColumnIndex(MediaStore.Files.FileColumns.DATA)
+        val sizeIdx = getColumnIndex(MediaStore.Files.FileColumns.SIZE)
+        val mimeIdx = getColumnIndex(MediaStore.Files.FileColumns.MIME_TYPE)
+
+        // 2. 値の取得とフォールバック
+        val addedIdx = getColumnIndex(MediaStore.Files.FileColumns.DATE_ADDED)
+        val dateAdded = if (addedIdx != -1) getLong(addedIdx) * 1000L else System.currentTimeMillis()
+        val modifiedIdx = getColumnIndex(MediaStore.Files.FileColumns.DATE_MODIFIED)
+        val modTime = if (modifiedIdx != -1) getLong(modifiedIdx) * 1000L else dateAdded
+        // 画像/動画特有のカラム（Files テーブルでも内部的に持っていることが多い）
+        val takenIdx = getColumnIndex("datetaken") // 画像以外は存在しないことが多い
+        val orientationIdx = getColumnIndex("orientation")
+
+        return LocalFile(
+            id = if (idIdx != -1) getLong(idIdx) else -1L,
+            name = if (nameIdx != -1) getString(nameIdx) ?: "unknown" else "unknown",
+            filePath = if (pathIdx != -1) getString(pathIdx) ?: "" else "",
+            fileSize = if (sizeIdx != -1) getLong(sizeIdx) else 0L,
+            mimeType = if (mimeIdx != -1) getString(mimeIdx)
+                ?: "application/octet-stream" else "application/octet-stream",
+
+            dateModified = modTime,
+            // 日時系：取れない場合は date_added や 現在時刻でフォールバック
+            // dateTaken: 無ければ null
+            dateTaken = when {
+                takenIdx != -1 && !isNull(takenIdx) -> getLong(takenIdx)
+                else -> null
+            },
+            // orientation: 無ければ null
+            orientation = if (orientationIdx != -1) getInt(orientationIdx) else null
+        )
+    }
+
     /**
      * 見つかったら一つづつちょろちょろと川を流して呼び出し元に教えて (send) してあげる
      */
@@ -57,14 +96,6 @@ class LocalFileRepository @Inject constructor(
         // channelFlow の中は、デフォルトで適切なスコープで動くので
         // そのまま IO 処理を書いて OK です
         Log.d(TAG, "指定されたフィルタでアップロード候補のファイルを取得します。")
-        val projection = arrayOf(
-            MediaStore.Files.FileColumns._ID,
-            MediaStore.Files.FileColumns.DISPLAY_NAME,
-            MediaStore.Files.FileColumns.SIZE,
-            MediaStore.Files.FileColumns.MIME_TYPE,
-            MediaStore.Files.FileColumns.DATE_ADDED,
-            MediaStore.Files.FileColumns.DATA
-        )
 
         val selection = """
         (${MediaStore.Files.FileColumns.MEDIA_TYPE} = ? OR ${MediaStore.Files.FileColumns.MEDIA_TYPE} = ?)
@@ -83,21 +114,24 @@ class LocalFileRepository @Inject constructor(
 
         context.contentResolver.query(
             FolderUri.content,
-            projection,
+            arrayOf(
+                MediaStore.Files.FileColumns._ID,
+                MediaStore.Files.FileColumns.DISPLAY_NAME,
+                MediaStore.Files.FileColumns.SIZE,
+                MediaStore.Files.FileColumns.MIME_TYPE,
+                MediaStore.Files.FileColumns.DATE_ADDED,
+                MediaStore.Files.FileColumns.DATA,
+                MediaStore.Files.FileColumns.DATE_ADDED,    // 追加
+                MediaStore.Files.FileColumns.DATE_MODIFIED, // 追加
+                "datetaken" // MediaStore.Images.Media.DATE_TAKEN だが文字列で指定した方が安全な場合がある
+            ), // Projection
             selection,
             selectionArgs,
             sortOrder
         )?.use { cursor ->
             // sequence として 1 件ずつ処理
             cursor.asSequence().forEach { _ ->
-                val localFile = LocalFile(
-                    id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns._ID)),
-                    name = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DISPLAY_NAME)),
-                    filePath = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATA)),
-                    fileSize = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.SIZE)),
-                    mimeType = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.MIME_TYPE)),
-                )
-
+                val localFile = cursor.toLocalFile()
                 if (localFile.filePath != null) {
                     // 未アップロード判定を通ったものだけ currentList に追加
                     filterUnuploadedFile(localFile).onSome { item ->
@@ -113,13 +147,18 @@ class LocalFileRepository @Inject constructor(
 
 /**
  * ストレージから取り出してきたもの
+ * data class にすると遅いので class だけにします。
  */
-data class LocalFile(
+class LocalFile(
     val id: Long?,
     val name: String?,
     val filePath: String?,
     val fileSize: Long?,
     val mimeType: String?,
+    val dateModified: Long?,
+    val dateTaken: Long?,
+    // 回転情報
+    val orientation: Int?,
 ) {
     fun getContentUri(collection: Uri): Uri = Uri.withAppendedPath(collection, id.toString())
 }

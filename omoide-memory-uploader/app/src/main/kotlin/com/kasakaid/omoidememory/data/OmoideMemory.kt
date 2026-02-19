@@ -4,7 +4,7 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 
 @Entity(tableName = "uploaded_memories")
-data class OmoideMemory(
+class OmoideMemory(
     @PrimaryKey val hash: String, // Hash of the file content
     val id: String,
     val name: String,
@@ -14,7 +14,11 @@ data class OmoideMemory(
     val mimeType: String,
     // Roomが再生成時にもセットできるようにコンストラクタに含める
     // Google Drive File ID。アップロードが完了するまで NULL をいれておく。。。別の LocalFileWithHash のようなオブジェクトを作ると不自然のため
-    var driveFileId: String? = null
+    var driveFileId: String? = null,
+    val dateModified: Long?,
+    val dateTaken: Long?,
+    // 回転情報
+    val orientation: Int?,
 ) {
     companion object {
         fun of(
@@ -27,6 +31,9 @@ data class OmoideMemory(
                 fileSize = fileSize!!,
                 uploadedAt = System.currentTimeMillis(),
                 mimeType = mimeType!!,
+                dateModified = dateModified,
+                dateTaken = dateTaken,
+                orientation = orientation,
             )
         }
     }
