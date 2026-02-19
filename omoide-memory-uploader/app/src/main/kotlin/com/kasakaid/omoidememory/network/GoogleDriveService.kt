@@ -1,12 +1,14 @@
 package com.kasakaid.omoidememory.network
 
 import android.content.Context
+import android.os.Build
 import android.util.Log
 import com.kasakaid.omoidememory.data.OmoideUploadPrefsRepository
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
 import com.google.api.client.http.FileContent
 import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.api.client.json.gson.GsonFactory
+import com.google.api.client.util.DateTime
 import com.google.api.services.drive.Drive
 import com.google.api.services.drive.DriveScopes
 import com.kasakaid.omoidememory.data.OmoideMemory
@@ -41,9 +43,29 @@ class GoogleDriveService @Inject constructor(
     private fun OmoideMemory.toDriveFileMetaData(): com.google.api.services.drive.model.File {
         val omoide = this
         return com.google.api.services.drive.model.File().apply {
+            // 1. 基本情報
             name = omoide.name
-            // サービスアカウントが利用できる ID を parents にセットする
+            mimeType = omoide.mimeType
+
+            // 2. 保存先（ビルド時に指定したフォルダID）
             parents = listOf(com.kasakaid.omoidememory.BuildConfig.OMOIDE_FOLDER_ID)
+
+            // 3. 撮影日時をセット (Drive上での「作成日」として扱われる)
+            // omoide.dateTaken はミリ秒(Long)を想定
+            createdTime = omoide.dateTaken?.let { DateTime(it) }
+
+            // 4. 説明文に端末情報を入れる (後でドライブ内検索が可能)
+            description = "Uploaded by OmoideMemory App\n" +
+                    "Device: ${Build.MANUFACTURER} ${Build.MODEL}\n" +
+                    "Original Path: ${omoide.filePath}"
+
+            // 5. アプリ専用の隠しプロパティ (ユーザーには見えないがAPIから取得可能)
+            // 重複排除やDBとの紐付けに非常に有益
+            appProperties = mapOf(
+                "file_hash" to omoide.hash,
+                "local_id" to omoide.id,
+                "origin_device_id" to Build.ID // 端末識別の一助
+            )
         }
     }
 
