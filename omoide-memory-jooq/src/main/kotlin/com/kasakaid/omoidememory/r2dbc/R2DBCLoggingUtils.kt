@@ -1,7 +1,7 @@
 package com.kasakaid.omoidememory.r2dbc
 
-import io.github.oshai.kotlinlogging.KotlinLogging
 import io.github.oshai.kotlinlogging.KLogger
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.r2dbc.spi.Connection
 import io.r2dbc.spi.ConnectionFactory
 import io.r2dbc.spi.Result
@@ -13,8 +13,7 @@ import reactor.core.publisher.Mono
 class R2DBCLoggingConnectionFactory(
     private val delegate: ConnectionFactory,
 ) : ConnectionFactory by delegate {
-    override fun create(): Publisher<out Connection> =
-        Mono.from(delegate.create()).map { conn -> R2DBCLoggingConnection(conn) }
+    override fun create(): Publisher<out Connection> = Mono.from(delegate.create()).map { conn -> R2DBCLoggingConnection(conn) }
 }
 
 class R2DBCLoggingConnection(
@@ -39,7 +38,10 @@ class R2DBCLoggingStatement(
 ) : Statement by delegate {
     private val bindsByIndex = LinkedHashMap<Int, Any?>()
 
-    override fun bind(index: Int, value: Any): Statement {
+    override fun bind(
+        index: Int,
+        value: Any,
+    ): Statement {
         bindsByIndex[index] = value
         delegate.bind(index, value)
         return this

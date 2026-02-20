@@ -8,11 +8,8 @@ import org.springframework.context.annotation.Configuration
 
 @Configuration
 class FlywayConfig {
-
     @Bean
-    fun flywayMigrationStrategy(): FlywayMigrationStrategy {
-        return MyFlywayMigration
-    }
+    fun flywayMigrationStrategy(): FlywayMigrationStrategy = MyFlywayMigration
 }
 
 private val logger = KotlinLogging.logger {}
@@ -31,11 +28,13 @@ object MyFlywayMigration : FlywayMigrationStrategy {
         pending.iterator().forEachRemaining { migrationInfo ->
             logger.info { "マイグレーション適用中: ${migrationInfo.script} (バージョン: ${migrationInfo.version})" }
 
-            val stepFlyway = Flyway.configure()
-                .configuration(flyway.configuration)
-                .target(migrationInfo.version)
-                .initSql("SET lock_timeout = '5s';")
-                .load()
+            val stepFlyway =
+                Flyway
+                    .configure()
+                    .configuration(flyway.configuration)
+                    .target(migrationInfo.version)
+                    .initSql("SET lock_timeout = '5s';")
+                    .load()
 
             try {
                 val result = stepFlyway.migrate()

@@ -21,5 +21,9 @@ interface DriveService {
      * 取得されたファイルのメタデータから実体を取得してメモリをローカル PC のストレージに書き込みます。
      * omoideBackupPath -> コンテンツをバックアップするディレクトリ
      */
-    suspend fun writeOmoideMemoryToTargetPath(googleFile: File, omoideBackupPath: Path, mediaType: MediaType): Either<MetadataExtractError, OmoideMemory>
+    suspend fun writeOmoideMemoryToTargetPath(
+        googleFile: File,
+        omoideBackupPath: Path,
+        mediaType: MediaType,
+    ): Either<MetadataExtractError, OmoideMemory>
 }

@@ -20,9 +20,10 @@ java {
     }
 }
 ktlint {
-    version.set("1.5.0") // 最新バージョンを指定
     verbose.set(true)
-
+    // ./gradlew ktlintFormat でなんらかの失敗が出ても Format は行うようにする
+    ignoreFailures.set(true)
+    version.set("1.8.0")
     reporters {
         reporter(org.jlleitschuh.gradle.ktlint.reporter.ReporterType.CHECKSTYLE)
     }
@@ -43,13 +44,11 @@ dependencies {
     implementation("org.postgresql:r2dbc-postgresql")
     runtimeOnly("org.postgresql:postgresql") // Needed for Liquibase or other JDBC tools if any, keeping just in case
 
-
     // Google Drive API
     implementation("com.google.api-client:google-api-client:2.2.0")
     implementation("com.google.oauth-client:google-oauth-client-jetty:1.34.1")
     implementation("com.google.apis:google-api-services-drive:v3-rev20220815-2.0.0")
     implementation("com.google.auth:google-auth-library-oauth2-http:1.23.0")
-
 
     // Metadata Extraction
     implementation("com.drewnoakes:metadata-extractor:2.18.0") // Image EXIF
@@ -79,7 +78,6 @@ dependencies {
     // R2DBC Proxy for logging
     implementation("io.r2dbc:r2dbc-proxy:1.1.4.RELEASE")
 }
-
 
 kotlin {
     compilerOptions {

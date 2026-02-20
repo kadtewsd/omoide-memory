@@ -12,10 +12,11 @@ import java.time.ZoneId
 
 object MediaMetadataFactory {
     fun createVideo(path: Path): VideoMetadata {
-        val captured = OffsetDateTime.ofInstant(
-            Instant.ofEpochMilli(Files.getLastModifiedTime(path).toMillis()),
-            ZoneId.systemDefault()
-        )
+        val captured =
+            OffsetDateTime.ofInstant(
+                Instant.ofEpochMilli(Files.getLastModifiedTime(path).toMillis()),
+                ZoneId.systemDefault(),
+            )
         return VideoMetadata(capturedTime = captured, filePath = path)
     }
 
@@ -26,10 +27,11 @@ object MediaMetadataFactory {
         val exifSubIFD = metadata.getFirstDirectoryOfType(ExifSubIFDDirectory::class.java)
         val gpsDirectory = metadata.getFirstDirectoryOfType(GpsDirectory::class.java)
 
-        val captured = exifSubIFD
-            ?.getDate(ExifSubIFDDirectory.TAG_DATETIME_ORIGINAL)
-            ?.toInstant()
-            ?.let { OffsetDateTime.ofInstant(it, ZoneId.systemDefault()) }
+        val captured =
+            exifSubIFD
+                ?.getDate(ExifSubIFDDirectory.TAG_DATETIME_ORIGINAL)
+                ?.toInstant()
+                ?.let { OffsetDateTime.ofInstant(it, ZoneId.systemDefault()) }
 
         return PhotoMetadata(
             exifIFD0 = exifIFD0,

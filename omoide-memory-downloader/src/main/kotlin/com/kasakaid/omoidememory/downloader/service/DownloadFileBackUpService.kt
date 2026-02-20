@@ -2,8 +2,8 @@ package com.kasakaid.omoidememory.downloader.service
 
 import arrow.core.raise.either
 import com.google.api.services.drive.model.File
-import com.kasakaid.omoidememory.downloader.domain.MediaType
 import com.kasakaid.omoidememory.downloader.domain.DriveService
+import com.kasakaid.omoidememory.downloader.domain.MediaType
 import com.kasakaid.omoidememory.infrastructure.SyncedMemoryRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.core.env.Environment
@@ -19,18 +19,20 @@ class DownloadFileBackUpService(
     private val driveService: DriveService,
     private val environment: Environment,
 ) {
-
     private val logger = KotlinLogging.logger {}
 
-    suspend fun execute(googleFile: File, omoideBackupPath: Path) {
-
+    suspend fun execute(
+        googleFile: File,
+        omoideBackupPath: Path,
+    ) {
         logger.info { "取得対象ファイル: ${googleFile.name}" }
 
         // Check if already exists in DB to skip
-        val type = MediaType.of(googleFile.name).getOrNull() ?: run {
-            logger.warn { "関連性のない拡張子なのでスキップ ${googleFile.name}" }
-            return
-        }
+        val type =
+            MediaType.of(googleFile.name).getOrNull() ?: run {
+                logger.warn { "関連性のない拡張子なのでスキップ ${googleFile.name}" }
+                return
+            }
 
         when (type) {
             MediaType.PHOTO -> syncedMemoryRepository.existsPhotoByFileName(googleFile.name)
@@ -44,11 +46,12 @@ class DownloadFileBackUpService(
 
         either {
             val omoideMemory =
-                driveService.writeOmoideMemoryToTargetPath(
-                    googleFile = googleFile,
-                    omoideBackupPath = omoideBackupPath,
-                    mediaType = type,
-                ).bind()
+                driveService
+                    .writeOmoideMemoryToTargetPath(
+                        googleFile = googleFile,
+                        omoideBackupPath = omoideBackupPath,
+                        mediaType = type,
+                    ).bind()
 
             // 6. DBに保存
             syncedMemoryRepository.save(omoideMemory)

@@ -1,7 +1,4 @@
 root = true
-[*.kts]
-ktlint = disabled
-
 
 ########################################
 # 全体共通
@@ -18,7 +15,7 @@ trim_trailing_whitespace = true
 ########################################
 # Kotlin
 ########################################
-[*.{kt}]
+[*.{kt,kts}]
 max_line_length = 150
 
 # ---- ktlint standard rules ----
@@ -35,4 +32,5 @@ ktlint_standard_trailing-comma-on-call-site = enabled
 ktlint_standard_trailing-comma-on-declaration-site = enabled
 
 # ---- optional (好み) ----
-ij_kotlin_allo
+ij_kotlin_allow_trailing_comma = true
+ij_kotlin_imports_layout = *,java.**,javax.**,kotlin.**,^

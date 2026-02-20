@@ -20,7 +20,6 @@ import kotlin.coroutines.cancellation.CancellationException
 class TransactionExecutor(
     private val r2DBCDSLContext: R2DBCDSLContext,
 ) {
-
     suspend fun <LEFT : TransactionRollbackException, RIGHT> executeWithPerLineLeftRollback(
         requestId: String,
         block: suspend CoroutineScope.() -> Either<LEFT, RIGHT>,

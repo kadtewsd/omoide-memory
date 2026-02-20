@@ -8,5 +8,5 @@ class OmoideMemoryMigration
 
 fun main(args: Array<String>) {
     MigrationSqlCopier.copyDdlFromJooqProject()
-	runApplication<OmoideMemoryMigration>(*args)
+    runApplication<OmoideMemoryMigration>(*args)
 }

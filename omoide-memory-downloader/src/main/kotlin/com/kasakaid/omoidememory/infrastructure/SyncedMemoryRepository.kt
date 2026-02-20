@@ -1,10 +1,10 @@
 package com.kasakaid.omoidememory.infrastructure
 
-import com.kasakaid.omoidememory.r2dbc.R2DBCDSLContext
 import com.kasakaid.omoidememory.domain.OmoideMemory
 import com.kasakaid.omoidememory.domain.OmoideMemoryRepository
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_PHOTO
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_VIDEO
+import com.kasakaid.omoidememory.r2dbc.R2DBCDSLContext
 import kotlinx.coroutines.reactive.awaitSingle
 import org.springframework.stereotype.Repository
 import java.time.OffsetDateTime
@@ -13,7 +13,6 @@ import java.time.OffsetDateTime
 class SyncedMemoryRepository(
     private val dslContext: R2DBCDSLContext,
 ) : OmoideMemoryRepository {
-
     override suspend fun save(memory: OmoideMemory): OmoideMemory {
         when (memory) {
             is OmoideMemory.Video -> {
@@ -26,9 +25,12 @@ class SyncedMemoryRepository(
         }
         return memory
     }
+
     private suspend fun savePhoto(memory: OmoideMemory.Photo) {
         SYNCED_OMOIDE_PHOTO.run {
-            dslContext.get().insertInto(this)
+            dslContext
+                .get()
+                .insertInto(this)
                 .set(FILE_NAME, memory.name)
                 .set(SERVER_PATH, memory.localPath.toString())
                 .set(CAPTURE_TIME, memory.captureTime)
@@ -58,7 +60,9 @@ class SyncedMemoryRepository(
 
     private suspend fun saveVideo(memory: OmoideMemory.Video) {
         SYNCED_OMOIDE_VIDEO.run {
-            dslContext.get().insertInto(this)
+            dslContext
+                .get()
+                .insertInto(this)
                 .set(FILE_NAME, memory.name)
                 .set(SERVER_PATH, memory.localPath.toString())
                 .set(CAPTURE_TIME, memory.captureTime)
@@ -82,23 +86,30 @@ class SyncedMemoryRepository(
                 .awaitSingle()
         }
     }
+
     override suspend fun existsPhotoByFileName(fileName: String): Boolean {
         // Check both tables
         val photoExists =
-            dslContext.get().selectCount()
+            dslContext
+                .get()
+                .selectCount()
                 .from(SYNCED_OMOIDE_PHOTO)
                 .where(SYNCED_OMOIDE_PHOTO.FILE_NAME.eq(fileName))
-                .awaitSingle().component1() ?: 0
+                .awaitSingle()
+                .component1() ?: 0
 
         return (photoExists > 0)
     }
 
     override suspend fun existsVideoByFileName(fileName: String): Boolean {
         val videoExists =
-            dslContext.get().selectCount()
+            dslContext
+                .get()
+                .selectCount()
                 .from(SYNCED_OMOIDE_VIDEO)
                 .where(SYNCED_OMOIDE_VIDEO.FILE_NAME.eq(fileName))
-                .awaitSingle().component1() ?: 0
+                .awaitSingle()
+                .component1() ?: 0
 
         return videoExists > 0
     }

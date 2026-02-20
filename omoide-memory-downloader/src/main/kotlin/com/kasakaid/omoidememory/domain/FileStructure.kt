@@ -5,7 +5,6 @@ import arrow.core.Option
 import arrow.core.some
 import java.nio.file.Path
 
-
 /**
  * ファイルの構造
  */
@@ -14,10 +13,11 @@ class FileStructure(
     val extension: Extension,
 ) {
     val fullName: String
-        get() = extension.value.fold(
-            ifEmpty = { valueWithoutExtension },
-            ifSome = { ext -> "$valueWithoutExtension.$ext" }
-        )
+        get() =
+            extension.value.fold(
+                ifEmpty = { valueWithoutExtension },
+                ifSome = { ext -> "$valueWithoutExtension.$ext" },
+            )
 
     companion object {
         fun of(fileName: String): FileStructure {
@@ -30,9 +30,7 @@ class FileStructure(
             )
         }
 
-        fun of(path: Path): FileStructure {
-            return of(path.fileName.toString())
-        }
+        fun of(path: Path): FileStructure = of(path.fileName.toString())
     }
 
     /**
@@ -42,7 +40,7 @@ class FileStructure(
         val withCounterValue = "${valueWithoutExtension}_$counter"
         return extension.value.fold(
             ifEmpty = { withCounterValue },
-            ifSome = { ext -> "${withCounterValue}.$ext" }
+            ifSome = { ext -> "$withCounterValue.$ext" },
         )
     }
 }
@@ -52,33 +50,36 @@ class Extension(
     val mimeType: String,
 ) {
     companion object {
-        private val MIME_TYPE_MAP = mapOf(
-            "jpg" to "image/jpeg",
-            "jpeg" to "image/jpeg",
-            "png" to "image/png",
-            "heic" to "image/heic",
-            "heif" to "image/heif",
-            "gif" to "image/gif",
-            "webp" to "image/webp",
-            "mp4" to "video/mp4",
-            "mov" to "video/quicktime",
-            "avi" to "video/x-msvideo",
-            "mkv" to "video/x-matroska",
-            "3gp" to "video/3gpp",
-            "webm" to "video/webm",
-        )
+        private val MIME_TYPE_MAP =
+            mapOf(
+                "jpg" to "image/jpeg",
+                "jpeg" to "image/jpeg",
+                "png" to "image/png",
+                "heic" to "image/heic",
+                "heif" to "image/heif",
+                "gif" to "image/gif",
+                "webp" to "image/webp",
+                "mp4" to "video/mp4",
+                "mov" to "video/quicktime",
+                "avi" to "video/x-msvideo",
+                "mkv" to "video/x-matroska",
+                "3gp" to "video/3gpp",
+                "webm" to "video/webm",
+            )
 
         private const val DEFAULT_MIME_TYPE = "application/octet-stream"
 
         fun of(fileName: String): Extension {
-            val extensionValue = fileName.substringAfterLast(".", "").let {
-                if (it.isEmpty()) None else it.some()
-            }
+            val extensionValue =
+                fileName.substringAfterLast(".", "").let {
+                    if (it.isEmpty()) None else it.some()
+                }
 
-            val mimeType = extensionValue.fold(
-                ifEmpty = { DEFAULT_MIME_TYPE },
-                ifSome = { ext -> MIME_TYPE_MAP[ext.lowercase()] ?: DEFAULT_MIME_TYPE }
-            )
+            val mimeType =
+                extensionValue.fold(
+                    ifEmpty = { DEFAULT_MIME_TYPE },
+                    ifSome = { ext -> MIME_TYPE_MAP[ext.lowercase()] ?: DEFAULT_MIME_TYPE },
+                )
 
             return Extension(
                 value = extensionValue,
@@ -86,8 +87,6 @@ class Extension(
             )
         }
 
-        fun of(path: Path): Extension {
-            return of(path.fileName.toString())
-        }
+        fun of(path: Path): Extension = of(path.fileName.toString())
     }
 }
