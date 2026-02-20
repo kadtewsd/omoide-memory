@@ -4,6 +4,7 @@ import arrow.core.Either
 import arrow.core.left
 import arrow.core.raise.either
 import arrow.core.right
+import com.drew.lang.GeoLocation
 import com.drew.metadata.exif.ExifIFD0Directory
 import com.drew.metadata.exif.ExifSubIFDDirectory
 import com.drew.metadata.exif.GpsDirectory
@@ -98,7 +99,7 @@ class PhotoMetadata(
                     fileSize = sourceFile.size,
                     locationName =
                         gpsDirectory?.geoLocation?.let { geo ->
-                            if (geo.latitude != null && geo.longitude != null) {
+                            if (geo.exists()) {
                                 LocationService.getLocationName(geo.latitude, geo.longitude)
                             } else {
                                 null
@@ -131,4 +132,6 @@ class PhotoMetadata(
             logger.error(e) { "画像メタデータの抽出に失敗: ${this.filePath}" }
             MetadataExtractError(e).left()
         }
+
+    fun GeoLocation.exists(): Boolean = latitude != 0.0 && longitude != 0.0
 }
