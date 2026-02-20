@@ -28,7 +28,7 @@ enum class MediaType(
 
     companion object {
         fun of(fileNameWithExtension: String): Option<MediaType> {
-            return entries.firstOrNull { fileNameWithExtension in it.extensions }?.some() ?: None
+            return entries.firstOrNull { it.extensions.any { fileNameWithExtension == it }  }?.some() ?: None
         }
     }
 }

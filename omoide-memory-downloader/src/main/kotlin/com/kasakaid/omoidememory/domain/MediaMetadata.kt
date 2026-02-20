@@ -49,33 +49,12 @@ class SourceFile(
          * ローカルファイルから作成
          */
         fun fromLocalFile(localPath: Path): SourceFile {
-            val extension = localPath.fileName.toString().substringAfterLast(".", "")
-            val mimeType = guessMimeType(extension)
-
             return SourceFile(
                 name = localPath.fileName.toString(),
-                mimeType = mimeType,
+                mimeType = Extension.of(localPath).mimeType,
                 size = java.nio.file.Files.size(localPath),
                 driveFileId = null, // ローカルファイルはnull
             )
-        }
-
-        private fun guessMimeType(extension: String): String {
-            return when (extension.lowercase()) {
-                "jpg", "jpeg" -> "image/jpeg"
-                "png" -> "image/png"
-                "heic" -> "image/heic"
-                "heif" -> "image/heif"
-                "gif" -> "image/gif"
-                "webp" -> "image/webp"
-                "mp4" -> "video/mp4"
-                "mov" -> "video/quicktime"
-                "avi" -> "video/x-msvideo"
-                "mkv" -> "video/x-matroska"
-                "3gp" -> "video/3gpp"
-                "webm" -> "video/webm"
-                else -> "application/octet-stream"
-            }
         }
     }
 }
