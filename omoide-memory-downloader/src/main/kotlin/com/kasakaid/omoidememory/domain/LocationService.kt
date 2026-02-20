@@ -1,6 +1,5 @@
 package com.kasakaid.omoidememory.domain
 
-import com.kasakaid.omoidememory.downloader.adapter.location.StringOrNullSerializer
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.HttpClient
 import io.ktor.client.HttpClientConfig
@@ -42,18 +41,18 @@ object LocationService {
                 header("User-Agent", "OmoideMemoryDownloader/1.0")
             }.body()
 
-            response?.displayName
+            response.display_name.also {
+                logger.debug { "場所は $it" }
+            }
         } catch (e: Exception) {
             logger.warn(e) { "Failed to get location name for $latitude, $longitude" }
             null
         }
     }
 
-    @Serializable
-    data class NominatimResponse(
-        @Serializable(with = StringOrNullSerializer::class)
-        val display_name: String? = null
-    ) {
-        val displayName: String? get() = display_name
+        @Serializable
+        class NominatimResponse(
+            val display_name: String? = null
+        )
+
     }
-}
