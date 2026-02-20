@@ -11,18 +11,17 @@ sealed interface OmoideMemory {
     val localPath: Path
     val name: String
     val mediaType: String
-    val driveFileId: String
+    val driveFileId: String? // ドライブから取得されていないデータもあるため、整合性をとるため NULL 許可
     val captureTime: OffsetDateTime?
-    val fileSize: Int
-    val locationName: String?
+    val fileSize: Long
 
     class Photo(
         override val localPath: Path,
         override val name: String,
         override val mediaType: String,
-        override val driveFileId: String,
-        override val fileSize: Int,
-        override val locationName: String?,
+        override val driveFileId: String?,
+        override val fileSize: Long,
+        val locationName: String?,
         val aperture: Float?,
         val shutterSpeed: String?,
         val isoSpeed: Int?,
@@ -44,9 +43,8 @@ sealed interface OmoideMemory {
         override val localPath: Path,
         override val name: String,
         override val mediaType: String,
-        override val driveFileId: String,
-        override val fileSize: Int,
-        override val locationName: String?,
+        override val driveFileId: String?,
+        override val fileSize: Long,
         val durationSeconds: Double?, // Changed to Double to match GDrive/Metadata extraction
         val videoWidth: Int?,
         val videoHeight: Int?,
