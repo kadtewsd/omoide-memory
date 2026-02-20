@@ -5,6 +5,7 @@ import arrow.core.left
 import arrow.core.right
 import java.nio.file.Files
 import java.nio.file.Path
+import kotlin.io.path.name
 
 class MetadataExtractError(val ex: Exception)
 
@@ -14,6 +15,7 @@ object OmoideMemoryTranslator {
      * 動画の1秒目のフレームをJPEGサムネイルとして生成
      */
     fun generateThumbnail(videoPath: Path): Either<MetadataExtractError, Pair<ByteArray, String>> {
+        logger.debug { "サムネイルを ${videoPath.name} で生成" }
         return try {
             val tempThumbnail = Files.createTempFile("thumbnail_", ".jpg")
 

@@ -27,45 +27,38 @@ object FileOrganizeService {
      * @param captureTime 撮影日時
      * @return 配置先のフルパス
      */
-    suspend fun determineTargetPath(fileName: String, captureTime: OffsetDateTime?): Path = withContext(Dispatchers.IO) {
-        val destinationRoot = System.getenv("OMOIDE_BACKUP_DESTINATION")
-            ?: throw IllegalStateException("OMOIDE_BACKUP_DESTINATION is not set")
+    suspend fun determineTargetPath(fileName: String, captureTime: OffsetDateTime?): Path =
+        withContext(Dispatchers.IO) {
+            val destinationRoot = System.getenv("OMOIDE_BACKUP_DESTINATION")
+                ?: throw IllegalStateException("OMOIDE_BACKUP_DESTINATION is not set")
 
-        val effectiveCaptureTime = captureTime
-            ?: extractDateFromFilename(fileName)
-            ?: OffsetDateTime.now()
+            val effectiveCaptureTime = captureTime
+                ?: extractDateFromFilename(fileName)
+                ?: OffsetDateTime.now()
 
-        val year = effectiveCaptureTime.year.toString()
-        val month = String.format("%02d", effectiveCaptureTime.monthValue)
+            val year = effectiveCaptureTime.year.toString()
+            val month = String.format("%02d", effectiveCaptureTime.monthValue)
 
-        val contentType = MediaType.of(fileName).getOrNull()
-            ?: throw IllegalArgumentException("サポートされていないファイル形式: $fileName")
+            val contentType = MediaType.of(fileName).getOrNull()
+                ?: throw IllegalArgumentException("サポートされていないファイル形式: $fileName")
 
-        val targetDir = Path.of(destinationRoot, year, month, contentType.directoryName)
+            val targetDir = Path.of(destinationRoot, year, month, contentType.directoryName)
 
-        // ディレクトリが存在しない場合は作成
-        if (!Files.exists(targetDir)) {
-            Files.createDirectories(targetDir)
-        }
-
-        var targetFile = targetDir.resolve(fileName)
-        var counter = 1
-
-        // ファイルが既に存在する場合は連番を付与
-        while (Files.exists(targetFile)) {
-            val nameWithoutExt = fileName.substringBeforeLast(".")
-            val ext = fileName.substringAfterLast(".", "")
-            val newName = if (ext.isNotEmpty()) {
-                "${nameWithoutExt}_$counter.$ext"
-            } else {
-                "${nameWithoutExt}_$counter"
+            // ディレクトリが存在しない場合は作成
+            if (!Files.exists(targetDir)) {
+                Files.createDirectories(targetDir)
             }
-            targetFile = targetDir.resolve(newName)
-            counter++
-        }
 
-        targetFile
-    }
+            var targetFile = targetDir.resolve(fileName)
+            var counter = 1
+
+            // ファイルが既に存在する場合は連番を付与
+            while (Files.exists(targetFile)) {
+                targetFile = targetDir.resolve(FileStructure.of(fileName).withCounter(counter++))
+            }
+
+            targetFile
+        }
 
     /**
      * ファイルを最終的な配置先に移動する
