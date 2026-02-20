@@ -60,28 +60,40 @@ class SyncedMemoryRepository(
 
     private suspend fun saveVideo(memory: OmoideMemory.Video) {
         SYNCED_OMOIDE_VIDEO.run {
+            val baseFields =
+                memory.run {
+                    mapOf(
+                        FILE_NAME to name,
+                        SERVER_PATH to localPath.toString(),
+                        CAPTURE_TIME to captureTime,
+                        FILE_SIZE to fileSize,
+                        DRIVE_FILE_ID to driveFileId,
+                        CREATED_BY to "downloader",
+                        CREATED_AT to OffsetDateTime.now(),
+                    )
+                }
+
+            val metadataFields =
+                memory.metadata.run {
+                    mapOf(
+                        DURATION_SECONDS to durationSeconds?.toBigDecimal(),
+                        VIDEO_WIDTH to videoWidth,
+                        VIDEO_HEIGHT to videoHeight,
+                        FRAME_RATE to frameRate?.toBigDecimal(),
+                        VIDEO_CODEC to videoCodec,
+                        VIDEO_BITRATE_KBPS to videoBitrateKbps,
+                        AUDIO_CODEC to audioCodec,
+                        AUDIO_BITRATE_KBPS to audioBitrateKbps,
+                        AUDIO_CHANNELS to audioChannels?.toShort(),
+                        AUDIO_SAMPLE_RATE to audioSampleRate,
+                        THUMBNAIL_IMAGE to thumbnailBytes,
+                        THUMBNAIL_MIME_TYPE to thumbnailMimeType,
+                    )
+                }
             dslContext
                 .get()
                 .insertInto(this)
-                .set(FILE_NAME, memory.name)
-                .set(SERVER_PATH, memory.localPath.toString())
-                .set(CAPTURE_TIME, memory.captureTime)
-                .set(DURATION_SECONDS, memory.durationSeconds?.toBigDecimal())
-                .set(VIDEO_WIDTH, memory.videoWidth)
-                .set(VIDEO_HEIGHT, memory.videoHeight)
-                .set(FRAME_RATE, memory.frameRate?.toBigDecimal())
-                .set(VIDEO_CODEC, memory.videoCodec)
-                .set(VIDEO_BITRATE_KBPS, memory.videoBitrateKbps)
-                .set(AUDIO_CODEC, memory.audioCodec)
-                .set(AUDIO_BITRATE_KBPS, memory.audioBitrateKbps)
-                .set(AUDIO_CHANNELS, memory.audioChannels?.toShort())
-                .set(AUDIO_SAMPLE_RATE, memory.audioSampleRate)
-                .set(THUMBNAIL_IMAGE, memory.thumbnailImage)
-                .set(THUMBNAIL_MIME_TYPE, memory.thumbnailMimeType)
-                .set(FILE_SIZE, memory.fileSize)
-                .set(DRIVE_FILE_ID, memory.driveFileId)
-                .set(CREATED_BY, "downloader")
-                .set(CREATED_AT, OffsetDateTime.now())
+                .set(baseFields + metadataFields)
                 .returning()
                 .awaitSingle()
         }

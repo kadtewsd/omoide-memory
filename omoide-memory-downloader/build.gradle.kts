@@ -45,15 +45,13 @@ dependencies {
     runtimeOnly("org.postgresql:postgresql") // Needed for Liquibase or other JDBC tools if any, keeping just in case
 
     // Google Drive API
-    implementation("com.google.api-client:google-api-client:2.2.0")
+    implementation("com.google.api-client:google-api-client:2.8.1")
     implementation("com.google.oauth-client:google-oauth-client-jetty:1.34.1")
     implementation("com.google.apis:google-api-services-drive:v3-rev20220815-2.0.0")
     implementation("com.google.auth:google-auth-library-oauth2-http:1.23.0")
 
     // Metadata Extraction
     implementation("com.drewnoakes:metadata-extractor:2.18.0") // Image EXIF
-    implementation("ws.schild:jave-core:3.3.1") // Video metadata
-    implementation("ws.schild:jave-nativebin-win64:3.3.1") // Windows ffmpeg binary
 
     // HTTP Client (Nominatim API)
     implementation("io.ktor:ktor-client-core:3.0.3")
@@ -82,6 +80,7 @@ dependencies {
 kotlin {
     compilerOptions {
         freeCompilerArgs.addAll("-Xjsr305=strict")
+        freeCompilerArgs.add("-Xcontext-parameters")
     }
 }
 

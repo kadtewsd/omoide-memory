@@ -2,17 +2,14 @@ package com.kasakaid.omoidememory.domain
 
 import arrow.core.Either
 import arrow.core.left
+import arrow.core.raise.either
 import arrow.core.right
 import com.drew.metadata.exif.ExifIFD0Directory
 import com.drew.metadata.exif.ExifSubIFDDirectory
 import com.drew.metadata.exif.GpsDirectory
 import com.google.api.services.drive.model.File
-import com.kasakaid.omoidememory.domain.OmoideMemoryTranslator.generateThumbnail
 import io.github.oshai.kotlinlogging.KotlinLogging
-import ws.schild.jave.MultimediaObject
-import java.nio.file.Files
 import java.nio.file.Path
-import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.ZoneId
 
@@ -60,43 +57,24 @@ class SourceFile(
     }
 }
 
-data class VideoMetadata(
+class VideoMetadata(
     override val capturedTime: OffsetDateTime,
     override val filePath: Path,
 ) : MediaMetadata {
     override suspend fun toMedia(sourceFile: SourceFile): Either<MetadataExtractError, OmoideMemory> =
-        try {
-            val thumbnail = generateThumbnail(filePath)
-            MultimediaObject(filePath.toFile()).info.let { info ->
-                OmoideMemory
-                    .Video(
-                        localPath = filePath,
-                        name = sourceFile.name,
-                        mediaType = sourceFile.mimeType,
-                        driveFileId = sourceFile.driveFileId,
-                        fileSize = sourceFile.size,
-                        durationSeconds = info.duration / 1000.0,
-                        videoWidth = info.video?.size?.width,
-                        videoHeight = info.video?.size?.height,
-                        frameRate = info.video?.frameRate?.toDouble(),
-                        videoCodec = info.video?.decoder,
-                        videoBitrateKbps = info.video?.bitRate?.div(1000),
-                        audioCodec = info.audio?.decoder,
-                        audioBitrateKbps = info.audio?.bitRate?.div(1000),
-                        audioChannels = info.audio?.channels,
-                        audioSampleRate = info.audio?.samplingRate,
-                        thumbnailImage = thumbnail.getOrNull()?.first,
-                        thumbnailMimeType = thumbnail.getOrNull()?.second,
-                        captureTime =
-                            OffsetDateTime.ofInstant(
-                                Instant.ofEpochMilli(Files.getLastModifiedTime(filePath).toMillis()),
-                                ZoneId.systemDefault(),
-                            ),
-                    ).right()
-            }
-        } catch (e: Exception) {
-            logger.error(e) { "動画メタデータの抽出に失敗: $filePath" }
-            MetadataExtractError(e).left()
+        either {
+            OmoideMemory.Video(
+                localPath = filePath,
+                name = sourceFile.name,
+                mediaType = sourceFile.mimeType,
+                driveFileId = sourceFile.driveFileId,
+                fileSize = sourceFile.size,
+                captureTime = capturedTime,
+                metadata =
+                    VideoMetaInfoExtractor
+                        .extractAll(filePath)
+                        .bind(),
+            )
         }
 }
 

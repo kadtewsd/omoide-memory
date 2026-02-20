@@ -68,12 +68,13 @@ G:\my-memory\
 
 ## 必要な環境
 
-| 項目 | バージョン                 |
-|---|-----------------------|
-| OS | Windows 11            |
-| JDK | 17                    |
-| PostgreSQL | 16（docker-composeで起動可能） |
-| Google Cloud Platform | サービスアカウント             |
+| 項目                    | バージョン                   |
+|-----------------------|-------------------------|
+| OS                    | Windows 11              |
+| JDK                   | 17                      |
+| PostgreSQL            | 16（docker-composeで起動可能） |
+| Google Cloud Platform | サービスアカウント               |
+| ffmpeg                | 動画メタ情報抽出                |
 
 ---
 
@@ -153,6 +154,117 @@ Windowsの環境変数に以下を設定します。
 
 **注意事項:**
 - パス区切りは**スラッシュ (`/`)** を使用してください（Windowsでも同様）
+
+5. ffmpg
+6. # FFmpeg について（必須依存）
+
+本アプリケーションは実行時に **FFmpeg** を必要とします。
+
+## FFmpeg とは？
+
+[FFmpeg](https://ffmpeg.org/) は、動画・音声の変換、解析、エンコード、デコードなどを行うためのオープンソースのマルチメディアフレームワークです。
+
+コマンドラインツールとして以下が提供されています：
+
+- `ffmpeg` … 動画・音声の変換やサムネイル生成などを行う
+- `ffprobe` … 動画・音声ファイルのメタデータを解析する
+
+---
+
+## 本アプリケーションでの用途
+
+本アプリケーションでは FFmpeg を以下の目的で使用しています：
+
+- `ffprobe`
+    - 動画のメタデータ取得
+        - 解像度
+        - フレームレート
+        - コーデック情報
+        - 再生時間 など
+
+- `ffmpeg`
+    - サムネイル画像の生成
+
+そのため、実行時に `ffmpeg` および `ffprobe` コマンドが利用可能である必要があります。
+
+---
+
+## インストール方法
+
+### macOS
+
+#### Homebrew を使用する場合（推奨）
+
+```bash
+brew install ffmpeg
+```
+
+Homebrew でインストールした場合、自動的に PATH が通るため追加設定は不要です。
+
+確認：
+```
+ffmpeg -version
+ffprobe -version
+```
+
+### Linux
+
+#### Ubuntu / Debian
+
+```bash
+sudo apt update
+sudo apt install ffmpeg
+```
+
+#### Arch Linux
+
+```bash
+sudo pacman -S ffmpeg
+```
+
+インストール後、通常は自動的に PATH に追加されます。
+
+---
+
+### Windows
+
+1. 公式サイトから Windows ビルドをダウンロード
+   [https://ffmpeg.org/download.html](https://ffmpeg.org/download.html)
+
+2. zip を展開（例）
+
+```
+C:\ffmpeg\bin
+```
+
+3. `bin` ディレクトリを **環境変数 PATH** に追加する
+
+4. PowerShell で確認
+
+```powershell
+ffmpeg -version
+ffprobe -version
+```
+
+---
+
+## カスタムパスを使用する場合
+
+PATH に追加せずに使用する場合は、以下の環境変数で実行ファイルの場所を指定できます。
+
+```bash
+FFMPEG_PATH=/path/to/ffmpeg
+FFPROBE_PATH=/path/to/ffprobe
+```
+
+Windows の場合：
+
+```powershell
+setx FFMPEG_PATH "C:\ffmpeg\bin\ffmpeg.exe"
+setx FFPROBE_PATH "C:\ffmpeg\bin\ffprobe.exe"
+```
+
+---
 
 #### コマンドラインでの設定例
 
