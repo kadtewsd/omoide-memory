@@ -1,11 +1,12 @@
 import org.jooq.meta.jaxb.Property
+
 plugins {
 	kotlin("jvm") version "2.2.21"
 	kotlin("plugin.spring") version "2.2.21"
 	id("org.springframework.boot") version "4.0.2"
 	id("io.spring.dependency-management") version "1.1.7"
     id("nu.studer.jooq") version "9.0"
-    id("org.jlleitschuh.gradle.ktlint") version "12.1.0" apply true
+    id("org.jlleitschuh.gradle.ktlint") version "12.3.0" apply true
 }
 
 group = "com.kasakaid"

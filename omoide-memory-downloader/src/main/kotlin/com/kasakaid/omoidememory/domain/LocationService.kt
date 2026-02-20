@@ -50,7 +50,7 @@ object LocationService {
         }
     }
 
-        @Serializable
+       @Serializable
         class NominatimResponse(
             val display_name: String? = null
         )
