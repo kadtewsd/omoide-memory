@@ -55,8 +55,8 @@ sealed interface OmoideMemory {
         val audioBitrateKbps: Int?,
         val audioChannels: Int?,
         val audioSampleRate: Int?,
-        val thumbnailImage: ByteArray?,   // 動画の1秒目のサムネイル
-        val thumbnailMimeType: String?,   // "image/jpeg"
+        val thumbnailImage: ByteArray?, // 動画の1秒目のサムネイル
+        val thumbnailMimeType: String?, // "image/jpeg"
         override val captureTime: OffsetDateTime?,
     ) : OmoideMemory
 }

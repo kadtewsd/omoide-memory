@@ -19,6 +19,7 @@ import java.time.ZoneId
 sealed interface MediaMetadata {
     val capturedTime: OffsetDateTime?
     val filePath: Path
+
     suspend fun toMedia(sourceFile: SourceFile): Either<MetadataExtractError, OmoideMemory>
 }
 
@@ -36,69 +37,68 @@ class SourceFile(
         /**
          * Google Drive APIのFileから作成
          */
-        fun fromGoogleDrive(googleFile: File): SourceFile {
-            return SourceFile(
+        fun fromGoogleDrive(googleFile: File): SourceFile =
+            SourceFile(
                 name = googleFile.name,
                 mimeType = googleFile.mimeType,
                 size = googleFile.size.toLong(),
                 driveFileId = googleFile.id,
             )
-        }
 
         /**
          * ローカルファイルから作成
          */
-        fun fromLocalFile(localPath: Path): SourceFile {
-            return SourceFile(
+        fun fromLocalFile(localPath: Path): SourceFile =
+            SourceFile(
                 name = localPath.fileName.toString(),
                 mimeType = Extension.of(localPath).mimeType,
-                size = java.nio.file.Files.size(localPath),
+                size =
+                    java.nio.file.Files
+                        .size(localPath),
                 driveFileId = null, // ローカルファイルはnull
             )
-        }
     }
 }
 
 data class VideoMetadata(
     override val capturedTime: OffsetDateTime,
-    override val filePath: Path
+    override val filePath: Path,
 ) : MediaMetadata {
-    override suspend fun toMedia(sourceFile: SourceFile): Either<MetadataExtractError, OmoideMemory> {
-        return try {
+    override suspend fun toMedia(sourceFile: SourceFile): Either<MetadataExtractError, OmoideMemory> =
+        try {
             val thumbnail = generateThumbnail(filePath)
             MultimediaObject(filePath.toFile()).info.let { info ->
-                OmoideMemory.Video(
-                    localPath = filePath,
-                    name = sourceFile.name,
-                    mediaType = sourceFile.mimeType,
-                    driveFileId = sourceFile.driveFileId,
-                    fileSize = sourceFile.size,
-                    durationSeconds = info.duration / 1000.0,
-                    videoWidth = info.video?.size?.width,
-                    videoHeight = info.video?.size?.height,
-                    frameRate = info.video?.frameRate?.toDouble(),
-                    videoCodec = info.video?.decoder,
-                    videoBitrateKbps = info.video?.bitRate?.div(1000),
-                    audioCodec = info.audio?.decoder,
-                    audioBitrateKbps = info.audio?.bitRate?.div(1000),
-                    audioChannels = info.audio?.channels,
-                    audioSampleRate = info.audio?.samplingRate,
-                    thumbnailImage = thumbnail.getOrNull()?.first,
-                    thumbnailMimeType = thumbnail.getOrNull()?.second,
-                    captureTime = OffsetDateTime.ofInstant(
-                        Instant.ofEpochMilli(Files.getLastModifiedTime(filePath).toMillis()),
-                        ZoneId.systemDefault()
-                    ),
-                ).right()
+                OmoideMemory
+                    .Video(
+                        localPath = filePath,
+                        name = sourceFile.name,
+                        mediaType = sourceFile.mimeType,
+                        driveFileId = sourceFile.driveFileId,
+                        fileSize = sourceFile.size,
+                        durationSeconds = info.duration / 1000.0,
+                        videoWidth = info.video?.size?.width,
+                        videoHeight = info.video?.size?.height,
+                        frameRate = info.video?.frameRate?.toDouble(),
+                        videoCodec = info.video?.decoder,
+                        videoBitrateKbps = info.video?.bitRate?.div(1000),
+                        audioCodec = info.audio?.decoder,
+                        audioBitrateKbps = info.audio?.bitRate?.div(1000),
+                        audioChannels = info.audio?.channels,
+                        audioSampleRate = info.audio?.samplingRate,
+                        thumbnailImage = thumbnail.getOrNull()?.first,
+                        thumbnailMimeType = thumbnail.getOrNull()?.second,
+                        captureTime =
+                            OffsetDateTime.ofInstant(
+                                Instant.ofEpochMilli(Files.getLastModifiedTime(filePath).toMillis()),
+                                ZoneId.systemDefault(),
+                            ),
+                    ).right()
             }
         } catch (e: Exception) {
             logger.error(e) { "動画メタデータの抽出に失敗: $filePath" }
             MetadataExtractError(e).left()
         }
-    }
-
 }
-
 
 val logger = KotlinLogging.logger {}
 
@@ -109,44 +109,48 @@ class PhotoMetadata(
     override val capturedTime: OffsetDateTime?,
     override val filePath: Path,
 ) : MediaMetadata {
-    override suspend fun toMedia(sourceFile: SourceFile): Either<MetadataExtractError, OmoideMemory> {
-        return try {
-            OmoideMemory.Photo(
-                localPath = filePath,
-                name = sourceFile.name,
-                mediaType = sourceFile.mimeType,
-                driveFileId = sourceFile.driveFileId,
-                fileSize = sourceFile.size,
-                locationName = gpsDirectory?.geoLocation?.let { geo ->
-                    if (geo.latitude != null && geo.longitude != null) {
-                        LocationService.getLocationName(geo.latitude, geo.longitude)
-                    } else null
-                },
-                aperture = exifSubIFD?.getDoubleObject(ExifSubIFDDirectory.TAG_FNUMBER)?.toFloat(),
-                shutterSpeed = exifSubIFD?.getString(ExifSubIFDDirectory.TAG_EXPOSURE_TIME),
-                isoSpeed = exifSubIFD?.getInteger(ExifSubIFDDirectory.TAG_ISO_EQUIVALENT),
-                focalLength = exifSubIFD?.getDoubleObject(ExifSubIFDDirectory.TAG_FOCAL_LENGTH)?.toFloat(),
-                focalLength35mm = exifSubIFD?.getInteger(ExifSubIFDDirectory.TAG_35MM_FILM_EQUIV_FOCAL_LENGTH),
-                whiteBalance = exifSubIFD?.getString(ExifSubIFDDirectory.TAG_WHITE_BALANCE),
-                imageWidth = exifSubIFD?.getInteger(ExifSubIFDDirectory.TAG_EXIF_IMAGE_WIDTH)
-                    ?: exifIFD0?.getInteger(ExifIFD0Directory.TAG_IMAGE_WIDTH),
-                imageHeight = exifSubIFD?.getInteger(ExifSubIFDDirectory.TAG_EXIF_IMAGE_HEIGHT)
-                    ?: exifIFD0?.getInteger(ExifIFD0Directory.TAG_IMAGE_HEIGHT),
-                orientation = exifIFD0?.getInteger(ExifIFD0Directory.TAG_ORIENTATION),
-                latitude = gpsDirectory?.geoLocation?.latitude,
-                longitude = gpsDirectory?.geoLocation?.longitude,
-                altitude = gpsDirectory?.getDouble(GpsDirectory.TAG_ALTITUDE),
-                captureTime = exifSubIFD?.getDate(ExifSubIFDDirectory.TAG_DATETIME_ORIGINAL)?.let {
-                    OffsetDateTime.ofInstant(it.toInstant(), ZoneId.systemDefault())
-                },
-                deviceMake = exifIFD0?.getString(ExifIFD0Directory.TAG_MAKE),
-                deviceModel = exifIFD0?.getString(ExifIFD0Directory.TAG_MODEL),
-            ).right()
+    override suspend fun toMedia(sourceFile: SourceFile): Either<MetadataExtractError, OmoideMemory> =
+        try {
+            OmoideMemory
+                .Photo(
+                    localPath = filePath,
+                    name = sourceFile.name,
+                    mediaType = sourceFile.mimeType,
+                    driveFileId = sourceFile.driveFileId,
+                    fileSize = sourceFile.size,
+                    locationName =
+                        gpsDirectory?.geoLocation?.let { geo ->
+                            if (geo.latitude != null && geo.longitude != null) {
+                                LocationService.getLocationName(geo.latitude, geo.longitude)
+                            } else {
+                                null
+                            }
+                        },
+                    aperture = exifSubIFD?.getDoubleObject(ExifSubIFDDirectory.TAG_FNUMBER)?.toFloat(),
+                    shutterSpeed = exifSubIFD?.getString(ExifSubIFDDirectory.TAG_EXPOSURE_TIME),
+                    isoSpeed = exifSubIFD?.getInteger(ExifSubIFDDirectory.TAG_ISO_EQUIVALENT),
+                    focalLength = exifSubIFD?.getDoubleObject(ExifSubIFDDirectory.TAG_FOCAL_LENGTH)?.toFloat(),
+                    focalLength35mm = exifSubIFD?.getInteger(ExifSubIFDDirectory.TAG_35MM_FILM_EQUIV_FOCAL_LENGTH),
+                    whiteBalance = exifSubIFD?.getString(ExifSubIFDDirectory.TAG_WHITE_BALANCE),
+                    imageWidth =
+                        exifSubIFD?.getInteger(ExifSubIFDDirectory.TAG_EXIF_IMAGE_WIDTH)
+                            ?: exifIFD0?.getInteger(ExifIFD0Directory.TAG_IMAGE_WIDTH),
+                    imageHeight =
+                        exifSubIFD?.getInteger(ExifSubIFDDirectory.TAG_EXIF_IMAGE_HEIGHT)
+                            ?: exifIFD0?.getInteger(ExifIFD0Directory.TAG_IMAGE_HEIGHT),
+                    orientation = exifIFD0?.getInteger(ExifIFD0Directory.TAG_ORIENTATION),
+                    latitude = gpsDirectory?.geoLocation?.latitude,
+                    longitude = gpsDirectory?.geoLocation?.longitude,
+                    altitude = gpsDirectory?.getDouble(GpsDirectory.TAG_ALTITUDE),
+                    captureTime =
+                        exifSubIFD?.getDate(ExifSubIFDDirectory.TAG_DATETIME_ORIGINAL)?.let {
+                            OffsetDateTime.ofInstant(it.toInstant(), ZoneId.systemDefault())
+                        },
+                    deviceMake = exifIFD0?.getString(ExifIFD0Directory.TAG_MAKE),
+                    deviceModel = exifIFD0?.getString(ExifIFD0Directory.TAG_MODEL),
+                ).right()
         } catch (e: Exception) {
             logger.error(e) { "画像メタデータの抽出に失敗: ${this.filePath}" }
             MetadataExtractError(e).left()
         }
-    }
 }
-
-

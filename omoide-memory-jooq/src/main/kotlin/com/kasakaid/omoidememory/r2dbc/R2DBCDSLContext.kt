@@ -8,5 +8,5 @@ import org.springframework.stereotype.Component
 class R2DBCDSLContext(
     private val dslContext: DSLContext,
 ) {
-    suspend fun get(): DSLContext = currentCoroutineContext().getR2DBCContext()?: dslContext
+    suspend fun get(): DSLContext = currentCoroutineContext().getR2DBCContext() ?: dslContext
 }

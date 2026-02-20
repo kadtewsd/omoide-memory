@@ -7,7 +7,6 @@ import java.io.File
  * JOOQ のプロジェクトから DDL を拾ってきてマイグレーションを実行する
  */
 object MigrationSqlCopier {
-
     private val logger = KotlinLogging.logger {}
 
     fun copyDdlFromJooqProject() {
@@ -23,7 +22,8 @@ object MigrationSqlCopier {
         }
         destination.mkdirs()
 
-        source.walkTopDown()
+        source
+            .walkTopDown()
             .filter { it.isFile && it.extension == "sql" }
             .forEach { sqlFile ->
                 val destFile = destination.resolve(sqlFile.name)

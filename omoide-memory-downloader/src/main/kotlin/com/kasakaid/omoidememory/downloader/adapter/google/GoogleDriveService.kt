@@ -28,33 +28,39 @@ import java.nio.file.StandardOpenOption
 class GoogleDriveService(
     private val environment: Environment,
 ) : DriveService {
-
     private val logger = KotlinLogging.logger {}
 
-    private val driveService: Drive = run {
-        environment.getProperty("OMOIDE_GDRIVE_CREDENTIALS_PATH").let { pathFromHome ->
-            if (pathFromHome.isNullOrBlank()) {
-                throw IllegalArgumentException("OMOIDE_GDRIVE_CREDENTIALS_PATH がセットされていない")
+    private val driveService: Drive =
+        run {
+            environment.getProperty("OMOIDE_GDRIVE_CREDENTIALS_PATH").let { pathFromHome ->
+                if (pathFromHome.isNullOrBlank()) {
+                    throw IllegalArgumentException("OMOIDE_GDRIVE_CREDENTIALS_PATH がセットされていない")
+                }
+
+                val credentialsPath =
+                    Path
+                        .of(System.getProperty("user.home"))
+                        .resolve(pathFromHome)
+                        .normalize()
+
+                val credentials =
+                    FileInputStream(credentialsPath.toFile()).use {
+                        GoogleCredentials
+                            .fromStream(it)
+                            .createScoped(listOf(DriveScopes.DRIVE))
+                    }
+
+                val requestInitializer = HttpCredentialsAdapter(credentials)
+
+                Drive
+                    .Builder(
+                        GoogleNetHttpTransport.newTrustedTransport(),
+                        GsonFactory.getDefaultInstance(),
+                        requestInitializer,
+                    ).setApplicationName("OmoideMemoryDownloader")
+                    .build()
             }
-
-            val credentialsPath = Path.of(System.getProperty("user.home"))
-                .resolve(pathFromHome)
-                .normalize()
-
-            val credentials = FileInputStream(credentialsPath.toFile()).use {
-                GoogleCredentials.fromStream(it)
-                    .createScoped(listOf(DriveScopes.DRIVE))
-            }
-
-            val requestInitializer = HttpCredentialsAdapter(credentials)
-
-            Drive.Builder(
-                GoogleNetHttpTransport.newTrustedTransport(),
-                GsonFactory.getDefaultInstance(),
-                requestInitializer
-            ).setApplicationName("OmoideMemoryDownloader").build()
         }
-    }
 
     override suspend fun listFiles(): List<File> {
         val googleFiles = mutableListOf<File>()
@@ -65,17 +71,19 @@ class GoogleDriveService(
             "nextPageToken, files(id, name, mimeType, createdTime, size, imageMediaMetadata, videoMediaMetadata)"
 
         do {
-            val result = driveService.files().list()
-                .setQ(
-                    """
-                    trashed = false 
-                    and mimeType != 'application/vnd.google-apps.folder'
-                    and '${environment.getProperty("OMOIDE_FOLDER_ID")}' in parents
-                    """.trimIndent()
-                )
-                .setFields(fields)
-                .setPageToken(pageToken)
-                .execute()
+            val result =
+                driveService
+                    .files()
+                    .list()
+                    .setQ(
+                        """
+                        trashed = false 
+                        and mimeType != 'application/vnd.google-apps.folder'
+                        and '${environment.getProperty("OMOIDE_FOLDER_ID")}' in parents
+                        """.trimIndent(),
+                    ).setFields(fields)
+                    .setPageToken(pageToken)
+                    .execute()
 
             result.files?.forEach { file ->
                 logger.debug { "Processing file: ${file.name} (${file.mimeType})" }
@@ -93,28 +101,33 @@ class GoogleDriveService(
         googleFile: File,
         omoideBackupPath: Path,
         mediaType: MediaType,
-    ): Either<MetadataExtractError, OmoideMemory> = withContext(Dispatchers.IO) {
-        // 1. OS標準の一時ディレクトリにファイルを確保
-        // prefixとsuffixを指定するだけで、Windowsなら AppData\Local\Temp、Macなら /var/folders 等に作られます
-        val tempPath = Files.createTempFile("omoide_", "_${googleFile.name}")
-        // 2026年現在のベストプラクティス:
-        // OutputStream 自体も .use で確実に閉じ、I/Oスレッドで実行する
-        Files.newOutputStream(tempPath, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)
-            .use { outputStream ->
-                driveService.files().get(googleFile.id)
-                    .executeMediaAndDownloadTo(outputStream)
-                // executeMediaAndDownloadTo は内部でループして書き込むため、
-                // ここに到達した時点でディスクへの書き出しは完了しています
-            }
-        val metadata = mediaType.createMediaMetadata(tempPath)
-        val finalTargetPath = FileOrganizeService.determineTargetPath(
-            fileName = googleFile.name,
-            captureTime = metadata.capturedTime,
-        )
-        FileOrganizeService.moveToTarget(sourcePath = tempPath, targetPath = finalTargetPath)
-        Files.deleteIfExists(tempPath)
-        // 5. ファイル実体からメタデータを抽出（ここで captureTime が判明）
-        // 正しいパスでメタデータを生成。少し勿体無いが確実に正しいパスで新規にインスタンスを生成
-        mediaType.createMediaMetadata(finalTargetPath).toMedia(SourceFile.fromGoogleDrive(googleFile))
-    }
+    ): Either<MetadataExtractError, OmoideMemory> =
+        withContext(Dispatchers.IO) {
+            // 1. OS標準の一時ディレクトリにファイルを確保
+            // prefixとsuffixを指定するだけで、Windowsなら AppData\Local\Temp、Macなら /var/folders 等に作られます
+            val tempPath = Files.createTempFile("omoide_", "_${googleFile.name}")
+            // 2026年現在のベストプラクティス:
+            // OutputStream 自体も .use で確実に閉じ、I/Oスレッドで実行する
+            Files
+                .newOutputStream(tempPath, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)
+                .use { outputStream ->
+                    driveService
+                        .files()
+                        .get(googleFile.id)
+                        .executeMediaAndDownloadTo(outputStream)
+                    // executeMediaAndDownloadTo は内部でループして書き込むため、
+                    // ここに到達した時点でディスクへの書き出しは完了しています
+                }
+            val metadata = mediaType.createMediaMetadata(tempPath)
+            val finalTargetPath =
+                FileOrganizeService.determineTargetPath(
+                    fileName = googleFile.name,
+                    captureTime = metadata.capturedTime,
+                )
+            FileOrganizeService.moveToTarget(sourcePath = tempPath, targetPath = finalTargetPath)
+            Files.deleteIfExists(tempPath)
+            // 5. ファイル実体からメタデータを抽出（ここで captureTime が判明）
+            // 正しいパスでメタデータを生成。少し勿体無いが確実に正しいパスで新規にインスタンスを生成
+            mediaType.createMediaMetadata(finalTargetPath).toMedia(SourceFile.fromGoogleDrive(googleFile))
+        }
 }

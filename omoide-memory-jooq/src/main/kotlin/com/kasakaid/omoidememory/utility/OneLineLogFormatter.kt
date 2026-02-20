@@ -11,11 +11,13 @@ object OneLineLogFormatter {
         pw.flush()
 
         // 改行やタブをスペースに置換して 1 行にまとめる
-        val singleLineStack = sw.toString()
-            .replace("\r\n", " ")
-            .replace("\n", " ")
-            .replace("\t", " ")
-            .trim()
+        val singleLineStack =
+            sw
+                .toString()
+                .replace("\r\n", " ")
+                .replace("\n", " ")
+                .replace("\t", " ")
+                .trim()
 
         return "[${e.message}] : $singleLineStack"
     }

@@ -19,7 +19,6 @@ fun CoroutineContext.addDSLContext(dslContext: DSLContext): CoroutineContext {
     }
 }
 
-fun CoroutineContext.getR2DBCContext(): DSLContext? =
-    this[ReactorContext]?.context?.getOrEmpty<DSLContext>(KEY)?.getOrNull()
+fun CoroutineContext.getR2DBCContext(): DSLContext? = this[ReactorContext]?.context?.getOrEmpty<DSLContext>(KEY)?.getOrNull()
 
 val logger = KotlinLogging.logger {}

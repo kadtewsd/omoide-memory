@@ -7,10 +7,11 @@ import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.name
 
-class MetadataExtractError(val ex: Exception)
+class MetadataExtractError(
+    val ex: Exception,
+)
 
 object OmoideMemoryTranslator {
-
     /**
      * 動画の1秒目のフレームをJPEGサムネイルとして生成
      */
@@ -20,19 +21,25 @@ object OmoideMemoryTranslator {
             val tempThumbnail = Files.createTempFile("thumbnail_", ".jpg")
 
             // ffmpegを直接呼び出し
-            val command = listOf(
-                "ffmpeg",
-                "-ss", "00:00:01",           // 1秒目にシーク
-                "-i", videoPath.toString(),  // 入力ファイル
-                "-vframes", "1",             // 1フレームだけ抽出
-                "-q:v", "2",                 // JPEG品質（2が高品質）
-                "-y",                        // 上書き確認なし
-                tempThumbnail.toString()
-            )
+            val command =
+                listOf(
+                    "ffmpeg",
+                    "-ss",
+                    "00:00:01", // 1秒目にシーク
+                    "-i",
+                    videoPath.toString(), // 入力ファイル
+                    "-vframes",
+                    "1", // 1フレームだけ抽出
+                    "-q:v",
+                    "2", // JPEG品質（2が高品質）
+                    "-y", // 上書き確認なし
+                    tempThumbnail.toString(),
+                )
 
-            val process = ProcessBuilder(command)
-                .redirectErrorStream(true)
-                .start()
+            val process =
+                ProcessBuilder(command)
+                    .redirectErrorStream(true)
+                    .start()
 
             val exitCode = process.waitFor()
 
