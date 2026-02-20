@@ -44,5 +44,6 @@ class DownloadFromGDrive(
                     googleFile.right()
                 }
             }
+            logger.info { "Google Driveからのダウンロード処理を終了" }
         }
 }

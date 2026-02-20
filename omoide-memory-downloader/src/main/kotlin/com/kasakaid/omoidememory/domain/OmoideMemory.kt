@@ -45,18 +45,7 @@ sealed interface OmoideMemory {
         override val mediaType: String,
         override val driveFileId: String?,
         override val fileSize: Long,
-        val durationSeconds: Double?, // Changed to Double to match GDrive/Metadata extraction
-        val videoWidth: Int?,
-        val videoHeight: Int?,
-        val frameRate: Double?,
-        val videoCodec: String?,
-        val videoBitrateKbps: Int?,
-        val audioCodec: String?,
-        val audioBitrateKbps: Int?,
-        val audioChannels: Int?,
-        val audioSampleRate: Int?,
-        val thumbnailImage: ByteArray?, // 動画の1秒目のサムネイル
-        val thumbnailMimeType: String?, // "image/jpeg"
+        val metadata: VideoMetadataDto,
         override val captureTime: OffsetDateTime?,
     ) : OmoideMemory
 }
