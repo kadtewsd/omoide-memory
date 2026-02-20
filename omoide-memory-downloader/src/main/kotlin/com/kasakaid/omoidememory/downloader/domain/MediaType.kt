@@ -3,6 +3,8 @@ package com.kasakaid.omoidememory.downloader.domain
 import arrow.core.None
 import arrow.core.Option
 import arrow.core.some
+import com.kasakaid.omoidememory.domain.Extension
+import com.kasakaid.omoidememory.domain.FileStructure
 import com.kasakaid.omoidememory.domain.MediaMetadata
 import com.kasakaid.omoidememory.domain.MediaMetadataFactory
 import java.nio.file.Path
@@ -28,7 +30,11 @@ enum class MediaType(
 
     companion object {
         fun of(fileNameWithExtension: String): Option<MediaType> {
-            return entries.firstOrNull { it.extensions.any { fileNameWithExtension == it }  }?.some() ?: None
+            return Extension.of(fileNameWithExtension).value.fold(
+                ifEmpty = { None },
+                ifSome = { extension -> entries.firstOrNull { extension in it.extensions }?.some() ?: None }
+            )
+
         }
     }
 }
