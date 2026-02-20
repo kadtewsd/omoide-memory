@@ -114,6 +114,7 @@ class GoogleDriveService(
         FileOrganizeService.moveToTarget(sourcePath = tempPath, targetPath = finalTargetPath)
         Files.deleteIfExists(tempPath)
         // 5. ファイル実体からメタデータを抽出（ここで captureTime が判明）
-        metadata.toMedia(SourceFile.fromGoogleDrive(googleFile))
+        // 正しいパスでメタデータを生成。少し勿体無いが確実に正しいパスで新規にインスタンスを生成
+        mediaType.createMediaMetadata(finalTargetPath).toMedia(SourceFile.fromGoogleDrive(googleFile))
     }
 }
