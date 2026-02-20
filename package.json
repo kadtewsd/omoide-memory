@@ -8,11 +8,11 @@
   "scripts": {
     "prepare": "husky"
   },
+
   "lint-staged": {
     "**/*.{kt,kts}": [
-      "echo 複数プロジェクトで Lint します",
-      "sh -c 'for proj in omoide-memory-uploader omoide-memory-migration omoide-memory-jooq omoide-memory-downloader; do if [ -d \"$proj\" ]; then cd \"$proj\" && ./gradlew ktlintFormat && cd ..; fi; done'"
-
+        "echo 複数プロジェクトで Lint します",
+        "./scripts/ktlint-all.sh"
     ]
   }
 }
