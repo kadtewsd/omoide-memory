@@ -19,24 +19,81 @@ import java.time.ZoneId
 sealed interface MediaMetadata {
     val capturedTime: OffsetDateTime?
     val filePath: Path
-    suspend fun toMedia(googleFile: File): Either<MetadataExtractError, OmoideMemory>
+    suspend fun toMedia(sourceFile: SourceFile): Either<MetadataExtractError, OmoideMemory>
+}
+
+/**
+ * メタデータ抽出元のファイル情報
+ * Google Driveまたはローカルファイルのどちらからでも作成可能
+ */
+data class SourceFile(
+    val name: String,
+    val mimeType: String,
+    val size: Long,
+    val driveFileId: String?, // Google Drive由来の場合のみ
+) {
+    companion object {
+        /**
+         * Google Drive APIのFileから作成
+         */
+        fun fromGoogleDrive(googleFile: File): SourceFile {
+            return SourceFile(
+                name = googleFile.name,
+                mimeType = googleFile.mimeType,
+                size = googleFile.size.toLong(),
+                driveFileId = googleFile.id,
+            )
+        }
+
+        /**
+         * ローカルファイルから作成
+         */
+        fun fromLocalFile(localPath: Path): SourceFile {
+            val extension = localPath.fileName.toString().substringAfterLast(".", "")
+            val mimeType = guessMimeType(extension)
+
+            return SourceFile(
+                name = localPath.fileName.toString(),
+                mimeType = mimeType,
+                size = java.nio.file.Files.size(localPath),
+                driveFileId = null, // ローカルファイルはnull
+            )
+        }
+
+        private fun guessMimeType(extension: String): String {
+            return when (extension.lowercase()) {
+                "jpg", "jpeg" -> "image/jpeg"
+                "png" -> "image/png"
+                "heic" -> "image/heic"
+                "heif" -> "image/heif"
+                "gif" -> "image/gif"
+                "webp" -> "image/webp"
+                "mp4" -> "video/mp4"
+                "mov" -> "video/quicktime"
+                "avi" -> "video/x-msvideo"
+                "mkv" -> "video/x-matroska"
+                "3gp" -> "video/3gpp"
+                "webm" -> "video/webm"
+                else -> "application/octet-stream"
+            }
+        }
+    }
 }
 
 data class VideoMetadata(
     override val capturedTime: OffsetDateTime,
     override val filePath: Path
 ) : MediaMetadata {
-    override suspend fun toMedia(googleFile: File): Either<MetadataExtractError, OmoideMemory> {
+    override suspend fun toMedia(sourceFile: SourceFile): Either<MetadataExtractError, OmoideMemory> {
         return try {
             val thumbnail = generateThumbnail(filePath)
             MultimediaObject(filePath.toFile()).info.let { info ->
                 OmoideMemory.Video(
                     localPath = filePath,
-                    name = googleFile.name,
-                    mediaType = googleFile.mimeType,
-                    driveFileId = googleFile.id,
-                    fileSize = googleFile.size,
-                    locationName = null, // 動画のGPS情報は標準的には取得困難
+                    name = sourceFile.name,
+                    mediaType = sourceFile.mimeType,
+                    driveFileId = sourceFile.driveFileId,
+                    fileSize = sourceFile.size,
                     durationSeconds = info.duration / 1000.0,
                     videoWidth = info.video?.size?.width,
                     videoHeight = info.video?.size?.height,
@@ -73,14 +130,14 @@ class PhotoMetadata(
     override val capturedTime: OffsetDateTime?,
     override val filePath: Path,
 ) : MediaMetadata {
-    override suspend fun toMedia(googleFile: File): Either<MetadataExtractError, OmoideMemory> {
+    override suspend fun toMedia(sourceFile: SourceFile): Either<MetadataExtractError, OmoideMemory> {
         return try {
             OmoideMemory.Photo(
                 localPath = filePath,
-                name = googleFile.name,
-                mediaType = googleFile.mimeType,
-                driveFileId = googleFile.id,
-                fileSize = googleFile.size,
+                name = sourceFile.name,
+                mediaType = sourceFile.mimeType,
+                driveFileId = sourceFile.driveFileId,
+                fileSize = sourceFile.size,
                 locationName = gpsDirectory?.geoLocation?.let { geo ->
                     if (geo.latitude != null && geo.longitude != null) {
                         LocationService.getLocationName(geo.latitude, geo.longitude)
