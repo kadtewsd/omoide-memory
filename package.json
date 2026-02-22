@@ -11,8 +11,8 @@
 
   "lint-staged": {
     "**/*.{kt,kts}": [
-        "echo 複数プロジェクトで Lint します",
-        "./scripts/ktlint-all.sh"
+        "echo ステージに入っているファイルを ktlint で lint します。",
+        "ktlint --format"
     ]
   }
 }

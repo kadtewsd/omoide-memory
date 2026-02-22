@@ -99,7 +99,7 @@ class PhotoMetadata(
                     fileSize = sourceFile.size,
                     locationName =
                         gpsDirectory?.geoLocation?.let { geo ->
-                            if (geo.exists()) {
+                            if (geo.isZero) {
                                 LocationService.getLocationName(geo.latitude, geo.longitude)
                             } else {
                                 null
@@ -132,6 +132,4 @@ class PhotoMetadata(
             logger.error(e) { "画像メタデータの抽出に失敗: ${this.filePath}" }
             MetadataExtractError(e).left()
         }
-
-    fun GeoLocation.exists(): Boolean = latitude != 0.0 && longitude != 0.0
 }
