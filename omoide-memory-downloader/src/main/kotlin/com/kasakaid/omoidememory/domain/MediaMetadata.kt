@@ -100,9 +100,9 @@ class PhotoMetadata(
                     locationName =
                         gpsDirectory?.geoLocation?.let { geo ->
                             if (geo.isZero) {
-                                LocationService.getLocationName(geo.latitude, geo.longitude)
-                            } else {
                                 null
+                            } else {
+                                LocationService.getLocationName(geo.latitude, geo.longitude)
                             }
                         },
                     aperture = exifSubIFD?.getDoubleObject(ExifSubIFDDirectory.TAG_FNUMBER)?.toFloat(),
