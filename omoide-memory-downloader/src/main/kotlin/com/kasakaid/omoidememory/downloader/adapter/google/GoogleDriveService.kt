@@ -198,13 +198,4 @@ class GoogleDriveService(
                 }.bind()
             }
         }
-
-    override suspend fun deleteFile(fileId: String): Either<DriveService.FileDeleteError, Unit> =
-        Either
-            .catch {
-                driveService.files().delete(fileId).execute()
-                Unit
-            }.mapLeft {
-                DriveService.FileDeleteError(it)
-            }
 }

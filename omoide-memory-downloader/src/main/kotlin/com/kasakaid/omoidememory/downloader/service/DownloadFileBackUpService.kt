@@ -65,8 +65,6 @@ class DownloadFileBackUpService(
             Either
                 .catch {
                     syncedMemoryRepository.save(omoideMemory)
-                    logger.debug { "バックアップが成功したので drive から ${googleFile.name}:${googleFile.id} を削除" }
-                    driveService.deleteFile(googleFile.id)
                     logger.info { "処理完了: ${googleFile.name} -> ${omoideMemory.localPath}" }
                     FileIOFinish.Success
                 }.mapLeft {
