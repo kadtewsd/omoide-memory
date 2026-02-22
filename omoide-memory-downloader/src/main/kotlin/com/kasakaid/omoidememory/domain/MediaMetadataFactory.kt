@@ -11,7 +11,8 @@ import java.time.OffsetDateTime
 import java.time.ZoneId
 
 object MediaMetadataFactory {
-    fun createVideo(path: Path): VideoMetadata {
+    fun createVideo(localFile: LocalFile): VideoMetadata {
+        val path = localFile.path
         val captured =
             OffsetDateTime.ofInstant(
                 Instant.ofEpochMilli(Files.getLastModifiedTime(path).toMillis()),
@@ -20,7 +21,8 @@ object MediaMetadataFactory {
         return VideoMetadata(capturedTime = captured, filePath = path)
     }
 
-    fun createPhoto(path: Path): PhotoMetadata {
+    fun createPhoto(localFile: LocalFile): PhotoMetadata {
+        val path = localFile.path
         val metadata = ImageMetadataReader.readMetadata(path.toFile())
 
         val exifIFD0 = metadata.getFirstDirectoryOfType(ExifIFD0Directory::class.java)

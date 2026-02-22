@@ -34,7 +34,7 @@ class OmoideMemoryMetadataService {
             val sourceFile = SourceFile.fromLocalFile(filePath)
 
             // メタデータを抽出
-            val metadata = mediaType.createMediaMetadata(filePath)
+            val metadata = mediaType.createMediaMetadata(localFile)
             val result = metadata.toMedia(sourceFile)
 
             val omoideMemory =
