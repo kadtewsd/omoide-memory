@@ -19,6 +19,10 @@ import org.springframework.core.env.Environment
 import org.springframework.stereotype.Component
 import java.nio.file.Files
 import java.nio.file.Path
+import java.text.SimpleDateFormat
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+import kotlin.io.appendText
 import kotlin.io.path.name
 
 private val logger = KotlinLogging.logger {}
@@ -31,6 +35,10 @@ class DownloadFromGDrive(
     private val transactionExecutor: TransactionExecutor,
     private val environment: Environment,
 ) : ApplicationRunner {
+    companion object {
+        private val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+    }
+
     override fun run(args: ApplicationArguments): Unit =
         runBlocking {
             logger.info { "Google Driveからのダウンロード処理を開始します" }
@@ -47,7 +55,21 @@ class DownloadFromGDrive(
                                 googleFile = googleFile,
                                 omoideBackupPath = Path.of(environment.getProperty("OMOIDE_BACKUP_DESTINATION")!!),
                             ).onLeft {
+                                val logFilePath =
+                                    Path.of(
+                                        System.getProperty("user.dir"),
+                                        "failed_downloads_${
+                                            LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
+                                        }",
+                                    )
                                 it.paths.forEach {
+                                    val logEntry = "${googleFile.name}\n"
+                                    try {
+                                        // java.io.File を使ったシンプルな追記
+                                        logFilePath.toFile().appendText(logEntry)
+                                    } catch (e: Exception) {
+                                        System.err.println("Failed to write to log file: ${e.message}")
+                                    }
                                     Files.deleteIfExists(it)
                                     logger.error { "バックアップ時になんらかのエラー発生。${it.name}の物理ファイルを削除します。" }
                                 }
@@ -75,6 +97,6 @@ class DownloadFromGDrive(
                         },
                     )
             }
-            logger.info { "Google Driveからのダウンロード処理を終了" }
+            logger.info { "Google Driveからのダウンロード処理を終了。" }
         }
 }

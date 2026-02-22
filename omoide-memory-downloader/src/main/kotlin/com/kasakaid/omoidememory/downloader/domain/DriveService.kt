@@ -37,6 +37,4 @@ interface DriveService {
     class FileDeleteError(
         val throwable: Throwable,
     )
-
-    suspend fun deleteFile(fileId: String): Either<FileDeleteError, Unit>
 }
