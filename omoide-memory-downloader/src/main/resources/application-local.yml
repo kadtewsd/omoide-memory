@@ -1,5 +1,3 @@
-spring:
-  r2dbc:
-    url: r2dbc:pool:postgresql://localhost:5432/omoide_memory?currentSchema=omoide_memory
-    username: postgres
-    password: password
+logging:
+    level:
+        root: INFO
