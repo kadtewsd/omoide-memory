@@ -16,44 +16,46 @@ import kotlinx.coroutines.withContext
  * 手動アップロードを試行する
  */
 @HiltWorker
-class GdriveUploadWorker @AssistedInject constructor(
-    @Assisted appContext: Context,
-    @Assisted workerParams: WorkerParameters,
-    private val gdriveUploader: GdriveUploader,
-    private val omoideMemoryRepository: OmoideMemoryRepository,
-) : CoroutineWorker(appContext, workerParams) {
+class GdriveUploadWorker
+    @AssistedInject
+    constructor(
+        @Assisted appContext: Context,
+        @Assisted workerParams: WorkerParameters,
+        private val gdriveUploader: GdriveUploader,
+        private val omoideMemoryRepository: OmoideMemoryRepository,
+    ) : CoroutineWorker(appContext, workerParams) {
+        companion object {
+            const val TAG = "ManualUploadWorker"
+        }
 
-    companion object {
-        const val TAG = "ManualUploadWorker"
-    }
-    override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
-        // 引数からハッシュリストを取得
-        val targetHashes = inputData.getStringArray("TARGET_HASHES")?.toList() ?: emptyList()
-        val totalCount = inputData.getInt("TOTAL_COUNT", 0)
-        Log.d(TAG, "受け取ったハッシュ件数: ${targetHashes.size}, 合計件数: $totalCount")
-        var successCount = 0
-        try {
-            // ここでは Flow (川) は不要。ViewModel 側の川はそのままになり、ここでは都度どんととってきてしまう。last で全部のデータが取ってこられたあとのものをガツっと取得
-            omoideMemoryRepository.getActualPendingFiles().collect { file ->
-                if (file.hash in targetHashes) {
-                    Log.d(TAG, "手動アップロード開始 ${file.name}")
-                    gdriveUploader.upload(sourceWorker = WorkManagerTag.Manual, pendingFile = file).also {
-                        successCount++
-                        Log.i(TAG, "$successCount / $totalCount アップロード完了")
+        override suspend fun doWork(): Result =
+            withContext(Dispatchers.IO) {
+                // 引数からハッシュリストを取得
+                val targetHashes = inputData.getStringArray("TARGET_HASHES")?.toList() ?: emptyList()
+                val totalCount = inputData.getInt("TOTAL_COUNT", 0)
+                Log.d(TAG, "受け取ったハッシュ件数: ${targetHashes.size}, 合計件数: $totalCount")
+                var successCount = 0
+                try {
+                    // ここでは Flow (川) は不要。ViewModel 側の川はそのままになり、ここでは都度どんととってきてしまう。last で全部のデータが取ってこられたあとのものをガツっと取得
+                    omoideMemoryRepository.getActualPendingFiles().collect { file ->
+                        if (file.hash in targetHashes) {
+                            Log.d(TAG, "手動アップロード開始 ${file.name}")
+                            gdriveUploader.upload(sourceWorker = WorkManagerTag.Manual, pendingFile = file).also {
+                                successCount++
+                                Log.i(TAG, "$successCount / $totalCount アップロード試行完了")
+                            }
+                            setProgress(
+                                workDataOf(
+                                    "PROGRESS_CURRENT" to successCount,
+                                    "PROGRESS_TOTAL" to totalCount,
+                                ),
+                            )
+                        }
                     }
-                    setProgress(
-                        workDataOf(
-                            "PROGRESS_CURRENT" to successCount,
-                            "PROGRESS_TOTAL" to totalCount,
-                        )
-                    )
+                    return@withContext Result.success()
+                } catch (e: Exception) {
+                    Log.e(TAG, "例外が発生", e)
+                    return@withContext Result.retry()
                 }
             }
-            return@withContext Result.success()
-        } catch (e: Exception) {
-            Log.e(TAG, "例外が発生", e)
-            return@withContext Result.retry()
-        }
     }
-
-}

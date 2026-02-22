@@ -10,6 +10,17 @@ plugins {
 android {
     namespace = "com.kasakaid.omoidememory"
     compileSdk = 34
+    packaging {
+        resources {
+            // 重複したメタファイルを除外または最初の一つを選択するように設定
+            // INDEX.LIST のほか、Google系でよく出る重複もついでにケアしておくと安全です
+            pickFirsts += "META-INF/INDEX.LIST"
+            pickFirsts += "META-INF/DEPENDENCIES"
+            pickFirsts += "META-INF/LICENSE*"
+            pickFirsts += "META-INF/NOTICE*"
+            pickFirsts += "META-INF/io.netty.versions.properties"
+        }
+    }
 
     defaultConfig {
         applicationId = "com.kasakaid.omoidememory"
@@ -30,28 +41,16 @@ android {
             localProperties.load(localPropertiesFile.inputStream())
         }
         // 1. ファイル名の設定（取得してすぐ field にバインド）
-        localProperties.getProperty("omoide.sa.key.name")?.let { name ->
-            buildConfigField("String", "SA_KEY_FILE_NAME", "\"$name\"")
-        } ?: throw IllegalStateException("local.properties: 'omoide.sa.key.name' が未定義です")
+        localProperties.getProperty("omoide.sa.email.address")?.let { name ->
+            buildConfigField("String", "OMOIDE_SA_EMAIL_ADDRESS", "\"$name\"")
+        } ?: throw IllegalStateException("local.properties: 'omoide.sa.email.address' が未定義です")
 
         // 2. フォルダIDの設定
         localProperties.getProperty("omoide.folder.id")?.let { id ->
-            buildConfigField("String", "OMOIDE_FOLDER_ID", id)
+            buildConfigField("String", "OMOIDE_FOLDER_ID", "\"$id\"")
         } ?: throw IllegalStateException("local.properties: 'omoide.folder.id' が未定義です")
 
         // buildConfigField: アプリが実行時に「どのファイル名」を開けばいいかを知るために必要。
-        sourceSets {
-            getByName("main") {
-                getByName("main") {
-                    // 3. アセットパスの設定（sourceSets の文脈内でのみ取得）
-                    localProperties.getProperty("omoide.sa.key.path")?.let { path ->
-                        assets.srcDirs(file(path))
-                        // 指定されたディレクトリを assets として認識させる
-                        // これにより、ディレクトリ内のファイルが apk の assets 直下に配置されます
-                    } ?: throw IllegalStateException("local.properties: 'omoide.sa.key.path' が未定義です")
-                }
-            }
-        }
         buildFeatures {
             buildConfig = true
         }
