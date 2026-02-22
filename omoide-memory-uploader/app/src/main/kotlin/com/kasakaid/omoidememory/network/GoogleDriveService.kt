@@ -142,4 +142,54 @@ class GoogleDriveService
                     }
                 }
             }
+
+        /**
+         * hash に合致するGDrive上のファイルを削除します。
+         * 429対策のため、適宜delayを入れています。
+         */
+        suspend fun deleteFileByHash(
+            hash: String,
+            attempt: Int = 1,
+        ): Boolean =
+            withContext(Dispatchers.IO) {
+                val maxAttempts = 3
+                try {
+                    val query = "appProperties has { key='file_hash' and value='$hash' }"
+                    val files =
+                        service
+                            .files()
+                            .list()
+                            .setQ(query)
+                            .setSpaces("drive")
+                            .execute()
+                            .files
+
+                    if (files.isNullOrEmpty()) {
+                        Log.d("Drive", "No file found with hash: $hash")
+                        return@withContext true
+                    }
+
+                    for (file in files) {
+                        service.files().delete(file.id).execute()
+                        Log.d("Drive", "Successfully deleted: ${file.id}")
+                        delay(500) // 429対策
+                    }
+
+                    delay(800)
+                    return@withContext true
+                } catch (e: Exception) {
+                    val isRateLimit = e is GoogleJsonResponseException && e.statusCode == 429
+
+                    if (attempt < maxAttempts) {
+                        val waitTime = if (isRateLimit) 5000L * attempt else 2000L * attempt
+                        Log.w("Drive", "Attempt $attempt failed for delete. Retrying in ${waitTime}ms... Error: ${e.message}")
+
+                        delay(waitTime)
+                        return@withContext deleteFileByHash(hash, attempt + 1)
+                    } else {
+                        Log.e("Drive", "All attempts failed to delete for hash $hash", e)
+                        return@withContext false
+                    }
+                }
+            }
     }

@@ -13,17 +13,23 @@ fun AppRouter() {
     NavHost(
         navController = navController,
         // main が画面の最初になる、と言う設定
-        startDestination = "main"
+        startDestination = "main",
     ) {
         composable("main") {
             MainScreen(
-                onNavigateToSelection = { navController.navigate("selection") }
+                onNavigateToSelection = { navController.navigate("selection") },
+                onNavigateToDriveDelete = { navController.navigate("drive_delete") },
             )
         }
         composable("selection") {
             FileSelectionRoute(
                 // navController.popBackStack で ジェスチャ対応もしている
-                toMainScreen = { navController.popBackStack() }
+                toMainScreen = { navController.popBackStack() },
+            )
+        }
+        composable("drive_delete") {
+            DriveFileDeleteRoute(
+                toMainScreen = { navController.popBackStack() },
             )
         }
     }

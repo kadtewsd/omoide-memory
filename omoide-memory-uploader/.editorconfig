@@ -22,6 +22,9 @@ max_line_length = 150
 ktlint_standard_header = disabled
 ktlint_standard_filename = disabled
 ktlint_standard_no-wildcard-imports = disabled
+ktlint_standard_function-naming = disabled
+ktlint_standard_backing-property-naming = disabled
+ktlint_standard_kdoc = disabled
 
 # ---- formatting ----
 ktlint_standard_indent = enabled

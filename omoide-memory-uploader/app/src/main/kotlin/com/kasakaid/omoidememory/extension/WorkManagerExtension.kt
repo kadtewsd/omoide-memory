@@ -6,6 +6,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.workDataOf
+import com.kasakaid.omoidememory.worker.GdriveDeleteWorker
 import com.kasakaid.omoidememory.worker.GdriveUploadWorker
 import com.kasakaid.omoidememory.worker.WorkManagerTag
 import kotlinx.coroutines.CoroutineScope
@@ -24,20 +25,22 @@ object WorkManagerExtension {
         hashes: Array<String>,
         totalCount: Int,
     ) {
-        val workData = workDataOf(
-            "TARGET_HASHES" to hashes,
-            "TOTAL_COUNT" to totalCount,
-        )
-        val uploadRequest = OneTimeWorkRequestBuilder<GdriveUploadWorker>()
-            .setInputData(workData)
-            .addTag(GdriveUploadWorker.TAG)
-            .build()
+        val workData =
+            workDataOf(
+                "TARGET_HASHES" to hashes,
+                "TOTAL_COUNT" to totalCount,
+            )
+        val uploadRequest =
+            OneTimeWorkRequestBuilder<GdriveUploadWorker>()
+                .setInputData(workData)
+                .addTag(GdriveUploadWorker.TAG)
+                .build()
         val tag = "FileSelectionRoute"
         Log.d(tag, "選択されたhash ${hashes.size}件")
 
         // enqueueUniqueWork + REPLACE は 「名前（Unique Name）」を指定することで、ひとつの管理枠を作ります。
         // 唯一性の保証: 同じ名前のジョブがすでにキューにある場合、WorkManager が介入します。
-        //REPLACE の魔法: 新しいリクエストが来たら、**古い方を即座にキャンセル（中断）**して、新しい方を最初から実行します。
+        // REPLACE の魔法: 新しいリクエストが来たら、**古い方を即座にキャンセル（中断）**して、新しい方を最初から実行します。
         enqueueUniqueWork(
             "manual_upload",
             ExistingWorkPolicy.REPLACE, // これで「都度上書き」される
@@ -45,56 +48,84 @@ object WorkManagerExtension {
         )
     }
 
+    fun WorkManager.enqueueWManualDelete(
+        hashes: Array<String>,
+        totalCount: Int,
+    ) {
+        val workData =
+            workDataOf(
+                "TARGET_HASHES" to hashes,
+                "TOTAL_COUNT" to totalCount,
+            )
+        val deleteRequest =
+            OneTimeWorkRequestBuilder<GdriveDeleteWorker>()
+                .setInputData(workData)
+                .addTag(GdriveDeleteWorker.TAG)
+                .build()
+        Log.d("DriveFileDeleteRoute", "選択された削除hash ${hashes.size}件")
+
+        enqueueUniqueWork(
+            "manual_delete",
+            ExistingWorkPolicy.REPLACE,
+            deleteRequest,
+        )
+    }
+
     /**
      * アップロード状態を監視します。
      * 現在の進捗とほぼ同じですが、念の為 Worker のステートで確認
      */
-    fun WorkManager.observeUploadingStateByManualTag(
-        viewModelScope: CoroutineScope,
-    ): StateFlow<Boolean> {
-        return observeUploadingState(
+    fun WorkManager.observeUploadingStateByManualTag(viewModelScope: CoroutineScope): StateFlow<Boolean> =
+        observeUploadingState(
             viewModelScope = viewModelScope,
             workManagerTag = WorkManagerTag.Manual,
         )
-    }
+
+    fun WorkManager.observeDeletingStateByManualTag(viewModelScope: CoroutineScope): StateFlow<Boolean> =
+        observeUploadingState( // reuse same progress checking
+            viewModelScope = viewModelScope,
+            workManagerTag = WorkManagerTag.ManualDelete,
+        )
 
     private fun WorkManager.observeUploadingState(
         viewModelScope: CoroutineScope,
         workManagerTag: WorkManagerTag,
-    ): StateFlow<Boolean> {
-        return getWorkInfosByTagFlow(workManagerTag.value)
+    ): StateFlow<Boolean> =
+        getWorkInfosByTagFlow(workManagerTag.value)
             .map { infos ->
                 infos.any { it.state == WorkInfo.State.RUNNING || it.state == WorkInfo.State.ENQUEUED }
-            }
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
-    }
+            }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
-    fun WorkManager.observeProgressByManual(
-        viewModelScope: CoroutineScope
-    ): StateFlow<Pair<Int, Int>?> {
-        return observeProgress(
+    fun WorkManager.observeProgressByManual(viewModelScope: CoroutineScope): StateFlow<Pair<Int, Int>?> =
+        observeProgress(
             viewModelScope = viewModelScope,
             workManagerTag = WorkManagerTag.Manual,
         )
-    }
+
+    fun WorkManager.observeProgressByManualDelete(viewModelScope: CoroutineScope): StateFlow<Pair<Int, Int>?> =
+        observeProgress(
+            viewModelScope = viewModelScope,
+            workManagerTag = WorkManagerTag.ManualDelete,
+        )
+
     /**
      * 現在の進捗を確認します。
      */
     private fun WorkManager.observeProgress(
         viewModelScope: CoroutineScope,
         workManagerTag: WorkManagerTag,
-    ): StateFlow<Pair<Int, Int>?> {
-        return getWorkInfosByTagFlow(workManagerTag.value).map { workInfos ->
-            Log.d("アップロード監視", "${workInfos.size}件のワークフロー")
-            val runningWork = workInfos.find { it.state == WorkInfo.State.RUNNING }
-            val progress = runningWork?.progress
-            if (progress != null) {
-                val current = progress.getInt("PROGRESS_CURRENT", 0)
-                val total = progress.getInt("PROGRESS_TOTAL", 0)
-                current to total
-            } else {
-                null
-            }
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
-    }
+    ): StateFlow<Pair<Int, Int>?> =
+        getWorkInfosByTagFlow(workManagerTag.value)
+            .map { workInfos ->
+                Log.d("アップロード監視", "${workInfos.size}件のワークフロー")
+                val runningWork = workInfos.find { it.state == WorkInfo.State.RUNNING }
+                val progress = runningWork?.progress
+                if (progress != null) {
+                    val current = progress.getInt("PROGRESS_CURRENT", 0)
+                    val total = progress.getInt("PROGRESS_TOTAL", 0)
+                    current to total
+                } else {
+                    null
+                }
+            }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 }
