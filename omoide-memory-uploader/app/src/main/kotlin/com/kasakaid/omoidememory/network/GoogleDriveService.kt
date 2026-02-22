@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Build
 import android.util.Log
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
+import com.google.api.client.googleapis.json.GoogleJsonResponseException
 import com.google.api.client.http.FileContent
 import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.api.client.json.gson.GsonFactory
@@ -16,8 +17,10 @@ import com.kasakaid.omoidememory.data.OmoideMemory
 import com.kasakaid.omoidememory.data.OmoideUploadPrefsRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -26,7 +29,7 @@ class GoogleDriveService
     @Inject
     constructor(
         @param:ApplicationContext private val context: Context,
-        private val omoideUploadPrefsRepository: OmoideUploadPrefsRepository,
+        omoideUploadPrefsRepository: OmoideUploadPrefsRepository,
     ) {
         private val accountName: String = omoideUploadPrefsRepository.getAccountName() ?: throw SecurityException("共有したいフォルダを持つアカウントでログインしてください")
         private val omoideSaAccount: String = BuildConfig.OMOIDE_SA_EMAIL_ADDRESS
@@ -79,11 +82,14 @@ class GoogleDriveService
         /**
          * ファイルをアップロードします
          */
-        suspend fun uploadFile(omoideMemory: OmoideMemory): String? =
+        suspend fun uploadFile(
+            omoideMemory: OmoideMemory,
+            attempt: Int = 1,
+        ): String? =
             withContext(Dispatchers.IO) {
-                // Define parent folder if needed. usage: fileMetadata.parents = listOf("folderId")
-                // For now, root folder.
+                val maxAttempts = 3
                 try {
+                    // 1. ファイル本体のアップロード
                     val uploadedFile =
                         service
                             .files()
@@ -93,6 +99,12 @@ class GoogleDriveService
                             ).setFields("id")
                             .execute()
 
+                    if (uploadedFile?.id == null) throw IOException("Upload failed: ID is null")
+
+                    // 次のPermission付与リクエストまで少し待機（429対策）
+                    delay(500)
+
+                    // 2. SAへのPermission付与（ここが重要）
                     // SA も見える & ゴミ箱移動できるようにするため Permission をセット
                     // 削除の制限: マイドライブ内のファイルを完全にゴミ箱移動できるのは、原則としてそのファイルのオーナーとと編集者（Writer）もゴミ箱へ移動（Trash）させることができます
                     // 「親フォルダに編集者権限があっても、個別にPermissionを付与（または意識した実装）をしないと、SA側からゴミ箱へ移動できない（あるいは孤立したゴミになる）可能性が高い
@@ -100,27 +112,34 @@ class GoogleDriveService
                     val userPermission =
                         Permission().apply {
                             type = "user"
-                            role = "writer" // 編集者権限（閲覧だけで良ければ "reader"）
+                            role = "writer"
                             emailAddress = omoideSaAccount
                         }
+
                     service
                         .permissions()
                         .create(uploadedFile.id, userPermission)
-                        .setSupportsAllDrives(true)
+                        .setSendNotificationEmail(false) // SAへの通知メールは不要
                         .execute()
 
-                    uploadedFile.let {
-                        Log.d("GoogleDriveService", "${it.name} を ${it.parents} に ${it.id} で配置")
-                        it.id
-                    }
+                    Log.d("Drive", "Successfully uploaded and shared: ${uploadedFile.id}")
+
+                    // 全工程成功。次のファイル処理のために少し待機
+                    delay(800)
+                    return@withContext uploadedFile.id
                 } catch (e: Exception) {
-                    // Handle specific auth exceptions
-                    e.printStackTrace()
-                    if (e.message?.contains("401") == true) {
-                        // Token might be expired or revoked
-                        throw SecurityException("Authentication failed: ${e.message}")
+                    val isRateLimit = e is GoogleJsonResponseException && e.statusCode == 429
+
+                    if (attempt < maxAttempts) {
+                        val waitTime = if (isRateLimit) 5000L * attempt else 2000L * attempt
+                        Log.w("Drive", "Attempt $attempt failed. Retrying in ${waitTime}ms... Error: ${e.message}")
+
+                        delay(waitTime)
+                        return@withContext uploadFile(omoideMemory, attempt + 1)
+                    } else {
+                        Log.e("Drive", "All attempts failed for ${omoideMemory.name}", e)
+                        return@withContext null
                     }
-                    null
                 }
             }
     }
