@@ -7,8 +7,6 @@ plugins {
     id("com.google.dagger.hilt.android")
 }
 
-
-
 android {
     namespace = "com.kasakaid.omoidememory"
     compileSdk = 34
@@ -31,9 +29,29 @@ android {
         if (localPropertiesFile.exists()) {
             localProperties.load(localPropertiesFile.inputStream())
         }
-        val folderId = localProperties.getProperty("OMOIDE_FOLDER_ID") ?: throw IllegalStateException("OMOIDE_FOLDER_ID を指定してアップロード先を決めてください。Google ドライブのサービスアカウントと共有します。")
-        buildConfigField("String", "OMOIDE_FOLDER_ID", folderId)
-        // BuildConfig を生成する設定（最近の Gradle では明示が必要な場合があります）
+        // 1. ファイル名の設定（取得してすぐ field にバインド）
+        localProperties.getProperty("omoide.sa.key.name")?.let { name ->
+            buildConfigField("String", "SA_KEY_FILE_NAME", "\"$name\"")
+        } ?: throw IllegalStateException("local.properties: 'omoide.sa.key.name' が未定義です")
+
+        // 2. フォルダIDの設定
+        localProperties.getProperty("omoide.folder.id")?.let { id ->
+            buildConfigField("String", "OMOIDE_FOLDER_ID", id)
+        } ?: throw IllegalStateException("local.properties: 'omoide.folder.id' が未定義です")
+
+        // buildConfigField: アプリが実行時に「どのファイル名」を開けばいいかを知るために必要。
+        sourceSets {
+            getByName("main") {
+                getByName("main") {
+                    // 3. アセットパスの設定（sourceSets の文脈内でのみ取得）
+                    localProperties.getProperty("omoide.sa.key.path")?.let { path ->
+                        assets.srcDirs(file(path))
+                        // 指定されたディレクトリを assets として認識させる
+                        // これにより、ディレクトリ内のファイルが apk の assets 直下に配置されます
+                    } ?: throw IllegalStateException("local.properties: 'omoide.sa.key.path' が未定義です")
+                }
+            }
+        }
         buildFeatures {
             buildConfig = true
         }
@@ -51,6 +69,11 @@ android {
     }
     kotlinOptions {
         jvmTarget = "17"
+        // メタデータの不整合エラーを無視させる魔法の引数
+        // 以下のメタ情報不整合のエラーが出るために
+        // どうも、Android Studio が androidx.compose.remote:remote-creation-core:1.0.0-alpha04 をつれてきてしまうためみたい、Live Edit 機能のためとkで
+        // file:///~/.gradle/caches/modules-2/files-2.1/androidx.compose.remote/remote-creation-core/1.0.0-alpha04/b7a08b52fb581d744610b023544e7372a6a41cd9/remote-creation-core-1.0.0-alpha04.jar!/META-INF/remote-creation-core.kotlin_moduleModule was compiled with an incompatible version of Kotlin. The binary version of its metadata is 2.1.0, expected version is 1.9.0.
+        freeCompilerArgs += listOf("-Xskip-metadata-version-check")
     }
     buildFeatures {
         compose = true
@@ -63,13 +86,6 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
             excludes += "META-INF/DEPENDENCIES"
         }
-    }
-    kotlinOptions {
-        // メタデータの不整合エラーを無視させる魔法の引数
-        // 以下のメタ情報不整合のエラーが出るために
-        // どうも、Android Studio が androidx.compose.remote:remote-creation-core:1.0.0-alpha04 をつれてきてしまうためみたい、Live Edit 機能のためとkで
-        // file:///~/.gradle/caches/modules-2/files-2.1/androidx.compose.remote/remote-creation-core/1.0.0-alpha04/b7a08b52fb581d744610b023544e7372a6a41cd9/remote-creation-core-1.0.0-alpha04.jar!/META-INF/remote-creation-core.kotlin_moduleModule was compiled with an incompatible version of Kotlin. The binary version of its metadata is 2.1.0, expected version is 1.9.0.
-        freeCompilerArgs += listOf("-Xskip-metadata-version-check")
     }
 }
 
@@ -112,11 +128,13 @@ dependencies {
 
     // Google Play Services / Drive
     implementation("com.google.android.gms:play-services-auth:20.7.0")
-    implementation("com.google.api-client:google-api-client-android:2.2.0")
+    implementation("com.google.api-client:google-api-client-android:2.8.1")
     implementation("com.google.apis:google-api-services-drive:v3-rev20230822-2.0.0") {
         exclude(group = "org.apache.httpcomponents")
     }
     implementation("com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava")
+    // Upload 時のクレデンシャルセット
+    implementation("com.google.auth:google-auth-library-oauth2-http:1.43.0")
 
     // OkHttp
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
