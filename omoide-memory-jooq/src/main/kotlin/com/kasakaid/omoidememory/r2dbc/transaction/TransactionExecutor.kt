@@ -20,7 +20,7 @@ import kotlin.coroutines.cancellation.CancellationException
 class TransactionExecutor(
     private val r2DBCDSLContext: R2DBCDSLContext,
 ) {
-    suspend fun <LEFT : TransactionRollbackException, RIGHT> executeWithPerLineLeftRollback(
+    suspend fun <LEFT, RIGHT> executeWithPerLineLeftRollback(
         requestId: String,
         block: suspend CoroutineScope.() -> Either<LEFT, RIGHT>,
     ): Either<TransactionAttemptFailure, RIGHT> {
@@ -35,7 +35,7 @@ class TransactionExecutor(
                             block = block,
                         ).fold(
                             ifLeft = {
-                                throw it // ロールバックさせる
+                                throw TransactionRollbackException("エラーが発生") // ロールバックさせる
                             },
                             ifRight = { it.right() },
                         )
@@ -46,7 +46,7 @@ class TransactionExecutor(
                 throw e
             } catch (e: TransactionRollbackException) {
                 logger.warn { "明示的なロールバック [requestId=$requestId] ${OneLineLogFormatter.format(e)}" }
-                e.left()
+                TransactionAttemptFailure.Unmanaged(e).left()
             } catch (e: Throwable) {
                 logger.error { "[requestId=$requestId] ${OneLineLogFormatter.format(e)}" }
                 TransactionAttemptFailure.Unmanaged(e).left()

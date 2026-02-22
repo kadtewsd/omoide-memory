@@ -8,10 +8,9 @@ package com.kasakaid.omoidememory.r2dbc.transaction
  * 具象クラスで Any で値を保持してしまう問題を回避します。
  * 例外として投げないとロールバックができないが、エラーとしても扱いたいので、仕方なく二つの性質を持たせています。
  */
-abstract class TransactionRollbackException(
+class TransactionRollbackException(
     message: String,
-) : RuntimeException(message),
-    TransactionAttemptFailure
+) : RuntimeException(message)
 
 /**
  * トランザクションを実行したが失敗した
