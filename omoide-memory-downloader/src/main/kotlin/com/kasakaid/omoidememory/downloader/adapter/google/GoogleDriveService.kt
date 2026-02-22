@@ -1,6 +1,10 @@
 package com.kasakaid.omoidememory.downloader.adapter.google
 
 import arrow.core.Either
+import arrow.core.left
+import arrow.core.raise.context.bind
+import arrow.core.raise.either
+import arrow.core.right
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport
 import com.google.api.client.json.gson.GsonFactory
 import com.google.api.services.drive.Drive
@@ -11,9 +15,11 @@ import com.google.auth.oauth2.GoogleCredentials
 import com.kasakaid.omoidememory.domain.*
 import com.kasakaid.omoidememory.downloader.domain.DriveService
 import com.kasakaid.omoidememory.downloader.domain.MediaType
+import com.kasakaid.omoidememory.utility.OneLineLogFormatter
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.io.IOException
 import org.springframework.core.env.Environment
 import org.springframework.stereotype.Service
 import java.io.FileInputStream
@@ -97,43 +103,108 @@ class GoogleDriveService(
         return googleFiles
     }
 
+    suspend fun <T> tryIo(
+        path: Path,
+        block: suspend () -> Either<*, T>,
+    ): Either<DriveService.WriteError, T> =
+        tryIo(setOf(path)) {
+            block()
+        }
+
+    /**
+     * Metaデータを ImageMetadataReader で読み込むときに失敗するかもしれない対策
+     */
+    suspend fun <T> tryIo(
+        paths: Set<Path>,
+        block: suspend () -> Either<*, T>,
+    ): Either<DriveService.WriteError, T> =
+        try {
+            block().mapLeft {
+                DriveService.WriteError(paths)
+            }
+        } catch (e: Exception) {
+            logger.error { "書き込みでエラーが発生: ${OneLineLogFormatter.format(e)}" }
+            logger.error { e }
+            DriveService.WriteError(paths).left()
+        }
+
     override suspend fun writeOmoideMemoryToTargetPath(
         googleFile: File,
         omoideBackupPath: Path,
         mediaType: MediaType,
-    ): Either<MetadataExtractError, OmoideMemory> =
+    ): Either<DriveService.WriteError, OmoideMemory> =
         withContext(Dispatchers.IO) {
-            // 1. OS標準の一時ディレクトリにファイルを確保
-            // prefixとsuffixを指定するだけで、Windowsなら AppData\Local\Temp、Macなら /var/folders 等に作られます
-            val tempPath = Files.createTempFile("omoide_", "_${googleFile.name}")
-            // 2026年現在のベストプラクティス:
-            // OutputStream 自体も .use で確実に閉じ、I/Oスレッドで実行する
-            logger.debug { "Gdrive からのダウンロード開始 ->  $tempPath" }
-            Files
-                .newOutputStream(tempPath, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)
-                .use { outputStream ->
-                    driveService
-                        .files()
-                        .get(googleFile.id)
-                        .executeMediaAndDownloadTo(outputStream)
-                    // executeMediaAndDownloadTo は内部でループして書き込むため、
-                    // ここに到達した時点でディスクへの書き出しは完了しています
-                }
-            logger.debug { "${googleFile.name }からメタデータを抽出（ここで captureTime が判明）" }
-            val metadata = mediaType.createMediaMetadata(tempPath)
+            either {
+                // 1. OS標準の一時ディレクトリにファイルを確保
+                // prefixとsuffixを指定するだけで、Windowsなら AppData\Local\Temp、Macなら /var/folders 等に作られます
+                val tempPath = Files.createTempFile("omoide_", "_${googleFile.name}")
+                // 2026年現在のベストプラクティス:
+                // OutputStream 自体も .use で確実に閉じ、I/Oスレッドで実行する
+                logger.debug { "Gdrive からのダウンロード開始 ->  $tempPath" }
+                tryIo(path = tempPath) {
+                    Files
+                        .newOutputStream(tempPath, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)
+                        .use { outputStream ->
+                            driveService
+                                .files()
+                                .get(googleFile.id)
+                                .executeMediaAndDownloadTo(outputStream)
+                            // executeMediaAndDownloadTo は内部でループして書き込むため、
+                            // ここに到達した時点でディスクへの書き出しは完了しています
+                        }.right()
+                }.bind()
 
-            logger.debug { "${googleFile.name }のファイルパスを決める" }
-            val finalTargetPath =
-                FileOrganizeService.determineTargetPath(
-                    fileName = googleFile.name,
-                    captureTime = metadata.capturedTime,
-                )
-            logger.debug { "${googleFile.name }のファイルパスが $finalTargetPath となったので、$tempPath を削除" }
-            FileOrganizeService.moveToTarget(sourcePath = tempPath, targetPath = finalTargetPath)
-            Files.deleteIfExists(tempPath)
-            // 正しいパスでメタデータを生成。少し勿体無いが確実に正しいパスで新規にインスタンスを生成
-            mediaType.createMediaMetadata(finalTargetPath).toMedia(SourceFile.fromGoogleDrive(googleFile)).also {
-                logger.debug { "${googleFile.name }のエンティティ化が成功" }
+                logger.debug { "${googleFile.name}からメタデータを抽出（ここで captureTime が判明）" }
+
+                val metadata: MediaMetadata =
+                    tryIo(tempPath) {
+                        mediaType.createMediaMetadata(tempPath).right()
+                    }.bind()
+
+                logger.debug { "${googleFile.name}のファイルパスを決める" }
+
+                val finalTargetPath =
+                    tryIo(tempPath) {
+                        FileOrganizeService
+                            .determineTargetPath(
+                                fileName = googleFile.name,
+                                captureTime = metadata.capturedTime,
+                            ).right()
+                    }.bind()
+
+                logger.debug { "${googleFile.name}のファイルパスが $finalTargetPath となったので、$tempPath を削除" }
+                tryIo(finalTargetPath) {
+                    FileOrganizeService.moveToTarget(sourcePath = tempPath, targetPath = finalTargetPath).right()
+                }.bind()
+
+                tryIo(setOf(tempPath, finalTargetPath)) {
+                    Files.deleteIfExists(tempPath).right()
+                }.bind()
+                logger.debug { "一時ファイル ${googleFile.name} を削除完了" }
+                // 正しいパスでメタデータを生成。少し勿体無いが確実に正しいパスで新規にインスタンスを生成
+                tryIo(setOf(tempPath, finalTargetPath)) {
+                    mediaType
+                        .createMediaMetadata(finalTargetPath)
+                        .toMedia(
+                            SourceFile.fromGoogleDrive(googleFile),
+                        ).mapLeft {
+                            logger.error { "一時ファイル ${googleFile.name} のメディア化失敗。" }
+                            logger.error { OneLineLogFormatter.format(it.ex) }
+                            logger.error { it.ex }
+                            DriveService.WriteError(finalTargetPath)
+                        }.onRight {
+                            logger.debug { "${googleFile.name}のエンティティ化が成功" }
+                        }
+                }.bind()
             }
         }
+
+    override suspend fun deleteFile(fileId: String): Either<DriveService.FileDeleteError, Unit> =
+        Either
+            .catch {
+                driveService.files().delete(fileId).execute()
+                Unit
+            }.mapLeft {
+                DriveService.FileDeleteError(it)
+            }
 }

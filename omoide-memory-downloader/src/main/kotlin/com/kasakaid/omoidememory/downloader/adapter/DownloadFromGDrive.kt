@@ -1,10 +1,12 @@
 package com.kasakaid.omoidememory.downloader.adapter
 
+import arrow.core.left
 import arrow.core.right
 import com.google.api.services.drive.model.File
 import com.kasakaid.omoidememory.APPLICATION_RUNNER_KEY
 import com.kasakaid.omoidememory.downloader.domain.DriveService
 import com.kasakaid.omoidememory.downloader.service.DownloadFileBackUpService
+import com.kasakaid.omoidememory.r2dbc.transaction.TransactionAttemptFailure
 import com.kasakaid.omoidememory.r2dbc.transaction.TransactionExecutor
 import com.kasakaid.omoidememory.utility.CoroutineHelper.mapWithCoroutine
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -15,7 +17,9 @@ import org.springframework.boot.ApplicationRunner
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.core.env.Environment
 import org.springframework.stereotype.Component
+import java.nio.file.Files
 import java.nio.file.Path
+import kotlin.io.path.name
 
 private val logger = KotlinLogging.logger {}
 
@@ -34,15 +38,42 @@ class DownloadFromGDrive(
             val googleDriveFilesInfo: List<File> = driveService.listFiles()
             // Google API のレートに引っ掛かるなどの可能性があるので 10 程度にする
             googleDriveFilesInfo.mapWithCoroutine(Semaphore(10)) { googleFile ->
-                transactionExecutor.executeWithPerLineLeftRollback(
-                    "${googleFile.name}:${googleFile.id}",
-                ) {
-                    downloadFileBackUpService.execute(
-                        googleFile = googleFile,
-                        omoideBackupPath = Path.of(environment.getProperty("OMOIDE_BACKUP_DESTINATION")!!),
+                transactionExecutor
+                    .executeWithPerLineLeftRollback(
+                        "${googleFile.name}:${googleFile.id}",
+                    ) {
+                        downloadFileBackUpService
+                            .execute(
+                                googleFile = googleFile,
+                                omoideBackupPath = Path.of(environment.getProperty("OMOIDE_BACKUP_DESTINATION")!!),
+                            ).onLeft {
+                                it.paths.forEach {
+                                    Files.deleteIfExists(it)
+                                    logger.error { "バックアップ時になんらかのエラー発生。${it.name}の物理ファイルを削除します。" }
+                                }
+                            }
+                    }.fold(
+                        ifLeft = {
+                            when (it) {
+                                is TransactionAttemptFailure.Unmanaged -> {
+                                    logger.error { it.ex }
+                                }
+                            }
+                        },
+                        ifRight = {
+                            "${googleFile.id} の ${googleFile.name}".let { skippedFileName ->
+                                when (it) {
+                                    is DownloadFileBackUpService.FileIOFinish.Skip -> {
+                                        logger.debug { " $skippedFileName をスキップしました。${it.reason}" }
+                                    }
+
+                                    DownloadFileBackUpService.FileIOFinish.Success -> {
+                                        logger.debug { "$skippedFileName を正常にバックアップできました。" }
+                                    }
+                                }
+                            }
+                        },
                     )
-                    googleFile.right()
-                }
             }
             logger.info { "Google Driveからのダウンロード処理を終了" }
         }

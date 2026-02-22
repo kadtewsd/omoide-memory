@@ -85,6 +85,7 @@ object VideoMetaInfoExtractor {
                 videoPath.toAbsolutePath().toString(),
             )
 
+        logger.debug { "コマンド: $command " }
         val process =
             ProcessBuilder(command)
                 .redirectErrorStream(true)
@@ -96,7 +97,7 @@ object VideoMetaInfoExtractor {
         return if (exitCode == 0) {
             JsonMapper.mapper.readTree(output).right()
         } else {
-            MetadataExtractError(IllegalStateException("ffprobe が失敗: $output")).left()
+            MetadataExtractError(IllegalStateException("ffprobe が失敗: exitCode: $exitCode 出力文字列: $output")).left()
         }
     }
 
