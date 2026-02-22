@@ -77,7 +77,7 @@ class GoogleDriveService(
                     .list()
                     .setQ(
                         """
-                        trashed = false 
+                        trashed = false
                         and mimeType != 'application/vnd.google-apps.folder'
                         and '${environment.getProperty("OMOIDE_FOLDER_ID")}' in parents
                         """.trimIndent(),
@@ -108,6 +108,7 @@ class GoogleDriveService(
             val tempPath = Files.createTempFile("omoide_", "_${googleFile.name}")
             // 2026年現在のベストプラクティス:
             // OutputStream 自体も .use で確実に閉じ、I/Oスレッドで実行する
+            logger.debug { "Gdrive からのダウンロード開始 ->  $tempPath" }
             Files
                 .newOutputStream(tempPath, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)
                 .use { outputStream ->
@@ -118,16 +119,21 @@ class GoogleDriveService(
                     // executeMediaAndDownloadTo は内部でループして書き込むため、
                     // ここに到達した時点でディスクへの書き出しは完了しています
                 }
+            logger.debug { "${googleFile.name }からメタデータを抽出（ここで captureTime が判明）" }
             val metadata = mediaType.createMediaMetadata(tempPath)
+
+            logger.debug { "${googleFile.name }のファイルパスを決める" }
             val finalTargetPath =
                 FileOrganizeService.determineTargetPath(
                     fileName = googleFile.name,
                     captureTime = metadata.capturedTime,
                 )
+            logger.debug { "${googleFile.name }のファイルパスが $finalTargetPath となったので、$tempPath を削除" }
             FileOrganizeService.moveToTarget(sourcePath = tempPath, targetPath = finalTargetPath)
             Files.deleteIfExists(tempPath)
-            // 5. ファイル実体からメタデータを抽出（ここで captureTime が判明）
             // 正しいパスでメタデータを生成。少し勿体無いが確実に正しいパスで新規にインスタンスを生成
-            mediaType.createMediaMetadata(finalTargetPath).toMedia(SourceFile.fromGoogleDrive(googleFile))
+            mediaType.createMediaMetadata(finalTargetPath).toMedia(SourceFile.fromGoogleDrive(googleFile)).also {
+                logger.debug { "${googleFile.name }のエンティティ化が成功" }
+            }
         }
 }

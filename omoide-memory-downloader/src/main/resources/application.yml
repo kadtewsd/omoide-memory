@@ -1,6 +1,10 @@
 spring:
   application:
     name: omoide-memory
+  r2dbc:
+      url: r2dbc:pool:postgresql://localhost:5432/omoide_memory?currentSchema=omoide_memory
+      username: postgres
+      password: password
 logging:
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger - requestId=%X{requestId} requestUrl=%X{requestUrl} requestMethod=%X{requestMethod} userAgent=%X{userAgent} - %msg%n"
