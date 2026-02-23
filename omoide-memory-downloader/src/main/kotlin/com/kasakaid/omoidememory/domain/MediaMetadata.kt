@@ -87,8 +87,21 @@ class PhotoMetadata(
     override val capturedTime: OffsetDateTime?,
     override val filePath: Path,
 ) : MediaMetadata {
-    override suspend fun toMedia(sourceFile: SourceFile): Either<MetadataExtractError, OmoideMemory> =
-        try {
+    /**
+     * 写真データではないので撮影日を取得できなかった時に、最悪システムのファイル更新日時をもって補完して作成日の NULL 不許可を実現するためのメソッド
+     */
+    fun withNotExifCaptureDate(notExifCaptureDate: OffsetDateTime?) =
+        PhotoMetadata(
+            exifSubIFD = exifSubIFD,
+            exifIFD0 = exifIFD0,
+            gpsDirectory = gpsDirectory,
+            filePath = filePath,
+            capturedTime = notExifCaptureDate,
+        )
+
+    override suspend fun toMedia(sourceFile: SourceFile): Either<MetadataExtractError, OmoideMemory> {
+        require(this.capturedTime != null) { "このタイミングでは captureTime は NULL になっていてはいけない。確実に作成日は決定すること" }
+        return try {
             OmoideMemory
                 .Photo(
                     localPath = filePath,
@@ -120,10 +133,7 @@ class PhotoMetadata(
                     latitude = gpsDirectory?.geoLocation?.latitude,
                     longitude = gpsDirectory?.geoLocation?.longitude,
                     altitude = gpsDirectory?.getDouble(GpsDirectory.TAG_ALTITUDE),
-                    captureTime =
-                        exifSubIFD?.getDate(ExifSubIFDDirectory.TAG_DATETIME_ORIGINAL)?.let {
-                            OffsetDateTime.ofInstant(it.toInstant(), ZoneId.systemDefault())
-                        },
+                    captureTime = this.capturedTime,
                     deviceMake = exifIFD0?.getString(ExifIFD0Directory.TAG_MAKE),
                     deviceModel = exifIFD0?.getString(ExifIFD0Directory.TAG_MODEL),
                 ).right()
@@ -131,4 +141,5 @@ class PhotoMetadata(
             logger.error(e) { "画像メタデータの抽出に失敗: ${this.filePath}" }
             MetadataExtractError(e).left()
         }
+    }
 }

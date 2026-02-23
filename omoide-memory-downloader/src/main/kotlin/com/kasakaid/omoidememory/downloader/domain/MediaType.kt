@@ -7,6 +7,9 @@ import com.kasakaid.omoidememory.domain.Extension
 import com.kasakaid.omoidememory.domain.LocalFile
 import com.kasakaid.omoidememory.domain.MediaMetadata
 import com.kasakaid.omoidememory.domain.MediaMetadataFactory
+import com.kasakaid.omoidememory.domain.MetadataExtractError
+import com.kasakaid.omoidememory.domain.OmoideMemoryMetadataService
+import com.kasakaid.omoidememory.domain.logger
 import java.nio.file.Path
 
 enum class MediaType(
@@ -24,7 +27,21 @@ enum class MediaType(
     PHOTO(
         directoryName = "photo",
         extensions = setOf("jpg", "jpeg", "png", "heic", "heif", "gif", "webp"),
-        createMediaMetadata = { localFile -> MediaMetadataFactory.createPhoto(localFile) },
+        createMediaMetadata = { localFile ->
+            MediaMetadataFactory.createPhoto(localFile.path).let { photo ->
+                if (photo.capturedTime == null) {
+                    logger.debug { "captureTime が 発見できないため、Photo の撮影情報ではない形で CaptureTime を保管します。" }
+                    OmoideMemoryMetadataService
+                        .estimateCaptureTimeFrom(
+                            photo.filePath,
+                        ).let {
+                            photo.withNotExifCaptureDate(it)
+                        }
+                } else {
+                    photo
+                }
+            }
+        },
     ),
     ;
 

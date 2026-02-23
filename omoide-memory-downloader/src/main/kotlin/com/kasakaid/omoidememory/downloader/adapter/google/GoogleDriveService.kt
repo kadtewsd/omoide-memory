@@ -2,7 +2,6 @@ package com.kasakaid.omoidememory.downloader.adapter.google
 
 import arrow.core.Either
 import arrow.core.left
-import arrow.core.raise.context.bind
 import arrow.core.raise.either
 import arrow.core.right
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport
@@ -19,13 +18,13 @@ import com.kasakaid.omoidememory.utility.OneLineLogFormatter
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.io.IOException
 import org.springframework.core.env.Environment
 import org.springframework.stereotype.Service
 import java.io.FileInputStream
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
+import kotlin.io.path.name
 
 /**
  * Google のドライブにアクセスするためのサービス
@@ -154,14 +153,14 @@ class GoogleDriveService(
                         }.right()
                 }.bind()
 
-                logger.debug { "${googleFile.name}からメタデータを抽出（ここで captureTime が判明）" }
+                logger.debug { "${googleFile.name}をローカル ${tempPath.name} にダウンロードしてメタデータを抽出" }
 
                 val metadata: MediaMetadata =
                     tryIo(tempPath) {
                         mediaType.createMediaMetadata(LocalFile(path = tempPath, name = googleFile.name)).right()
                     }.bind()
 
-                logger.debug { "${googleFile.name}のファイルパスを決める" }
+                logger.debug { "captureTime が判明。${metadata.capturedTime} ${googleFile.name}のファイルパスを決める" }
 
                 val finalTargetPath =
                     tryIo(tempPath) {
@@ -193,7 +192,7 @@ class GoogleDriveService(
                             logger.error { it.ex }
                             DriveService.WriteError(finalTargetPath)
                         }.onRight {
-                            logger.debug { "${googleFile.name}のエンティティ化が成功" }
+                            logger.debug { "${it.captureTime} で ${it.localPath.name} のエンティティ化が成功" }
                         }
                 }.bind()
             }
