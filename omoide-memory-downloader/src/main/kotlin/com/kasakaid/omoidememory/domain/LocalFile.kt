@@ -1,6 +1,8 @@
 package com.kasakaid.omoidememory.domain
 
 import arrow.core.Either
+import arrow.core.left
+import arrow.core.right
 import java.nio.file.Path
 import kotlin.io.path.isRegularFile
 
@@ -13,7 +15,7 @@ class LocalFile(
 ) {
     fun validate(): Either<MetadataExtractError, Path> =
         when (path.isRegularFile()) {
-            true -> path
-            false -> MetadataExtractError(IllegalStateException("ファイルが存在しません"))
+            true -> path.right()
+            false -> MetadataExtractError(IllegalStateException("ファイルが存在しません")).left()
         }
 }

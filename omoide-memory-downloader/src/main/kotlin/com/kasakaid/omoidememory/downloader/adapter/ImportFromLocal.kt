@@ -1,6 +1,7 @@
 package com.kasakaid.omoidememory.downloader.adapter
 
 import com.kasakaid.omoidememory.APPLICATION_RUNNER_KEY
+import com.kasakaid.omoidememory.downloader.service.FileIOFinish
 import com.kasakaid.omoidememory.downloader.service.ImportLocalFileService
 import com.kasakaid.omoidememory.r2dbc.transaction.TransactionAttemptFailure
 import com.kasakaid.omoidememory.r2dbc.transaction.TransactionExecutor
@@ -48,7 +49,7 @@ class ImportFromLocal(
                             importLocalFileService
                                 .execute(localFile)
                                 .onLeft {
-                                    logger.error { "インポート失敗: ${localFile.name} - ${it.message}" }
+                                    logger.error { "インポート失敗: ${localFile.name}" }
                                 }
                         }.fold(
                             ifLeft = {
@@ -61,11 +62,11 @@ class ImportFromLocal(
                             },
                             ifRight = { result ->
                                 when (result) {
-                                    is ImportLocalFileService.ImportResult.Success -> {
+                                    is FileIOFinish.Success -> {
                                         logger.debug { "インポート完了: ${localFile.name}" }
                                     }
 
-                                    is ImportLocalFileService.ImportResult.Skip -> {
+                                    is FileIOFinish.Skip -> {
                                         logger.debug { "スキップ: ${localFile.name} - ${result.reason}" }
                                     }
                                 }

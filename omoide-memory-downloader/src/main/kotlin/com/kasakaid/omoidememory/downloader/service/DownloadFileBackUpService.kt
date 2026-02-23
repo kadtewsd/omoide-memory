@@ -22,14 +22,6 @@ class DownloadFileBackUpService(
 ) {
     private val logger = KotlinLogging.logger {}
 
-    sealed interface FileIOFinish {
-        object Success : FileIOFinish
-
-        class Skip(
-            val reason: String,
-        ) : FileIOFinish
-    }
-
     suspend fun execute(
         googleFile: File,
         omoideBackupPath: Path,
