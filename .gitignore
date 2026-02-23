@@ -39,3 +39,5 @@ captures/
 **/out/
 
 **/ai_script/
+
+**/log/

@@ -6,13 +6,17 @@ import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMO
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_VIDEO
 import com.kasakaid.omoidememory.r2dbc.R2DBCDSLContext
 import kotlinx.coroutines.reactive.awaitSingle
+import org.springframework.core.env.Environment
 import org.springframework.stereotype.Repository
 import java.time.OffsetDateTime
 
 @Repository
 class SyncedMemoryRepository(
     private val dslContext: R2DBCDSLContext,
+    environment: Environment,
 ) : OmoideMemoryRepository {
+    val familyId = environment.getProperty("OMOIDE_FOLDER_ID")!!
+
     override suspend fun save(memory: OmoideMemory): OmoideMemory {
         when (memory) {
             is OmoideMemory.Video -> {
@@ -32,6 +36,7 @@ class SyncedMemoryRepository(
                 .get()
                 .insertInto(this)
                 .set(FILE_NAME, memory.name)
+                .set(FAMILY_ID, familyId)
                 .set(SERVER_PATH, memory.localPath.toString())
                 .set(CAPTURE_TIME, memory.captureTime)
                 .set(LATITUDE, memory.latitude?.toBigDecimal())
@@ -64,6 +69,7 @@ class SyncedMemoryRepository(
                 memory.run {
                     mapOf(
                         FILE_NAME to name,
+                        FAMILY_ID to familyId,
                         SERVER_PATH to localPath.toString(),
                         CAPTURE_TIME to captureTime,
                         FILE_SIZE to fileSize,

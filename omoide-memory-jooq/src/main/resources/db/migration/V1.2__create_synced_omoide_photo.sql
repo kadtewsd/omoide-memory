@@ -1,6 +1,7 @@
 -- Create table for storing synced file metadata
 CREATE TABLE omoide_memory.synced_omoide_photo (
     id                  BIGINT GENERATED ALWAYS AS IDENTITY NOT NULL,
+    family_id          VARCHAR(255)    NOT NULL,
     file_name           VARCHAR(255)    NOT NULL,
     server_path         TEXT            NOT NULL,
     capture_time        TIMESTAMP WITH TIME ZONE,
@@ -28,6 +29,7 @@ CREATE TABLE omoide_memory.synced_omoide_photo (
 );
 
 COMMENT ON TABLE  omoide_memory.synced_omoide_photo IS '同期済みおもいで写真';
+COMMENT ON COLUMN omoide_memory.commenter.family_id IS '家族ID。OMOIDE_FOLDER_ID にはいっているドライブのIDがはいる';
 COMMENT ON COLUMN omoide_memory.synced_omoide_photo.id IS 'サロゲートキー';
 COMMENT ON COLUMN omoide_memory.synced_omoide_photo.file_name IS 'ファイル名（ユニーク）';
 COMMENT ON COLUMN omoide_memory.synced_omoide_photo.server_path IS 'サーバー上のパス';
