@@ -20,8 +20,8 @@ object MediaMetadataFactory {
         return VideoMetadata(capturedTime = captured, filePath = localFile.path)
     }
 
-    fun createPhoto(localFile: LocalFile): PhotoMetadata {
-        val metadata = ImageMetadataReader.readMetadata(localFile.path.toFile())
+    fun createPhoto(localFile: Path): PhotoMetadata {
+        val metadata = ImageMetadataReader.readMetadata(localFile.toFile())
 
         val exifIFD0 = metadata.getFirstDirectoryOfType(ExifIFD0Directory::class.java)
         val exifSubIFD = metadata.getFirstDirectoryOfType(ExifSubIFDDirectory::class.java)
@@ -38,7 +38,7 @@ object MediaMetadataFactory {
             exifSubIFD = exifSubIFD,
             gpsDirectory = gpsDirectory,
             capturedTime = captured,
-            filePath = localFile.path,
+            filePath = localFile,
         )
     }
 }
