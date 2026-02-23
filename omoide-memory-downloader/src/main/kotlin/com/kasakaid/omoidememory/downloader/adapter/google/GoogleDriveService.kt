@@ -158,7 +158,7 @@ class GoogleDriveService(
 
                 val metadata: MediaMetadata =
                     tryIo(tempPath) {
-                        mediaType.createMediaMetadata(tempPath).right()
+                        mediaType.createMediaMetadata(LocalFile(path = tempPath, name = googleFile.name)).right()
                     }.bind()
 
                 logger.debug { "${googleFile.name}のファイルパスを決める" }
@@ -184,7 +184,7 @@ class GoogleDriveService(
                 // 正しいパスでメタデータを生成。少し勿体無いが確実に正しいパスで新規にインスタンスを生成
                 tryIo(setOf(tempPath, finalTargetPath)) {
                     mediaType
-                        .createMediaMetadata(finalTargetPath)
+                        .createMediaMetadata(LocalFile(path = finalTargetPath, name = finalTargetPath.fileName.toString()))
                         .toMedia(
                             SourceFile.fromGoogleDrive(googleFile),
                         ).mapLeft {

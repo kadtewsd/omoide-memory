@@ -38,7 +38,7 @@ class SyncedMemoryRepository(
                 .set(FILE_NAME, memory.name)
                 .set(FAMILY_ID, familyId)
                 .set(SERVER_PATH, memory.localPath.toString())
-                .set(CAPTURE_TIME, memory.captureTime)
+                .set(CAPTURE_TIME, memory.fixedCaptureTime)
                 .set(LATITUDE, memory.latitude?.toBigDecimal())
                 .set(LONGITUDE, memory.longitude?.toBigDecimal())
                 .set(ALTITUDE, memory.altitude?.toBigDecimal())
@@ -71,7 +71,7 @@ class SyncedMemoryRepository(
                         FILE_NAME to name,
                         FAMILY_ID to familyId,
                         SERVER_PATH to localPath.toString(),
-                        CAPTURE_TIME to captureTime,
+                        CAPTURE_TIME to fixedCaptureTime,
                         FILE_SIZE to fileSize,
                         DRIVE_FILE_ID to driveFileId,
                         CREATED_BY to "downloader",

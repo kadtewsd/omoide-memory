@@ -12,8 +12,10 @@ sealed interface OmoideMemory {
     val name: String
     val mediaType: String
     val driveFileId: String? // ドライブから取得されていないデータもあるため、整合性をとるため NULL 許可
-    val captureTime: OffsetDateTime?
+    val fixedCaptureTime: OffsetDateTime
     val fileSize: Long
+
+    fun fixCaptureTime(fixedCaptureTime: OffsetDateTime): OmoideMemory
 
     class Photo(
         override val localPath: Path,
@@ -34,10 +36,17 @@ sealed interface OmoideMemory {
         val latitude: Double?,
         val longitude: Double?,
         val altitude: Double?,
-        override val captureTime: OffsetDateTime?,
+        private var captureTime: OffsetDateTime?,
         val deviceMake: String?,
         val deviceModel: String?,
-    ) : OmoideMemory
+    ) : OmoideMemory {
+        override val fixedCaptureTime: OffsetDateTime = captureTime!!
+
+        override fun fixCaptureTime(fixedCaptureTime: OffsetDateTime): OmoideMemory =
+            apply {
+                this.captureTime = fixedCaptureTime
+            }
+    }
 
     class Video(
         override val localPath: Path,
@@ -46,6 +55,13 @@ sealed interface OmoideMemory {
         override val driveFileId: String?,
         override val fileSize: Long,
         val metadata: VideoMetadataDto,
-        override val captureTime: OffsetDateTime?,
-    ) : OmoideMemory
+        var captureTime: OffsetDateTime?,
+    ) : OmoideMemory {
+        override val fixedCaptureTime: OffsetDateTime = captureTime!!
+
+        override fun fixCaptureTime(fixedCaptureTime: OffsetDateTime): OmoideMemory =
+            apply {
+                this.captureTime = fixedCaptureTime
+            }
+    }
 }

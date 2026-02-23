@@ -87,7 +87,7 @@ object FileOrganizeService {
             targetPath
         }
 
-    private fun extractDateFromFilename(filename: String): OffsetDateTime? {
+    fun extractDateFromFilename(filename: String): OffsetDateTime? {
         val matcher = dateInFilenamePattern.matcher(filename)
         if (matcher.find()) {
             try {

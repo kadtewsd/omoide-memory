@@ -4,6 +4,7 @@ import com.google.api.services.drive.model.File
 import com.kasakaid.omoidememory.APPLICATION_RUNNER_KEY
 import com.kasakaid.omoidememory.downloader.domain.DriveService
 import com.kasakaid.omoidememory.downloader.service.DownloadFileBackUpService
+import com.kasakaid.omoidememory.downloader.service.FileIOFinish
 import com.kasakaid.omoidememory.r2dbc.transaction.TransactionAttemptFailure
 import com.kasakaid.omoidememory.r2dbc.transaction.TransactionExecutor
 import com.kasakaid.omoidememory.utility.CoroutineHelper.mapWithCoroutine
@@ -33,10 +34,6 @@ class DownloadFromGDrive(
     private val transactionExecutor: TransactionExecutor,
     private val environment: Environment,
 ) : ApplicationRunner {
-    companion object {
-        private val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
-    }
-
     override fun run(args: ApplicationArguments): Unit =
         runBlocking {
             logger.info { "Google Driveからのダウンロード処理を開始します" }
@@ -83,11 +80,11 @@ class DownloadFromGDrive(
                         ifRight = {
                             "${googleFile.id} の ${googleFile.name}".let { skippedFileName ->
                                 when (it) {
-                                    is DownloadFileBackUpService.FileIOFinish.Skip -> {
+                                    is FileIOFinish.Skip -> {
                                         logger.debug { " $skippedFileName をスキップしました。${it.reason}" }
                                     }
 
-                                    DownloadFileBackUpService.FileIOFinish.Success -> {
+                                    FileIOFinish.Success -> {
                                         logger.debug { "$skippedFileName を正常にバックアップできました。" }
                                     }
                                 }
