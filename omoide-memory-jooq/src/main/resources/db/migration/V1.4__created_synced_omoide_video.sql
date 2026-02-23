@@ -1,5 +1,6 @@
 CREATE TABLE omoide_memory.synced_omoide_video (
     id                  BIGINT GENERATED ALWAYS AS IDENTITY NOT NULL,
+    family_id          VARCHAR(255)    NOT NULL,
     file_name           VARCHAR(255)    NOT NULL,
     server_path         TEXT            NOT NULL,
     capture_time        TIMESTAMP WITH TIME ZONE,
@@ -24,6 +25,7 @@ CREATE TABLE omoide_memory.synced_omoide_video (
 );
 
 COMMENT ON TABLE  omoide_memory.synced_omoide_video IS '同期済みおもいで動画';
+COMMENT ON COLUMN omoide_memory.commenter.family_id IS '家族ID。OMOIDE_FOLDER_ID にはいっているドライブのIDがはいる';
 COMMENT ON COLUMN omoide_memory.synced_omoide_video.id IS 'サロゲートキー';
 COMMENT ON COLUMN omoide_memory.synced_omoide_video.file_name IS 'ファイル名（ユニーク）';
 COMMENT ON COLUMN omoide_memory.synced_omoide_video.server_path IS 'サーバー上のパス';

@@ -1,7 +1,5 @@
 package com.kasakaid.omoidememory.downloader.adapter
 
-import arrow.core.left
-import arrow.core.right
 import com.google.api.services.drive.model.File
 import com.kasakaid.omoidememory.APPLICATION_RUNNER_KEY
 import com.kasakaid.omoidememory.downloader.domain.DriveService
