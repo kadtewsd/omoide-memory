@@ -23,7 +23,7 @@ class TransactionExecutor(
     suspend fun <LEFT, RIGHT> executeWithPerLineLeftRollback(
         requestId: String,
         block: suspend CoroutineScope.() -> Either<LEFT, RIGHT>,
-    ): Either<TransactionAttemptFailure, RIGHT> {
+    ): Either<TransactionRollback, RIGHT> {
         val propagatedDSLContext = currentCoroutineContext().getR2DBCContext()
         val outer = propagatedDSLContext?.dsl() ?: r2DBCDSLContext.get()
         return outer.transactionCoroutine { inner ->
@@ -35,7 +35,7 @@ class TransactionExecutor(
                             block = block,
                         ).fold(
                             ifLeft = {
-                                throw TransactionRollbackException("エラーが発生") // ロールバックさせる
+                                throw TransactionRollbackException(it) // ロールバックさせる
                             },
                             ifRight = { it.right() },
                         )
@@ -46,10 +46,10 @@ class TransactionExecutor(
                 throw e
             } catch (e: TransactionRollbackException) {
                 logger.warn { "明示的なロールバック [requestId=$requestId] ${OneLineLogFormatter.format(e)}" }
-                TransactionAttemptFailure.Unmanaged(e).left()
+                (e.error as TransactionRollback).left()
             } catch (e: Throwable) {
                 logger.error { "[requestId=$requestId] ${OneLineLogFormatter.format(e)}" }
-                TransactionAttemptFailure.Unmanaged(e).left()
+                Unmanaged(e).left()
             }
         }
     }

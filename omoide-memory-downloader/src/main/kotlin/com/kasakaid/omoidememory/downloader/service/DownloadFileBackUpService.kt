@@ -11,6 +11,7 @@ import com.kasakaid.omoidememory.utility.OneLineLogFormatter
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.stereotype.Service
 import java.nio.file.Path
+import kotlin.io.path.name
 
 /**
  * ダウンロードしてきたデータを永続化までもっていくサービス。
@@ -32,7 +33,11 @@ class DownloadFileBackUpService(
             // Check if already exists in DB to skip
             val type =
                 MediaType.of(googleFile.name).getOrNull() ?: run {
-                    return FileIOFinish.Skip("関連性のない拡張子なのでスキップ ${googleFile.name}").right()
+                    return FileIOFinish
+                        .Skip(
+                            reason = "関連性のない拡張子なのでスキップ ${googleFile.name}",
+                            filePath = Path.of(googleFile.name),
+                        ).right()
                 }
 
             when (type) {
@@ -40,8 +45,11 @@ class DownloadFileBackUpService(
                 MediaType.VIDEO -> syncedMemoryRepository.existsVideoByFileName(googleFile.name)
             }.let { exists ->
                 if (exists) {
-                    logger.info { }
-                    return FileIOFinish.Skip("ファイルは既に存在するためスキップします: ${googleFile.name}").right()
+                    return FileIOFinish
+                        .Skip(
+                            reason = "ファイルは既に存在するためスキップします: ${googleFile.name}",
+                            filePath = Path.of(googleFile.name),
+                        ).right()
                 }
             }
 
@@ -58,7 +66,7 @@ class DownloadFileBackUpService(
                 .catch {
                     syncedMemoryRepository.save(omoideMemory)
                     logger.info { "処理完了: ${googleFile.name} -> ${omoideMemory.localPath}" }
-                    FileIOFinish.Success
+                    FileIOFinish.Success(omoideMemory.localPath)
                 }.mapLeft {
                     logger.error {
                         "問題が発生したため永続化を行いませんでした ${googleFile.name}"
