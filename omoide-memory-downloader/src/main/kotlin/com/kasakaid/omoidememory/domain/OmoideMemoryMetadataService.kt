@@ -1,5 +1,11 @@
 package com.kasakaid.omoidememory.domain
 
+import arrow.core.Either
+import arrow.core.left
+import arrow.core.raise.context.Raise
+import arrow.core.raise.context.bind
+import arrow.core.raise.context.either
+import arrow.core.raise.context.raise
 import com.kasakaid.omoidememory.downloader.domain.MediaType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -25,68 +31,67 @@ class OmoideMemoryMetadataService {
     suspend fun extractOmoideMemoryFromLocalFile(
         localFile: LocalFile,
         mediaType: MediaType,
-    ): OmoideMemory =
+    ): Either<MetadataExtractError, OmoideMemory> =
         withContext(Dispatchers.IO) {
-            val filePath = localFile.path
-            require(filePath.isRegularFile()) { "ファイルが存在しません: $filePath" }
+            either {
+                localFile.validate().bind()
+                // SourceFile を作成（driveFileId = null）
+                val sourceFile = SourceFile.fromLocalFile(localFile.path)
 
-            // SourceFile を作成（driveFileId = null）
-            val sourceFile = SourceFile.fromLocalFile(filePath)
+                // メタデータを抽出
+                val omoideMemory: OmoideMemory =
+                    mediaType
+                        .createMediaMetadata(localFile)
+                        .toMedia(sourceFile)
+                        .mapLeft {
+                            raise(MetadataExtractError(it.ex))
+                        }.bind()
 
-            // メタデータを抽出
-            val metadata = mediaType.createMediaMetadata(localFile)
-            val result = metadata.toMedia(sourceFile)
+                // EXIF等のメタデータに撮影時刻が存在しない場合は推測する
+                if (omoideMemory.captureTime == null) {
+                    val estimatedTime = estimateCaptureTime(localFile.path)
+                    when (omoideMemory) {
+                        is OmoideMemory.Photo -> {
+                            OmoideMemory.Photo(
+                                localPath = omoideMemory.localPath,
+                                name = omoideMemory.name,
+                                mediaType = omoideMemory.mediaType,
+                                driveFileId = omoideMemory.driveFileId,
+                                fileSize = omoideMemory.fileSize,
+                                locationName = omoideMemory.locationName,
+                                aperture = omoideMemory.aperture,
+                                shutterSpeed = omoideMemory.shutterSpeed,
+                                isoSpeed = omoideMemory.isoSpeed,
+                                focalLength = omoideMemory.focalLength,
+                                focalLength35mm = omoideMemory.focalLength35mm,
+                                whiteBalance = omoideMemory.whiteBalance,
+                                imageWidth = omoideMemory.imageWidth,
+                                imageHeight = omoideMemory.imageHeight,
+                                orientation = omoideMemory.orientation,
+                                latitude = omoideMemory.latitude,
+                                longitude = omoideMemory.longitude,
+                                altitude = omoideMemory.altitude,
+                                captureTime = estimatedTime,
+                                deviceMake = omoideMemory.deviceMake,
+                                deviceModel = omoideMemory.deviceModel,
+                            )
+                        }
 
-            val omoideMemory =
-                result.fold(
-                    ifLeft = { throw RuntimeException("メタデータ抽出失敗", it.ex) },
-                    ifRight = { it },
-                )
-
-            // EXIF等のメタデータに撮影時刻が存在しない場合は推測する
-            if (omoideMemory.captureTime == null) {
-                val estimatedTime = estimateCaptureTime(filePath)
-                when (omoideMemory) {
-                    is OmoideMemory.Photo -> {
-                        OmoideMemory.Photo(
-                            localPath = omoideMemory.localPath,
-                            name = omoideMemory.name,
-                            mediaType = omoideMemory.mediaType,
-                            driveFileId = omoideMemory.driveFileId,
-                            fileSize = omoideMemory.fileSize,
-                            locationName = omoideMemory.locationName,
-                            aperture = omoideMemory.aperture,
-                            shutterSpeed = omoideMemory.shutterSpeed,
-                            isoSpeed = omoideMemory.isoSpeed,
-                            focalLength = omoideMemory.focalLength,
-                            focalLength35mm = omoideMemory.focalLength35mm,
-                            whiteBalance = omoideMemory.whiteBalance,
-                            imageWidth = omoideMemory.imageWidth,
-                            imageHeight = omoideMemory.imageHeight,
-                            orientation = omoideMemory.orientation,
-                            latitude = omoideMemory.latitude,
-                            longitude = omoideMemory.longitude,
-                            altitude = omoideMemory.altitude,
-                            captureTime = estimatedTime,
-                            deviceMake = omoideMemory.deviceMake,
-                            deviceModel = omoideMemory.deviceModel,
-                        )
+                        is OmoideMemory.Video -> {
+                            OmoideMemory.Video(
+                                localPath = omoideMemory.localPath,
+                                name = omoideMemory.name,
+                                mediaType = omoideMemory.mediaType,
+                                driveFileId = omoideMemory.driveFileId,
+                                fileSize = omoideMemory.fileSize,
+                                metadata = omoideMemory.metadata,
+                                captureTime = estimatedTime,
+                            )
+                        }
                     }
-
-                    is OmoideMemory.Video -> {
-                        OmoideMemory.Video(
-                            localPath = omoideMemory.localPath,
-                            name = omoideMemory.name,
-                            mediaType = omoideMemory.mediaType,
-                            driveFileId = omoideMemory.driveFileId,
-                            fileSize = omoideMemory.fileSize,
-                            metadata = omoideMemory.metadata,
-                            captureTime = estimatedTime,
-                        )
-                    }
+                } else {
+                    omoideMemory
                 }
-            } else {
-                omoideMemory
             }
         }
 
@@ -111,7 +116,7 @@ class OmoideMemoryMetadataService {
      * 撮影日時を推測する
      * 優先順位: 1.EXIF/メタデータ → 2.ファイル名 → 3.ディレクトリ構造 → 4.ファイル最終更新日時
      */
-    private fun estimateCaptureTime(filePath: Path): OffsetDateTime? {
+    private fun estimateCaptureTime(filePath: Path): OffsetDateTime {
         // 2. ファイル名から推測
         extractDateFromFilename(filePath.fileName.toString())?.let { return it }
 
