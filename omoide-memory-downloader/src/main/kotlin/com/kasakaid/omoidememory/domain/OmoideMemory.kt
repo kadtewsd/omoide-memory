@@ -40,7 +40,7 @@ sealed interface OmoideMemory {
         val deviceMake: String?,
         val deviceModel: String?,
     ) : OmoideMemory {
-        override val fixedCaptureTime: OffsetDateTime = captureTime!!
+        override val fixedCaptureTime: OffsetDateTime get() = captureTime!!
 
         override fun fixCaptureTime(fixedCaptureTime: OffsetDateTime): OmoideMemory =
             apply {
@@ -57,7 +57,7 @@ sealed interface OmoideMemory {
         val metadata: VideoMetadataDto,
         var captureTime: OffsetDateTime?,
     ) : OmoideMemory {
-        override val fixedCaptureTime: OffsetDateTime = captureTime!!
+        override val fixedCaptureTime: OffsetDateTime get() = captureTime!!
 
         override fun fixCaptureTime(fixedCaptureTime: OffsetDateTime): OmoideMemory =
             apply {

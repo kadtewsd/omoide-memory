@@ -3,6 +3,7 @@ package com.kasakaid.omoidememory.downloader.domain
 import arrow.core.Either
 import com.google.api.services.drive.model.File
 import com.kasakaid.omoidememory.domain.OmoideMemory
+import com.kasakaid.omoidememory.r2dbc.transaction.TransactionRollback
 import java.nio.file.Path
 
 /**
@@ -22,7 +23,7 @@ interface DriveService {
      */
     class WriteError(
         val paths: Set<Path>,
-    ) {
+    ) : TransactionRollback {
         constructor(
             path: Path,
         ) : this(paths = setOf(path))
@@ -33,8 +34,4 @@ interface DriveService {
         omoideBackupPath: Path,
         mediaType: MediaType,
     ): Either<WriteError, OmoideMemory>
-
-    class FileDeleteError(
-        val throwable: Throwable,
-    )
 }

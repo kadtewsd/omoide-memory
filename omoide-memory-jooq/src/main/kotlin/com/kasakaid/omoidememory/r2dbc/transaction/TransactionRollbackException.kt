@@ -9,18 +9,23 @@ package com.kasakaid.omoidememory.r2dbc.transaction
  * 例外として投げないとロールバックができないが、エラーとしても扱いたいので、仕方なく二つの性質を持たせています。
  */
 class TransactionRollbackException(
-    message: String,
-) : RuntimeException(message)
+    // Any? にしないと渡せない
+    val error: Any?,
+) : RuntimeException("トランザクションをロールバック")
 
 /**
  * トランザクションを実行したが失敗した
  */
-interface TransactionAttemptFailure {
-    /**
-     * 想定外のエラー
-     * どうしようもない場合に発生
-     */
-    class Unmanaged(
-        val ex: Throwable,
-    ) : TransactionAttemptFailure
+interface TransactionRollback
+
+sealed interface FatalTransactionRollback : TransactionRollback {
+    val ex: Throwable
 }
+
+/**
+ * 想定外のエラー
+ * どうしようもない場合に発生
+ */
+class Unmanaged(
+    override val ex: Throwable,
+) : FatalTransactionRollback

@@ -23,7 +23,6 @@ private val logger = KotlinLogging.logger {}
 
 @Service
 class ImportLocalFileService(
-    private val omoideMemoryMetadataService: OmoideMemoryMetadataService,
     private val syncedMemoryRepository: SyncedMemoryRepository,
 ) {
     /**
@@ -58,7 +57,11 @@ class ImportLocalFileService(
             // メディアタイプを判定
             val mediaType =
                 MediaType.of(localFile.name).getOrNull()
-                    ?: return FileIOFinish.Skip("サポートされていないファイル形式").right()
+                    ?: return FileIOFinish
+                        .Skip(
+                            reason = "サポートされていないファイル形式",
+                            filePath = localFile.path,
+                        ).right()
 
             // 既にDBに存在するかチェック
             val exists =
@@ -68,12 +71,16 @@ class ImportLocalFileService(
                 }
 
             if (exists) {
-                return FileIOFinish.Skip("ファイルは既に存在します").right()
+                return FileIOFinish
+                    .Skip(
+                        reason = "ファイルは既に存在します",
+                        filePath = localFile.path,
+                    ).right()
             }
 
             // メタデータを抽出
             val omoideMemory =
-                omoideMemoryMetadataService
+                OmoideMemoryMetadataService
                     .extractOmoideMemoryFromLocalFile(
                         localFile = localFile,
                         mediaType = mediaType,
@@ -83,6 +90,6 @@ class ImportLocalFileService(
             syncedMemoryRepository.save(omoideMemory)
 
             logger.info { "インポート完了: ${localFile.name} -> ${omoideMemory.localPath}" }
-            FileIOFinish.Success
+            FileIOFinish.Success(filePath = omoideMemory.localPath)
         }
 }
