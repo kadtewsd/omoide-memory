@@ -1,6 +1,7 @@
 package com.kasakaid.omoidememory.downloader.service
 
 import arrow.core.Either
+import arrow.core.left
 import arrow.core.raise.either
 import arrow.core.right
 import com.google.api.services.drive.model.File
@@ -74,6 +75,20 @@ class DownloadFileBackUpService(
                     logger.error { OneLineLogFormatter.format(it) }
                     logger.error { it }
                     DriveService.WriteError(omoideMemory.localPath)
+                }.map { successResult ->
+                    driveService
+                        .moveToTrash(googleFile.id)
+                        .fold(
+                            ifRight = {
+                                logger.info { "ゴミ箱移動完了: ${googleFile.name} (ID: ${googleFile.id})" }
+                                successResult
+                            },
+                            ifLeft = {
+                                logger.error { "ゴミ箱移動失敗（ファイルは残ります）: ${googleFile.name} | Reason: ${it.message}" }
+                                logger.error { OneLineLogFormatter.format(it) }
+                                return DriveService.WriteError(omoideMemory.localPath).left()
+                            },
+                        )
                 }.bind()
         }
 }

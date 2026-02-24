@@ -5,12 +5,14 @@ import arrow.core.left
 import arrow.core.raise.either
 import arrow.core.right
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport
+import com.google.api.client.googleapis.json.GoogleJsonResponseException
 import com.google.api.client.json.gson.GsonFactory
 import com.google.api.services.drive.Drive
 import com.google.api.services.drive.DriveScopes
 import com.google.api.services.drive.model.File
 import com.google.auth.http.HttpCredentialsAdapter
-import com.google.auth.oauth2.GoogleCredentials
+import com.google.auth.oauth2.UserCredentials
+import com.google.gson.JsonParser
 import com.kasakaid.omoidememory.domain.*
 import com.kasakaid.omoidememory.downloader.domain.DriveService
 import com.kasakaid.omoidememory.downloader.domain.MediaType
@@ -20,7 +22,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.springframework.core.env.Environment
 import org.springframework.stereotype.Service
-import java.io.FileInputStream
+import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
@@ -35,27 +37,32 @@ class GoogleDriveService(
 ) : DriveService {
     private val logger = KotlinLogging.logger {}
 
+    private lateinit var userCredentials: UserCredentials
+
     private val driveService: Drive =
         run {
-            environment.getProperty("OMOIDE_GDRIVE_CREDENTIALS_PATH").let { pathFromHome ->
-                if (pathFromHome.isNullOrBlank()) {
+            environment.getProperty("OMOIDE_GDRIVE_CREDENTIALS_PATH").let { credentialsPath ->
+                if (credentialsPath.isNullOrBlank()) {
                     throw IllegalArgumentException("OMOIDE_GDRIVE_CREDENTIALS_PATH がセットされていない")
                 }
+                val resolvedPath = Path.of(credentialsPath).normalize()
+                val jsonObject = JsonParser.parseString(Files.readString(resolvedPath, StandardCharsets.UTF_8)).asJsonObject
+                userCredentials =
+                    UserCredentials
+                        .newBuilder()
+                        .setClientId(
+                            jsonObject.get("client_id")?.asString ?: throw IllegalArgumentException("${resolvedPath.name} にクライアントIDがない"),
+                        ).setClientSecret(
+                            jsonObject.get("client_secret")?.asString
+                                ?: throw IllegalArgumentException("${resolvedPath.name} にクライアントシークレットがない"),
+                        ).setRefreshToken(
+                            jsonObject.get("refresh_token")?.asString
+                                ?: throw IllegalArgumentException("${resolvedPath.name} にリフレッシュトークンがない"),
+                        ).build()
 
-                val credentialsPath =
-                    Path
-                        .of(System.getProperty("user.home"))
-                        .resolve(pathFromHome)
-                        .normalize()
+                userCredentials.refresh()
 
-                val credentials =
-                    FileInputStream(credentialsPath.toFile()).use {
-                        GoogleCredentials
-                            .fromStream(it)
-                            .createScoped(listOf(DriveScopes.DRIVE))
-                    }
-
-                val requestInitializer = HttpCredentialsAdapter(credentials)
+                val requestInitializer = HttpCredentialsAdapter(userCredentials)
 
                 Drive
                     .Builder(
@@ -64,6 +71,22 @@ class GoogleDriveService(
                         requestInitializer,
                     ).setApplicationName("OmoideMemoryDownloader")
                     .build()
+            }
+        }
+
+    /**
+     * リフレッシュトークンを使ってアクセストークンを新しく生成します。
+     */
+    private suspend fun <T> executeWithSafeRefresh(block: suspend () -> T): T =
+        try {
+            block()
+        } catch (e: GoogleJsonResponseException) {
+            if (e.statusCode == 401) {
+                logger.warn { "401 Unauthorized detected. Refreshing token manually and retrying..." }
+                userCredentials.refresh()
+                block()
+            } else {
+                throw e
             }
         }
 
@@ -77,18 +100,20 @@ class GoogleDriveService(
 
         do {
             val result =
-                driveService
-                    .files()
-                    .list()
-                    .setQ(
-                        """
-                        trashed = false
-                        and mimeType != 'application/vnd.google-apps.folder'
-                        and '${environment.getProperty("OMOIDE_FOLDER_ID")}' in parents
-                        """.trimIndent(),
-                    ).setFields(fields)
-                    .setPageToken(pageToken)
-                    .execute()
+                executeWithSafeRefresh {
+                    driveService
+                        .files()
+                        .list()
+                        .setQ(
+                            """
+                            trashed = false
+                            and mimeType != 'application/vnd.google-apps.folder'
+                            and '${environment.getProperty("OMOIDE_FOLDER_ID")}' in parents
+                            """.trimIndent(),
+                        ).setFields(fields)
+                        .setPageToken(pageToken)
+                        .execute()
+                }
 
             result.files?.forEach { file ->
                 logger.debug { "Processing file: ${file.name} (${file.mimeType})" }
@@ -144,10 +169,12 @@ class GoogleDriveService(
                     Files
                         .newOutputStream(tempPath, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)
                         .use { outputStream ->
-                            driveService
-                                .files()
-                                .get(googleFile.id)
-                                .executeMediaAndDownloadTo(outputStream)
+                            executeWithSafeRefresh {
+                                driveService
+                                    .files()
+                                    .get(googleFile.id)
+                                    .executeMediaAndDownloadTo(outputStream)
+                            }
                             // executeMediaAndDownloadTo は内部でループして書き込むため、
                             // ここに到達した時点でディスクへの書き出しは完了しています
                         }.right()
@@ -196,5 +223,19 @@ class GoogleDriveService(
                         }
                 }.bind()
             }
+        }
+
+    override suspend fun moveToTrash(fileId: String): Either<Throwable, Unit> =
+        withContext(Dispatchers.IO) {
+            Either
+                .catch {
+                    executeWithSafeRefresh {
+                        driveService.files().update(fileId, File().setTrashed(true)).execute()
+                    }
+                    Unit
+                }.mapLeft { e ->
+                    logger.error { "ゴミ箱移動失敗: ${OneLineLogFormatter.format(e)}" }
+                    e
+                }
         }
 }
