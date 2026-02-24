@@ -1,8 +1,7 @@
 package com.kasakaid.sharing.adapter
 
-import com.kasakaid.sharing.query.MemoryQueryService
-import com.kasakaid.sharing.query.dto.CommentDto
-import com.kasakaid.sharing.query.dto.MemoryFeedDto
+import com.kasakaid.sharing.service.query.MemoryFeedDto
+import com.kasakaid.sharing.service.query.MemoryQueryService
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 import java.time.OffsetDateTime
@@ -18,27 +17,18 @@ class MemorySharingController(
         @RequestParam(defaultValue = "20") limit: Int,
     ): ResponseEntity<List<MemoryFeedDto>> {
         val cursorTime = cursor?.let { OffsetDateTime.parse(it) }
-        return memoryQueryService.getFeed(cursorTime, limit).fold(
-            ifLeft = { ResponseEntity.internalServerError().build() },
-            ifRight = { ResponseEntity.ok(it) },
-        )
+        return ResponseEntity.ok(memoryQueryService.getFeed(cursorTime, limit))
     }
 
     @GetMapping("/content/photo/{id}/comments")
     suspend fun getPhotoComments(
-        @PathVariable id: Long,
-    ): ResponseEntity<List<CommentDto>> =
-        memoryQueryService.getPhotoComments(id).fold(
-            ifLeft = { ResponseEntity.internalServerError().build() },
-            ifRight = { ResponseEntity.ok(it) },
-        )
+        @PathVariable id: java.util.UUID,
+    ): ResponseEntity<List<com.kasakaid.omoidememory.jooq.omoide_memory.tables.records.CommentOmoidePhotoRecord>> =
+        ResponseEntity.ok(memoryQueryService.getPhotoComments(id))
 
     @GetMapping("/content/video/{id}/comments")
     suspend fun getVideoComments(
-        @PathVariable id: Long,
-    ): ResponseEntity<List<CommentDto>> =
-        memoryQueryService.getVideoComments(id).fold(
-            ifLeft = { ResponseEntity.internalServerError().build() },
-            ifRight = { ResponseEntity.ok(it) },
-        )
+        @PathVariable id: java.util.UUID,
+    ): ResponseEntity<List<com.kasakaid.omoidememory.jooq.omoide_memory.tables.records.CommentOmoideVideoRecord>> =
+        ResponseEntity.ok(memoryQueryService.getVideoComments(id))
 }

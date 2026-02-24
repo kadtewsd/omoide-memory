@@ -1,7 +1,7 @@
 -- Create table for storing comments on files
 CREATE TABLE omoide_memory.comment_omoide_photo (
-    id              BIGINT GENERATED ALWAYS AS IDENTITY NOT NULL,
-    photo_id        BIGINT          NOT NULL,
+    id              UUID  NOT NULL,
+    photo_id        UUID          NOT NULL,
     commenter_id    BIGINT,
     comment_body    TEXT,
     commented_at    TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,

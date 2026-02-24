@@ -1,6 +1,6 @@
 CREATE TABLE omoide_memory.comment_omoide_video (
-    id              BIGINT GENERATED ALWAYS AS IDENTITY NOT NULL,
-    video_id        BIGINT          NOT NULL,
+    id              UUID NOT NULL,
+    video_id        UUID          NOT NULL,
     commenter_id    BIGINT,
     comment_body    TEXT,
     commented_at    TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
