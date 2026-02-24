@@ -1,9 +1,11 @@
 package com.kasakaid.omoidememory.adapter
 
-import com.kasakaid.omoidememory.infrastructure.query.MemoryQueryService
+import com.kasakaid.omoidememory.jooq.omoide_memory.tables.pojos.CommentOmoidePhoto
+import com.kasakaid.omoidememory.jooq.omoide_memory.tables.pojos.CommentOmoideVideo
 import com.kasakaid.omoidememory.service.query.MemoryFeedDto
-import org.springframework.http.ResponseEntity
+import com.kasakaid.omoidememory.service.query.MemoryQueryService
 import org.springframework.web.bind.annotation.*
+import reactor.core.publisher.Flux
 import java.time.OffsetDateTime
 
 @RestController
@@ -15,20 +17,18 @@ class MemorySharingController(
     suspend fun getFeed(
         @RequestParam(required = false) cursor: String?,
         @RequestParam(defaultValue = "20") limit: Int,
-    ): ResponseEntity<List<MemoryFeedDto>> {
+    ): Flux<MemoryFeedDto> {
         val cursorTime = cursor?.let { OffsetDateTime.parse(it) }
-        return ResponseEntity.ok(memoryQueryService.getFeed(cursorTime, limit))
+        return memoryQueryService.getFeed(cursorTime, limit)
     }
 
     @GetMapping("/content/photo/{id}/comments")
     suspend fun getPhotoComments(
         @PathVariable id: java.util.UUID,
-    ): ResponseEntity<List<com.kasakaid.omoidememory.jooq.omoide_memory.tables.records.CommentOmoidePhotoRecord>> =
-        ResponseEntity.ok(memoryQueryService.getPhotoComments(id))
+    ): Flux<CommentOmoidePhoto> = memoryQueryService.getPhotoComments(id)
 
     @GetMapping("/content/video/{id}/comments")
     suspend fun getVideoComments(
         @PathVariable id: java.util.UUID,
-    ): ResponseEntity<List<com.kasakaid.omoidememory.jooq.omoide_memory.tables.records.CommentOmoideVideoRecord>> =
-        ResponseEntity.ok(memoryQueryService.getVideoComments(id))
+    ): Flux<CommentOmoideVideo> = memoryQueryService.getVideoComments(id)
 }

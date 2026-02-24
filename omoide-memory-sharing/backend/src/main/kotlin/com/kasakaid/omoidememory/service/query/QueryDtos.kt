@@ -7,7 +7,7 @@ class MemoryFeedDto(
     val id: UUID,
     val type: String,
     val filePath: String,
-    val captureTime: OffsetDateTime?,
+    val captureTime: OffsetDateTime,
     val thumbnailBase64: String? = null,
     val thumbnailMimeType: String? = null,
 )
