@@ -5,6 +5,7 @@ import com.kasakaid.omoidememory.domain.OmoideMemoryRepository
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_PHOTO
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_VIDEO
 import com.kasakaid.omoidememory.r2dbc.R2DBCDSLContext
+import com.kasakaid.omoidememory.utility.MyUUIDGenerator
 import kotlinx.coroutines.reactive.awaitSingle
 import org.springframework.core.env.Environment
 import org.springframework.stereotype.Repository
@@ -35,6 +36,7 @@ class SyncedMemoryRepository(
             dslContext
                 .get()
                 .insertInto(this)
+                .set(ID, MyUUIDGenerator.generateUUIDv7())
                 .set(FILE_NAME, memory.name)
                 .set(FAMILY_ID, familyId)
                 .set(SERVER_PATH, memory.localPath.toString())
@@ -68,6 +70,7 @@ class SyncedMemoryRepository(
             val baseFields =
                 memory.run {
                     mapOf(
+                        ID to MyUUIDGenerator.generateUUIDv7(),
                         FILE_NAME to name,
                         FAMILY_ID to familyId,
                         SERVER_PATH to localPath.toString(),
