@@ -33,4 +33,14 @@ interface DriveService {
         omoideBackupPath: Path,
         mediaType: MediaType,
     ): Either<WriteError, OmoideMemory>
+
+    /**
+     * 指定ファイルをゴミ箱に移動
+     * 内部で setTrashed(true) を使用すること
+     * delete() は使用禁止（DB保存失敗時に完全消去されるため）
+     *
+     * @param fileId Google Drive ファイルID
+     * @return 成功時は Unit、失敗時は Throwable を Either 型で返す
+     */
+    suspend fun moveToTrash(fileId: String): Either<Throwable, Unit>
 }

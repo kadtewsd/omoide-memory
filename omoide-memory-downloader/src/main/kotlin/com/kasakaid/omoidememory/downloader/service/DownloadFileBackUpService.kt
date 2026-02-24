@@ -74,6 +74,15 @@ class DownloadFileBackUpService(
                     logger.error { OneLineLogFormatter.format(it) }
                     logger.error { it }
                     DriveService.WriteError(omoideMemory.localPath)
+                }.map { successResult ->
+                    driveService
+                        .moveToTrash(googleFile.id)
+                        .onRight {
+                            logger.info { "ゴミ箱移動完了: ${googleFile.name} (ID: ${googleFile.id})" }
+                        }.onLeft { e ->
+                            logger.warn { "ゴミ箱移動失敗（ファイルは残ります）: ${googleFile.name} | Reason: ${e.message}" }
+                        }
+                    successResult
                 }.bind()
         }
 }

@@ -197,4 +197,17 @@ class GoogleDriveService(
                 }.bind()
             }
         }
+
+    override suspend fun moveToTrash(fileId: String): Either<Throwable, Unit> =
+        withContext(Dispatchers.IO) {
+            Either
+                .catch {
+                    val file = File().setTrashed(true)
+                    driveService.files().update(fileId, file).execute()
+                    Unit
+                }.mapLeft { e ->
+                    logger.error { "ゴミ箱移動失敗: ${OneLineLogFormatter.format(e)}" }
+                    e
+                }
+        }
 }
