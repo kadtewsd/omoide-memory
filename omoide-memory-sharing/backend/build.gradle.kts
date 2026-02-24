@@ -29,6 +29,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor")
     implementation("tools.jackson.module:jackson-module-kotlin")
     runtimeOnly("org.postgresql:postgresql")
+    implementation("org.postgresql:r2dbc-postgresql")
 
     // jOOQ (depend on the monorepo project)
     implementation(project(":omoide-memory-jooq"))

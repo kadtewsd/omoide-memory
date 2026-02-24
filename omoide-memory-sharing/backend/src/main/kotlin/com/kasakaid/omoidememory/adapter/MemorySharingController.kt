@@ -1,7 +1,7 @@
-package com.kasakaid.sharing.adapter
+package com.kasakaid.omoidememory.adapter
 
-import com.kasakaid.sharing.service.query.MemoryFeedDto
-import com.kasakaid.sharing.service.query.MemoryQueryService
+import com.kasakaid.omoidememory.infrastructure.query.MemoryQueryService
+import com.kasakaid.omoidememory.service.query.MemoryFeedDto
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 import java.time.OffsetDateTime

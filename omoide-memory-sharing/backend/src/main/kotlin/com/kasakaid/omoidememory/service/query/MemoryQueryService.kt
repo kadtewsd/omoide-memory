@@ -1,4 +1,4 @@
-package com.kasakaid.sharing.infrastructure.query
+package com.kasakaid.omoidememory.infrastructure.query
 
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.records.CommentOmoidePhotoRecord
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.records.CommentOmoideVideoRecord
@@ -7,7 +7,7 @@ import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.COMMENT_OM
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_PHOTO
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_VIDEO
 import com.kasakaid.omoidememory.r2dbc.R2DBCDSLContext
-import com.kasakaid.sharing.service.query.MemoryFeedDto
+import com.kasakaid.omoidememory.service.query.MemoryFeedDto
 import org.jooq.impl.DSL.exists
 import org.jooq.impl.DSL.selectOne
 import org.springframework.stereotype.Service

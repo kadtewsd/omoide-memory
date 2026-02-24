@@ -1,4 +1,4 @@
-package com.kasakaid.sharing
+package com.kasakaid.omoidememory
 
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication

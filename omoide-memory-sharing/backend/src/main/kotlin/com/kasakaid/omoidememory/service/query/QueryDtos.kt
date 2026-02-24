@@ -1,4 +1,4 @@
-package com.kasakaid.sharing.service.query
+package com.kasakaid.omoidememory.service.query
 
 import java.time.OffsetDateTime
 import java.util.UUID
