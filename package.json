@@ -13,6 +13,10 @@
     "**/*.{kt,kts}": [
         "echo ステージに入っているファイルを ktlint で lint します。",
         "ktlint --format"
+    ],
+    "frontend/src/**/*.{js,jsx,ts,tsx}": [
+      "echo ステージに入っているファイルを eslint します",
+      "cd omoide-memory-sharing/frontend && eslint --fix"
     ]
   }
 }

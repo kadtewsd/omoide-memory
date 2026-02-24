@@ -5,7 +5,7 @@ plugins {
     id("io.spring.dependency-management") version "1.1.7"
 }
 
-group = "com.kasakaid"
+group = "com.kasakaid.sharing"
 version = "0.0.1-SNAPSHOT"
 description = "思い出を共有するためのアプリの backend"
 
@@ -57,4 +57,13 @@ kotlin {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+}
+
+// jOOQ 生成コードを kotlin コンパイルのソースセットに追加
+kotlin {
+    sourceSets {
+        main {
+            kotlin.srcDir("build/generated-sources/jooq")
+        }
+    }
 }
