@@ -1,6 +1,6 @@
 -- Create table for storing synced file metadata
 CREATE TABLE omoide_memory.synced_omoide_photo (
-    id                  BIGINT GENERATED ALWAYS AS IDENTITY NOT NULL,
+    id                  UUID NOT NULL,
     family_id          VARCHAR(255)    NOT NULL,
     file_name           VARCHAR(255)    NOT NULL,
     server_path         TEXT            NOT NULL,

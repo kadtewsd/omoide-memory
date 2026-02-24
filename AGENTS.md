@@ -356,8 +356,10 @@ src/main/kotlin/com/example/project/
 │   ├── DownloadFromGDrive.kt          # ApplicationRunner（バッチエントリーポイント）
 │   └── UserController.kt              # REST Controller（Web APIエントリーポイント）
 ├── service/
-│   ├── DownloadFileBackupService.kt   # アプリケーションサービス（処理フロー）
-│   └── UserService.kt
+│   ├── command                        # アプリケーションサービス（コマンド）
+│   │     ├── DownloadFileBackupService.kt   # アプリケーションサービス（処理フロー）
+│   │── query   # アプリケーションサービス（クエリ）
+│   │     └── UserService.kt
 ├── domain/
 │   ├── model/
 │   │   ├── User.kt                    # ドメインモデル
@@ -391,6 +393,11 @@ class DownloadFromGDrive(
 #### service層
 - **役割**: アプリケーションサービス、処理フロー
 - **重要**: ADTによるパターンマッチや`Either`の結果を書き、**処理フロー上何が起きるか**を明示
+--**CQS順守** : query と command のパッケージを分けること。query の場合はドメインオブジェクトを触らず POJO (Jooq の POJO, Record )をそのまま扱うようにして、重厚なモデルを定義しないこと。
+
+### クエリのアンチパターン
+- クエリはシンプルにすること SQL の関数は絶対使わないこと。
+- クエリをする際は、サービスが Dao に依存すること。Dao は infrastructure のレイヤーであるがクエリではロジックが入らない想定なのでシンプルさを重視する
 
 ```kotlin
 @Service
@@ -419,6 +426,7 @@ class DownloadFileBackupService(
 ```
 
 #### domain/model層
+**このモデルはコマンド時にのみ利用する** こと。クエリはこのパッケージは触らない。
 - **役割**: ドメインモデル、値オブジェクト、ADT
 - **配置**: Repositoryインターフェース、ドメインロジック
 
