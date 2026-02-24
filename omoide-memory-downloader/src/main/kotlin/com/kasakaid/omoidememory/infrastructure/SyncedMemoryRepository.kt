@@ -4,20 +4,24 @@ import com.kasakaid.omoidememory.domain.OmoideMemory
 import com.kasakaid.omoidememory.domain.OmoideMemoryRepository
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_PHOTO
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_VIDEO
-import com.kasakaid.omoidememory.r2dbc.R2DBCDSLContext
 import com.kasakaid.omoidememory.utility.MyUUIDGenerator
 import kotlinx.coroutines.reactive.awaitSingle
+import org.jooq.DSLContext
 import org.springframework.core.env.Environment
 import org.springframework.stereotype.Repository
 import java.time.OffsetDateTime
 
 @Repository
 class SyncedMemoryRepository(
-    private val dslContext: R2DBCDSLContext,
+    private val dslContext: DSLContext,
     environment: Environment,
 ) : OmoideMemoryRepository {
     val familyId = environment.getProperty("OMOIDE_FOLDER_ID")!!
 
+    /**
+     * 呼び出し元では、 TransactionalOperator.executeAndAwait から実行されることにより、本クラスの awaitSingle などを実行すると、
+     * 内部で Publisher 化されるので、トランザクションは伝わる
+     */
     override suspend fun save(memory: OmoideMemory): OmoideMemory {
         when (memory) {
             is OmoideMemory.Video -> {
@@ -34,7 +38,6 @@ class SyncedMemoryRepository(
     private suspend fun savePhoto(memory: OmoideMemory.Photo) {
         SYNCED_OMOIDE_PHOTO.run {
             dslContext
-                .get()
                 .insertInto(this)
                 .set(ID, MyUUIDGenerator.generateUUIDv7())
                 .set(FILE_NAME, memory.name)
@@ -100,7 +103,6 @@ class SyncedMemoryRepository(
                     )
                 }
             dslContext
-                .get()
                 .insertInto(this)
                 .set(baseFields + metadataFields)
                 .returning()
@@ -112,7 +114,6 @@ class SyncedMemoryRepository(
         // Check both tables
         val photoExists =
             dslContext
-                .get()
                 .selectCount()
                 .from(SYNCED_OMOIDE_PHOTO)
                 .where(SYNCED_OMOIDE_PHOTO.FILE_NAME.eq(fileName))
@@ -125,7 +126,6 @@ class SyncedMemoryRepository(
     override suspend fun existsVideoByFileName(fileName: String): Boolean {
         val videoExists =
             dslContext
-                .get()
                 .selectCount()
                 .from(SYNCED_OMOIDE_VIDEO)
                 .where(SYNCED_OMOIDE_VIDEO.FILE_NAME.eq(fileName))
