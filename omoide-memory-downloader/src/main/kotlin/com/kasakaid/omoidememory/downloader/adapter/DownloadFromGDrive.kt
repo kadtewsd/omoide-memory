@@ -6,8 +6,7 @@ import com.google.api.services.drive.model.File
 import com.kasakaid.omoidememory.APPLICATION_RUNNER_KEY
 import com.kasakaid.omoidememory.downloader.domain.DriveService
 import com.kasakaid.omoidememory.downloader.service.DownloadFileBackUpService
-import com.kasakaid.omoidememory.r2dbc.transaction.TransactionExecutor
-import com.kasakaid.omoidememory.r2dbc.transaction.TransactionRollback
+import com.kasakaid.omoidememory.r2dbc.transaction.RollbackException
 import com.kasakaid.omoidememory.utility.CoroutineHelper.mapWithCoroutine
 import com.kasakaid.omoidememory.utility.OneLineLogFormatter
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -18,6 +17,7 @@ import org.springframework.boot.ApplicationRunner
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.core.env.Environment
 import org.springframework.stereotype.Component
+import org.springframework.transaction.reactive.executeAndAwait
 import java.nio.file.Path
 
 private val logger = KotlinLogging.logger {}
@@ -27,7 +27,7 @@ private val logger = KotlinLogging.logger {}
 class DownloadFromGDrive(
     private val driveService: DriveService,
     private val downloadFileBackUpService: DownloadFileBackUpService,
-    private val transactionExecutor: TransactionExecutor,
+    private val transactionalOperator: org.springframework.transaction.reactive.TransactionalOperator,
     private val environment: Environment,
 ) : ApplicationRunner {
     override fun run(args: ApplicationArguments): Unit =
@@ -37,30 +37,25 @@ class DownloadFromGDrive(
             val googleDriveFilesInfo: List<File> = driveService.listFiles()
             // Google API のレートに引っ掛かるなどの可能性があるので 10 程度にする
             googleDriveFilesInfo.mapWithCoroutine(Semaphore(10)) { googleFile ->
-                transactionExecutor
-                    .executeWithPerLineLeftRollback(
-                        "${googleFile.name}:${googleFile.id}",
-                    ) {
+                try {
+                    transactionalOperator.executeAndAwait {
                         downloadFileBackUpService
                             .execute(
                                 googleFile = googleFile,
                                 omoideBackupPath = Path.of(environment.getProperty("OMOIDE_BACKUP_DESTINATION")!!),
-                            ).fold(
-                                ifLeft = {
-                                    when (it) {
-                                        is DriveService.WriteError -> {
-                                            PostProcess.onFailure(it)
-                                        }
-                                    }
-                                    it.left()
-                                },
-                                ifRight = {
-                                    PostProcess.onSuccess(it).right()
-                                },
-                            )
-                    }.onLeft {
-                        PostProcess.onUnmanaged(it)
+                            ).onRight {
+                                PostProcess.onSuccess(it)
+                            }.onLeft {
+                                throw RollbackException(it)
+                            }
                     }
+                } catch (e: RollbackException) {
+                    val error = e.leftValue
+                    when (error) {
+                        is DriveService.WriteError -> PostProcess.onFailure(error)
+                        else -> PostProcess.onUnmanaged(e)
+                    }
+                }
             }
             logger.info { "Google Driveからのダウンロード処理を終了。" }
         }

@@ -2,8 +2,7 @@ package com.kasakaid.omoidememory.downloader.adapter
 
 import com.kasakaid.omoidememory.downloader.domain.DriveService
 import com.kasakaid.omoidememory.downloader.service.FileIOFinish
-import com.kasakaid.omoidememory.r2dbc.transaction.FatalTransactionRollback
-import com.kasakaid.omoidememory.r2dbc.transaction.TransactionRollback
+import com.kasakaid.omoidememory.r2dbc.transaction.RollbackException
 import com.kasakaid.omoidememory.utility.OneLineLogFormatter
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.nio.file.Files
@@ -15,7 +14,7 @@ import kotlin.io.path.name
 private val logger = KotlinLogging.logger {}
 
 object PostProcess {
-    val errorLogFileName = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+    private val errorLogFileName = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
 
     fun onFailure(failure: DriveService.WriteError): DriveService.WriteError =
         failure.run {
@@ -57,16 +56,8 @@ object PostProcess {
             }
         }
 
-    fun onUnmanaged(transactionRollback: TransactionRollback) {
-        when (transactionRollback) {
-            is FatalTransactionRollback -> {
-                logger.error { "予期せぬエラー ${OneLineLogFormatter.format(transactionRollback.ex)}" }
-                logger.error { transactionRollback.ex }
-            }
-
-            else -> {
-                logger.error { "予期せぬエラーが発生" }
-            }
-        }
+    fun onUnmanaged(transactionRollback: RollbackException) {
+        logger.error { "予期せぬエラー ${OneLineLogFormatter.format(transactionRollback)}" }
+        logger.error { transactionRollback.leftValue }
     }
 }
