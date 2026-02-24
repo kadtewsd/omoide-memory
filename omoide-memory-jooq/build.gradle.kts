@@ -31,6 +31,7 @@ repositories {
 dependencies {
     api("org.springframework.boot:spring-boot-starter-jooq")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
+    implementation("com.fasterxml.uuid:java-uuid-generator:5.2.0")
     implementation("org.flywaydb:flyway-database-postgresql")
     runtimeOnly("org.postgresql:postgresql")
     jooqGenerator("org.jooq:jooq-meta-extensions")
