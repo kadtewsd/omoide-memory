@@ -3,12 +3,14 @@ CREATE TABLE omoide_memory.comment_omoide_photo (
     id              UUID  NOT NULL,
     photo_id        UUID          NOT NULL,
     commenter_id    BIGINT,
+    comment_seq     INT             NOT NULL DEFAULT 1,
     comment_body    TEXT,
     commented_at    TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     created_by      VARCHAR(255),
     CONSTRAINT pk_comment_omoide_photo PRIMARY KEY (id),
-    CONSTRAINT fk_comment_omoide_photo_photo FOREIGN KEY (photo_id) REFERENCES omoide_memory.synced_omoide_photo (id) ON DELETE CASCADE,
+    -- なくても入るように外部キー制約はコメントアウト
+    -- CONSTRAINT fk_comment_omoide_photo_photo FOREIGN KEY (photo_id) REFERENCES omoide_memory.synced_omoide_photo (id) ON DELETE CASCADE,
     CONSTRAINT fk_comment_omoide_photo_commenter FOREIGN KEY (commenter_id) REFERENCES omoide_memory.commenter (id) ON DELETE SET NULL
 );
 
