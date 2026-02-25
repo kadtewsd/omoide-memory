@@ -34,45 +34,18 @@ import kotlin.io.path.name
 @Service
 class GoogleDriveService(
     private val environment: Environment,
+    private val tokenCollector: GoogleTokenCollector,
 ) : DriveService {
     private val logger = KotlinLogging.logger {}
 
-    private lateinit var userCredentials: UserCredentials
-
     private val driveService: Drive =
-        run {
-            environment.getProperty("OMOIDE_GDRIVE_CREDENTIALS_PATH").let { credentialsPath ->
-                if (credentialsPath.isNullOrBlank()) {
-                    throw IllegalArgumentException("OMOIDE_GDRIVE_CREDENTIALS_PATH がセットされていない")
-                }
-                val resolvedPath = Path.of(credentialsPath).normalize()
-                val jsonObject = JsonParser.parseString(Files.readString(resolvedPath, StandardCharsets.UTF_8)).asJsonObject
-                userCredentials =
-                    UserCredentials
-                        .newBuilder()
-                        .setClientId(
-                            jsonObject.get("client_id")?.asString ?: throw IllegalArgumentException("${resolvedPath.name} にクライアントIDがない"),
-                        ).setClientSecret(
-                            jsonObject.get("client_secret")?.asString
-                                ?: throw IllegalArgumentException("${resolvedPath.name} にクライアントシークレットがない"),
-                        ).setRefreshToken(
-                            jsonObject.get("refresh_token")?.asString
-                                ?: throw IllegalArgumentException("${resolvedPath.name} にリフレッシュトークンがない"),
-                        ).build()
-
-                userCredentials.refresh()
-
-                val requestInitializer = HttpCredentialsAdapter(userCredentials)
-
-                Drive
-                    .Builder(
-                        GoogleNetHttpTransport.newTrustedTransport(),
-                        GsonFactory.getDefaultInstance(),
-                        requestInitializer,
-                    ).setApplicationName("OmoideMemoryDownloader")
-                    .build()
-            }
-        }
+        Drive
+            .Builder(
+                GoogleNetHttpTransport.newTrustedTransport(),
+                GsonFactory.getDefaultInstance(),
+                tokenCollector.asHttpCredentialsAdapter(),
+            ).setApplicationName("OmoideMemoryDownloader")
+            .build()
 
     /**
      * リフレッシュトークンを使ってアクセストークンを新しく生成します。
@@ -83,7 +56,7 @@ class GoogleDriveService(
         } catch (e: GoogleJsonResponseException) {
             if (e.statusCode == 401) {
                 logger.warn { "401 Unauthorized detected. Refreshing token manually and retrying..." }
-                userCredentials.refresh()
+                tokenCollector.refreshIfNeeded()
                 block()
             } else {
                 throw e
@@ -108,7 +81,7 @@ class GoogleDriveService(
                             """
                             trashed = false
                             and mimeType != 'application/vnd.google-apps.folder'
-                            and '${environment.getProperty("OMOIDE_FOLDER_ID")}' in parents
+                            and '${System.getProperty("gdriveFolderId")}' in parents
                             """.trimIndent(),
                         ).setFields(fields)
                         .setPageToken(pageToken)
