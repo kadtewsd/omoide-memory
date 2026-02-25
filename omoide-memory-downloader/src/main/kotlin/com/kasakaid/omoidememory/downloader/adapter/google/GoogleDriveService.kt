@@ -38,7 +38,7 @@ class GoogleDriveService(
 ) : DriveService {
     private val logger = KotlinLogging.logger {}
 
-    private val driveService: Drive =
+    private val driveService: Drive get() =
         Drive
             .Builder(
                 GoogleNetHttpTransport.newTrustedTransport(),

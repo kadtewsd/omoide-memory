@@ -29,8 +29,8 @@ class ImportFromLocal(
         runBlocking {
             logger.info { "ローカルファイルからのインポート処理を開始します" }
             val sourceDir =
-                environment.getProperty("OMOIDE_BACKUP_DESTINATION")
-                    ?: throw IllegalArgumentException("環境変数 OMOIDE_BACKUP_DESTINATION が設定されていません")
+                environment.getProperty("backupDestination")
+                    ?: throw IllegalArgumentException("システムプロパティ backupDestination が設定されていません")
 
             logger.info { "対象ディレクトリ: $sourceDir" }
 
