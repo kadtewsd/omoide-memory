@@ -17,7 +17,10 @@ sealed interface MediaMetadata {
     val capturedTime: OffsetDateTime?
     val filePath: Path
 
-    suspend fun toMedia(sourceFile: SourceFile): Either<MetadataExtractError, OmoideMemory>
+    suspend fun toMedia(
+        sourceFile: SourceFile,
+        locationName: String? = null,
+    ): Either<MetadataExtractError, OmoideMemory>
 }
 
 /**
@@ -61,7 +64,10 @@ class VideoMetadata(
     override val capturedTime: OffsetDateTime,
     override val filePath: Path,
 ) : MediaMetadata {
-    override suspend fun toMedia(sourceFile: SourceFile): Either<MetadataExtractError, OmoideMemory> =
+    override suspend fun toMedia(
+        sourceFile: SourceFile,
+        locationName: String?,
+    ): Either<MetadataExtractError, OmoideMemory> =
         either {
             OmoideMemory.Video(
                 localPath = filePath,
@@ -99,7 +105,10 @@ class PhotoMetadata(
             capturedTime = notExifCaptureDate,
         )
 
-    override suspend fun toMedia(sourceFile: SourceFile): Either<MetadataExtractError, OmoideMemory> {
+    override suspend fun toMedia(
+        sourceFile: SourceFile,
+        locationName: String?,
+    ): Either<MetadataExtractError, OmoideMemory> {
         require(this.capturedTime != null) { "このタイミングでは captureTime は NULL になっていてはいけない。確実に作成日は決定すること" }
         return try {
             OmoideMemory
@@ -109,14 +118,7 @@ class PhotoMetadata(
                     mediaType = sourceFile.mimeType,
                     driveFileId = sourceFile.driveFileId,
                     fileSize = sourceFile.size,
-                    locationName =
-                        gpsDirectory?.geoLocation?.let { geo ->
-                            if (geo.isZero) {
-                                null
-                            } else {
-                                LocationService.getLocationName(geo.latitude, geo.longitude)
-                            }
-                        },
+                    locationName = locationName,
                     aperture = exifSubIFD?.getDoubleObject(ExifSubIFDDirectory.TAG_FNUMBER)?.toFloat(),
                     shutterSpeed = exifSubIFD?.getString(ExifSubIFDDirectory.TAG_EXPOSURE_TIME),
                     isoSpeed = exifSubIFD?.getInteger(ExifSubIFDDirectory.TAG_ISO_EQUIVALENT),

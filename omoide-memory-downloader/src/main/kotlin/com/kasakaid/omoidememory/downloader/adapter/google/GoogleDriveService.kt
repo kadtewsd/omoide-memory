@@ -33,7 +33,9 @@ import kotlin.io.path.name
  * Google のドライブにアクセスするためのサービス
  */
 @Component
-class GoogleDriveService : DriveService {
+class GoogleDriveService(
+    private val locationService: LocationService,
+) : DriveService {
     private val logger = KotlinLogging.logger {}
 
     private val driveService: Drive =
@@ -180,10 +182,24 @@ class GoogleDriveService : DriveService {
                 logger.debug { "一時ファイル ${googleFile.name} を削除完了" }
                 // 正しいパスでメタデータを生成。少し勿体無いが確実に正しいパスで新規にインスタンスを生成
                 tryIo(setOf(tempPath, finalTargetPath)) {
-                    mediaType
-                        .createMediaMetadata(LocalFile(path = finalTargetPath, name = finalTargetPath.fileName.toString()))
+                    val finalMetadata = mediaType.createMediaMetadata(LocalFile(path = finalTargetPath, name = finalTargetPath.fileName.toString()))
+                    val locationName =
+                        if (finalMetadata is PhotoMetadata) {
+                            finalMetadata.gpsDirectory?.geoLocation?.let { geo ->
+                                if (geo.isZero) {
+                                    null
+                                } else {
+                                    locationService.getLocationName(geo.latitude, geo.longitude)
+                                }
+                            }
+                        } else {
+                            null
+                        }
+
+                    finalMetadata
                         .toMedia(
                             SourceFile.fromGoogleDrive(googleFile),
+                            locationName,
                         ).mapLeft {
                             logger.error { "一時ファイル ${googleFile.name} のメディア化失敗。" }
                             logger.error { OneLineLogFormatter.format(it.ex) }
