@@ -28,10 +28,26 @@ class DownloadFromGDrive(
     private val driveService: DriveService,
     private val downloadFileBackUpService: DownloadFileBackUpService,
     private val transactionalOperator: org.springframework.transaction.reactive.TransactionalOperator,
-    private val environment: Environment,
 ) : ApplicationRunner {
     override fun run(args: ApplicationArguments): Unit =
         runBlocking {
+            val folderId = System.getProperty("gdriveFolderId")
+            if (folderId.isNullOrBlank()) {
+                throw IllegalArgumentException(
+                    "コンテンツが入ったGoogle DriveフォルダIDをシステムプロパティ gdriveFolderId に指定してください。",
+                )
+            }
+
+            val destination =
+                System.getProperty("backupDestination")
+                    ?: throw IllegalArgumentException(
+                        "システムプロパティ backupDestination が設定されていません。",
+                    )
+
+            if (!Path.of(destination).isAbsolute) {
+                throw IllegalArgumentException("絶対パスを指定してください。")
+            }
+
             logger.info { "Google Driveからのダウンロード処理を開始します" }
             // 1. Google Driveから対象フォルダ配下の全ファイルを取得
             val googleDriveFilesInfo: List<File> = driveService.listFiles()
@@ -42,7 +58,7 @@ class DownloadFromGDrive(
                         downloadFileBackUpService
                             .execute(
                                 googleFile = googleFile,
-                                omoideBackupPath = Path.of(environment.getProperty("OMOIDE_BACKUP_DESTINATION")!!),
+                                omoideBackupPath = Path.of(destination),
                             ).onRight {
                                 PostProcess.onSuccess(it)
                             }.onLeft {
