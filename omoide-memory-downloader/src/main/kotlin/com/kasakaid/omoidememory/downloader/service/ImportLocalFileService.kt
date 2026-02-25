@@ -1,10 +1,8 @@
 package com.kasakaid.omoidememory.downloader.service
 
 import arrow.core.Either
-import arrow.core.left
 import arrow.core.raise.context.bind
 import arrow.core.raise.context.either
-import arrow.core.raise.context.raise
 import arrow.core.right
 import com.kasakaid.omoidememory.domain.LocalFile
 import com.kasakaid.omoidememory.domain.MetadataExtractError
@@ -17,13 +15,13 @@ import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.isRegularFile
 import kotlin.io.path.name
-import kotlin.streams.toList
 
 private val logger = KotlinLogging.logger {}
 
 @Service
 class ImportLocalFileService(
     private val syncedMemoryRepository: SyncedMemoryRepository,
+    private val omoideMemoryMetadataService: OmoideMemoryMetadataService,
 ) {
     /**
      * 指定ディレクトリ配下の全ファイルを再帰的に走査
@@ -80,7 +78,7 @@ class ImportLocalFileService(
 
             // メタデータを抽出
             val omoideMemory =
-                OmoideMemoryMetadataService
+                omoideMemoryMetadataService
                     .extractOmoideMemoryFromLocalFile(
                         localFile = localFile,
                         mediaType = mediaType,
