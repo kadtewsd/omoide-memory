@@ -1,6 +1,3 @@
-/**
- * Downloader プロジェクトの plugin
- */
 plugins {
     kotlin("jvm") version "2.2.21"
     kotlin("plugin.spring") version "2.2.21"
@@ -11,7 +8,7 @@ plugins {
 }
 
 group = "com.kasakaid"
-version = "0.0.1-SNAPSHOT"
+version = ""
 description = "Omoide Memory を GDrive からダウンロードする"
 
 java {

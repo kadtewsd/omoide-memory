@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "com.kasakaid.sharing"
-version = "0.0.1-SNAPSHOT"
+version = ""
 description = "思い出を共有するためのアプリの backend"
 
 java {
