@@ -4,13 +4,20 @@ services:
     container_name: postgres_db
     restart: always
     environment:
-      POSTGRES_USER: postgres        # ユーザー名
-      POSTGRES_PASSWORD: password  # パスワード
-      POSTGRES_DB: omoide_memory    # データベース名
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: omoide_memory
+      # 1. コンテナOSレベルのタイムゾーン設定
+      TZ: Asia/Tokyo
+      # 2. Postgres内部のタイムゾーン設定
+      PGTZ: Asia/Tokyo
     ports:
       - "5432:5432"
-
     volumes:
-      - pgdata:/var/lib/postgresql/data  # パスではなく「名前」にする
+      - pgdata:/var/lib/postgresql/data
+      # 3. ホストマシンの時間設定を読み取り専用でマウント（推奨）
+      - /etc/localtime:/etc/localtime:ro
+
 volumes:
-  pgdata:  # ここでボリュームを定義
+  pgdata:
+
