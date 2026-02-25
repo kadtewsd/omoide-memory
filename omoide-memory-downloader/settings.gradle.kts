@@ -1,4 +1,4 @@
-rootProject.name = "思い出のためのレコード情報操作のためのダウンローダー"
+rootProject.name = "omoide-memory-downloader"
 
 // まずこういうプロジェクトいるよと教える
 include(":omoide-memory-jooq")
