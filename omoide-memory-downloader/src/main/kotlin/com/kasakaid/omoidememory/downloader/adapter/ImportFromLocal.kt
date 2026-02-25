@@ -1,10 +1,7 @@
 package com.kasakaid.omoidememory.downloader.adapter
 
-import arrow.core.left
-import arrow.core.right
 import com.kasakaid.omoidememory.APPLICATION_RUNNER_KEY
 import com.kasakaid.omoidememory.downloader.domain.DriveService
-import com.kasakaid.omoidememory.downloader.service.FileIOFinish
 import com.kasakaid.omoidememory.downloader.service.ImportLocalFileService
 import com.kasakaid.omoidememory.r2dbc.transaction.RollbackException
 import com.kasakaid.omoidememory.utility.CoroutineHelper.mapWithCoroutine
