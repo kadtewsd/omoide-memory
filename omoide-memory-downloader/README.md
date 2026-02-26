@@ -140,21 +140,21 @@ cd omoide-memory-migration
 1. [Google Cloud Console](https://console.cloud.google.com/) にアクセス
 
 2. **新しいプロジェクトを作成**（既存プロジェクトがあればスキップ）
-   - プロジェクト名: 例 `omoide-memory`
+    - プロジェクト名: 例 `omoide-memory`
 
 3. **Google Drive API を有効化**
-   - 「API とサービス」→「ライブラリ」→「Google Drive API」を検索して有効化
+    - 「API とサービス」→「ライブラリ」→「Google Drive API」を検索して有効化
 
 ### ② OAuth 同意画面を設定する
 
 1. 「API とサービス」→「OAuth 同意画面」を開く
 2. ユーザーの種類: **外部** を選択して「作成」
 3. 必須項目を入力
-   - アプリ名: 例 `omoide-memory`
-   - ユーザーサポートメール: 自分のメールアドレス
-   - デベロッパーの連絡先: 自分のメールアドレス
+    - アプリ名: 例 `omoide-memory`
+    - ユーザーサポートメール: 自分のメールアドレス
+    - デベロッパーの連絡先: 自分のメールアドレス
 4. 「スコープ」の設定で以下を追加
-   - `https://www.googleapis.com/auth/drive`
+    - `https://www.googleapis.com/auth/drive`
 5. 「テストユーザー」に自分の Google アカウントを追加
 
 ### ③ アプリを公開する
@@ -195,32 +195,18 @@ curl -X POST https://oauth2.googleapis.com/token \
 ```
 
 4. レスポンス中の `"refresh_token"` の値をメモする
-   - **再表示されないため必ず控えておくこと**
-   - この値は次の手順でシステムプロパティに設定する
+    - **再表示されないため必ず控えておくこと**
+    - この値は次の手順でシステムプロパティに設定する
 
 ### ⑥ フォルダ ID を取得する
 
 1. Google Drive で対象フォルダを開く
 2. URL の末尾がフォルダ ID
-   - 例: `https://drive.google.com/drive/folders/1a2b3c4d5e6f7g8h9i0j` → ID は `1a2b3c4d5e6f7g8h9i0j`
+    - 例: `https://drive.google.com/drive/folders/1a2b3c4d5e6f7g8h9i0j` → ID は `1a2b3c4d5e6f7g8h9i0j`
 
 ---
 
-## 3-3. アプリを公開してリフレッシュトークンを永続化する
-
-OAuth アプリが**テストモード**のままだと、リフレッシュトークンは **7日後に失効**します。無人バックアップを継続稼働させるには、アプリを**本番モード（公開済み）**に移行する必要があります。
-
-> 「公開」と言っても一般に公開されるわけではありません。スコープが `drive` のみであれば、Googleの審査なしに公開できます（未確認アプリの警告は出ますが動作に問題はありません）。
-
-### 公開手順
-
-1. [Google Cloud Console](https://console.cloud.google.com/) →「API とサービス」→「OAuth 同意画面」を開く
-2. 「アプリを公開」ボタンをクリック
-3. 確認ダイアログで「確認」
-
-公開後は、同じ手順（3-2 ④）でリフレッシュトークンを再取得してください。このトークンは有効期限なしで使用できます（ただし、明示的にアクセスを取り消した場合を除く）。
-
-## 3-4. セキュリティに関する重要な注意事項
+## 3-3. セキュリティに関する重要な注意事項
 
 `gdriveClientSecret` と `gdriveRefreshToken` が漏洩した場合、**第三者があなたの Google Drive に対してファイルの閲覧・ダウンロード・削除を含むあらゆる操作を実行できます。**
 
@@ -246,8 +232,7 @@ OAuth アプリが**テストモード**のままだと、リフレッシュト�
 | `gdriveClientSecret` | DownloadFromGDrive | OAuth クライアントシークレット | `GOCSPX-xxxxxxxxxx` |
 | `gdriveRefreshToken` | DownloadFromGDrive | ⑤で取得したリフレッシュトークン | `1//0gxxxxxxxx` |
 | `gdriveFolderId` | DownloadFromGDrive | ダウンロード対象の Google Drive フォルダ ID | `1a2b3c4d5e6f7g8h9i0j` |
-| `backupDestination` | DownloadFromGDrive | ダウンロードしたファイルの保存先ディレクトリ | `G:\my-memory` |
-| `localBackupDestination` | ImportFromLocal | ダウンロード済みファイルのバックアップ先ディレクトリ | `G:\my-memory` |
+| `backupDirectory` | DownloadFromGDrive / ImportFromLocal | バックアップ先ディレクトリ | `G:\my-memory` |
 | `commentFilePath` | CommentImportCommand | インポートするコメントファイルのパス | `C:\Users\user\comments.csv` |
 
 ---
@@ -265,13 +250,13 @@ OAuth アプリが**テストモード**のままだと、リフレッシュト�
   -DgdriveClientSecret=YOUR_CLIENT_SECRET \
   -DgdriveRefreshToken=YOUR_REFRESH_TOKEN \
   -DgdriveFolderId=1a2b3c4d5e6f7g8h9i0j \
-  -DbackupDestination=G:\my-memory
+  -DbackupDirectory=G:\my-memory
 
 # ImportFromLocal
 ./gradlew :omoide-memory-downloader:bootRun \
   -Dspring.profiles.active=local \
   -DrunnerName=importFromLocal \
-  -DlocalBackupDestination=G:\my-memory
+  -DbackupDirectory=G:\my-memory
 
 # CommentImportCommand
 ./gradlew :omoide-memory-downloader:bootRun \
@@ -294,14 +279,14 @@ java \
   -DgdriveClientSecret=YOUR_CLIENT_SECRET \
   -DgdriveRefreshToken=YOUR_REFRESH_TOKEN \
   -DgdriveFolderId=1a2b3c4d5e6f7g8h9i0j \
-  -DbackupDestination=G:\my-memory \
+  -DbackupDirectory=G:\my-memory \
   -jar omoide-memory-downloader/build/libs/omoide-memory-downloader-0.0.1-SNAPSHOT.jar
 
 # ImportFromLocal
 java \
   -Dspring.profiles.active=local \
   -DrunnerName=importFromLocal \
-  -DlocalBackupDestination=G:\my-memory \
+  -DbackupDirectory=G:\my-memory \
   -jar omoide-memory-downloader/build/libs/omoide-memory-downloader-0.0.1-SNAPSHOT.jar
 
 # CommentImportCommand
@@ -329,7 +314,7 @@ java ^
   -DgdriveClientSecret=YOUR_CLIENT_SECRET ^
   -DgdriveRefreshToken=YOUR_REFRESH_TOKEN ^
   -DgdriveFolderId=1a2b3c4d5e6f7g8h9i0j ^
-  -DbackupDestination=G:\my-memory ^
+  -DbackupDirectory=G:\my-memory ^
   -jar C:\path\to\omoide-memory-downloader.jar >> C:\logs\omoide-downloader.log 2>&1
 ```
 
@@ -338,11 +323,12 @@ java ^
 1. タスクスケジューラを開く
 2. 「タスクの作成」をクリック
 3. **全般タブ**
-   - 名前: `おもいでメモリダウンローダー`
-   - 「ユーザーがログオンしているときのみ実行する」を選択
+    - 名前: `おもいでメモリダウンローダー`
+    - 「ユーザーがログオンしているときのみ実行する」を選択
 4. **トリガータブ**
-   - 「新規」→ 毎日深夜 2 時などに設定
+    - 「新規」→ 毎日深夜 2 時などに設定
 5. **操作タブ**
-   - 「新規」→「プログラムの開始」
-   - プログラム: `C:\path\to\run-omoide-downloader.bat`
+    - 「新規」→「プログラムの開始」
+    - プログラム: `C:\path\to\run-omoide-downloader.bat`
 6. 「OK」で保存
+
