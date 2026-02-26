@@ -40,7 +40,7 @@ class OmoideMemoryMetadataService(
                     }
 
                     is PhotoMetadata -> {
-                        if (mediaMetadata.gpsDirectory != null &&
+                        if (mediaMetadata.gpsDirectory?.geoLocation != null &&
                             !mediaMetadata.gpsDirectory.geoLocation.isZero
                         ) {
                             locationService.getLocationName(
