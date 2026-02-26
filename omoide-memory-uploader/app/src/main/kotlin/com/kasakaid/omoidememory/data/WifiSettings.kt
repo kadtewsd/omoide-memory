@@ -7,6 +7,7 @@ import android.net.NetworkCapabilities
 import android.net.wifi.WifiInfo
 import android.os.Build
 import androidx.annotation.RequiresApi
+import com.kasakaid.omoidememory.extension.NetworkCapabilitiesExtension.ssid
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -49,6 +50,27 @@ class WifiRepository
     constructor(
         @param:ApplicationContext private val context: Context,
     ) {
+        /** Worker 用：現在値を即時取得 */
+        suspend fun getCurrentWifi(): WifiSetting {
+            val cm = context.getSystemService(ConnectivityManager::class.java)
+            val network = cm.activeNetwork ?: return WifiSetting.NotConnected
+
+            val caps: NetworkCapabilities =
+                cm.getNetworkCapabilities(network)
+                    ?: return WifiSetting.NotConnected
+
+            if (!caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
+                return WifiSetting.NotConnected
+            }
+
+            val ssid = caps.ssid(context)
+            return if (!ssid.isNullOrBlank() && ssid != "<unknown ssid>") {
+                WifiSetting.Found(ssid)
+            } else {
+                WifiSetting.NotFound
+            }
+        }
+
         // Flow で返す意味
         // callbackFlow 関数は「Flow を作成して返す関数」として定義されている。
         // 川を流しっぱなしにするような形にしてして提供して呼び出し元に利用させる。
