@@ -45,9 +45,9 @@ class OmoideMemoryRepository
                 // MediaStore から名前・サイズ・パスを取得
                 // Room から「アップロード済みメタデータ一覧」を取得して、名前・サイズで簡易フィルタ
                 // 1. 最初の一回だけ DB から全ハッシュをロードして Set にする
-                val uploadedNameSet = omoideMemoryDao.getAllUploadedNames().toSet()
+                val uploadedNameSet = omoideMemoryDao.getAllUploadedIds().toSet()
                 getPendingFiles { file ->
-                    file.takeIf { !uploadedNameSet.contains(it.name) }.toOption()
+                    file.takeIf { !uploadedNameSet.contains(it.id) }.toOption()
                 }.let {
                     emitAll(it)
                 }
@@ -58,9 +58,8 @@ class OmoideMemoryRepository
         )
 
         // 2. 取得処理
-        fun Cursor.toLocalFile(): Either<PathNoneError, OmoideMemory> {
+        private fun Cursor.toOmoideMemory(): Either<PathNoneError, OmoideMemory> {
             // getColumnIndex は存在しないと -1 を返す
-            val idIdx = getColumnIndex(MediaStore.Files.FileColumns._ID)
             val nameIdx = getColumnIndex(MediaStore.Files.FileColumns.DISPLAY_NAME)
             val pathIdx = getColumnIndex(MediaStore.Files.FileColumns.DATA)
             val sizeIdx = getColumnIndex(MediaStore.Files.FileColumns.SIZE)
@@ -80,7 +79,7 @@ class OmoideMemoryRepository
                 PathNoneError(name).left()
             } else {
                 OmoideMemory(
-                    id = getColumnIndex(MediaStore.Files.FileColumns._ID),
+                    id = getLong(getColumnIndexOrThrow(MediaStore.Files.FileColumns._ID)),
                     name = name,
                     filePath = getString(pathIdx)!!,
                     fileSize = if (sizeIdx != -1) getLong(sizeIdx) else 0L,
@@ -108,7 +107,7 @@ class OmoideMemoryRepository
         /**
          * 見つかったら一つづつちょろちょろと川を流して呼び出し元に教えて (send) してあげる
          */
-        fun <T> getPendingFiles(filterUnuploadedFile: (OmoideMemory) -> Option<T>): Flow<T> =
+        private fun <T> getPendingFiles(filterUnuploadedFile: (OmoideMemory) -> Option<T>): Flow<T> =
             channelFlow {
                 // channelFlow の中は、デフォルトで適切なスコープで動くので
                 // そのまま IO 処理を書いて OK です
@@ -153,7 +152,7 @@ class OmoideMemoryRepository
                     )?.use { cursor ->
                         // sequence として 1 件ずつ処理
                         cursor.asSequence().forEach { _ ->
-                            cursor.toLocalFile().fold(
+                            cursor.toOmoideMemory().fold(
                                 ifLeft = {
                                     Log.i(TAG, "${it.name}のパスが取得できないのでスキップ")
                                 },

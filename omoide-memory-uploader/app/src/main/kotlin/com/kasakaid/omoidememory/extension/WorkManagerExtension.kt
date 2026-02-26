@@ -23,12 +23,12 @@ object WorkManagerExtension {
      * 利用元は、application を指定することを想定
      */
     fun WorkManager.enqueueWManualUpload(
-        hashes: Array<String>,
+        ids: Array<Long>,
         totalCount: Int,
     ) {
         val workData =
             workDataOf(
-                "TARGET_HASHES" to hashes,
+                "TARGET_FILE_IDS" to ids,
                 "TOTAL_COUNT" to totalCount,
             )
         val constraints =
@@ -45,7 +45,7 @@ object WorkManagerExtension {
                 .setConstraints(constraints)
                 .build()
         val tag = "FileSelectionRoute"
-        Log.d(tag, "選択されたhash ${hashes.size}件")
+        Log.d(tag, "選択されたhash ${ids.size}件")
 
         // enqueueUniqueWork + REPLACE は 「名前（Unique Name）」を指定することで、ひとつの管理枠を作ります。
         // 唯一性の保証: 同じ名前のジョブがすでにキューにある場合、WorkManager が介入します。

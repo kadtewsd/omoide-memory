@@ -12,12 +12,12 @@ interface OmoideMemoryDao {
     fun getUploadedCount(): Flow<Int>
 
     // ファイル名のリスト（Set）だけを取得する（メモリ節約のためハッシュのみ）
-    @Query("SELECT name FROM uploaded_memories")
-    suspend fun getAllUploadedNames(): List<String>
+    @Query("SELECT id FROM uploaded_memories")
+    suspend fun getAllUploadedIds(): List<Long>
 
     // ファイル名のリスト（Set）だけを取得する（メモリ節約のためハッシュのみ）
-    @Query("SELECT name FROM uploaded_memories")
-    fun getAllUploadedNamesAsFlow(): Flow<String>
+    @Query("SELECT id FROM uploaded_memories")
+    fun getAllUploadedIdsAsFlow(): Flow<Long>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertUploadedFile(omoideMemory: OmoideMemory)

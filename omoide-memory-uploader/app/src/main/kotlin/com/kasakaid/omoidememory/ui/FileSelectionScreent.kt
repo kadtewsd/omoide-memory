@@ -89,7 +89,7 @@ class FileSelectionViewModel
                 .getPotentialPendingFiles()
                 .onEach { file ->
                     // 🚀 データが流れてきたタイミングで、まだ選択状態が空なら全選択にする
-                    selectedHashes[file.name] = _onOff.value.isChecked
+                    selectedIds[file.id] = _onOff.value.isChecked
                 }.scan(emptyList<OmoideMemory>()) { acc, value -> acc + value } // リストに成長させる
                 .stateIn(
                     scope = viewModelScope,
@@ -98,10 +98,10 @@ class FileSelectionViewModel
                 )
 
         // 選択されたハッシュを管理する Set
-        val selectedHashes = mutableStateMapOf<String, Boolean>()
+        val selectedIds = mutableStateMapOf<Long, Boolean>()
 
-        fun toggleSelection(hash: String) {
-            selectedHashes[hash] = !(selectedHashes[hash] ?: false)
+        fun toggleSelection(id: Long) {
+            selectedIds[id] = !(selectedIds[id] ?: false)
         }
 
         private val _onOff: MutableStateFlow<OnOff> = MutableStateFlow(OnOff.On)
@@ -112,8 +112,8 @@ class FileSelectionViewModel
          */
         fun toggleAll(onOff: OnOff) {
             _onOff.value = onOff
-            selectedHashes.forEach { (hash, _) ->
-                selectedHashes[hash] = onOff.isChecked
+            selectedIds.forEach { (hash, _) ->
+                selectedIds[hash] = onOff.isChecked
             }
         }
 
@@ -127,10 +127,10 @@ class FileSelectionViewModel
                 viewModelScope = viewModelScope,
             )
 
-        fun enqueueWManualUpload(hashes: Array<String>) {
+        fun enqueueWManualUpload(ids: Array<Long>) {
             workManager.enqueueWManualUpload(
-                hashes = hashes,
-                totalCount = selectedHashes.count { it.value },
+                ids = ids,
+                totalCount = selectedIds.count { it.value },
             )
         }
     }
@@ -162,14 +162,14 @@ fun FileSelectionRoute(
     }
 
     FileSelectionScreen(
-        selectedHashes = viewModel.selectedHashes,
+        selectedIds = viewModel.selectedIds,
         pendingFiles = pendingFiles,
-        onContentFixed = { hashes ->
+        onContentFixed = { ids ->
             // 🚀 ここで Worker をキック
-            viewModel.enqueueWManualUpload(hashes)
+            viewModel.enqueueWManualUpload(ids)
         },
-        onToggle = { hash ->
-            viewModel.toggleSelection(hash)
+        onToggle = { id ->
+            viewModel.toggleSelection(id)
         },
         toMainScreen = toMainScreen,
         onOff = onOff,
@@ -183,10 +183,10 @@ fun FileSelectionRoute(
 
 @Composable
 fun FileSelectionScreen(
-    selectedHashes: Map<String, Boolean>,
+    selectedIds: Map<Long, Boolean>,
     pendingFiles: List<OmoideMemory>,
-    onContentFixed: (hashes: Array<String>) -> Unit,
-    onToggle: (hash: String) -> Unit,
+    onContentFixed: (fileIds: Array<Long>) -> Unit,
+    onToggle: (hash: Long) -> Unit,
     toMainScreen: () -> Unit,
     onOff: OnOff,
     onSwitchChanged: (OnOff) -> Unit,
@@ -198,16 +198,16 @@ fun FileSelectionScreen(
         bottomBar = {
             Button(
                 onClick = {
-                    val hashes = selectedHashes.filter { it.value }.keys.toTypedArray()
+                    val hashes = selectedIds.filter { it.value }.keys.toTypedArray()
                     onContentFixed(hashes)
                 },
                 modifier =
                     Modifier
                         .fillMaxWidth()
                         .padding(16.dp),
-                enabled = !isUploading && selectedHashes.values.any { it }, // 🚀 アップロード中は無効化
+                enabled = !isUploading && selectedIds.values.any { it }, // 🚀 アップロード中は無効化
             ) {
-                Text("${selectedHashes.values.count { it }} 件をアップロード")
+                Text("${selectedIds.values.count { it }} 件をアップロード")
             }
         },
     ) { innerPadding ->
@@ -236,12 +236,12 @@ fun FileSelectionScreen(
             ) {
                 items(
                     items = pendingFiles,
-                    key = { it.name },
+                    key = { it.id },
                 ) { item ->
                     FileItemCard(
                         item = item,
-                        isSelected = selectedHashes[item.name] ?: false,
-                        onToggle = { onToggle(item.name) },
+                        isSelected = selectedIds[item.id] ?: false,
+                        onToggle = { onToggle(item.id) },
                     )
                 }
             }

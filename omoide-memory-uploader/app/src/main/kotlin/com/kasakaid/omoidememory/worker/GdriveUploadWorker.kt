@@ -23,7 +23,7 @@ class GdriveUploadWorker
         @Assisted private val appContext: Context,
         @Assisted workerParams: WorkerParameters,
         private val gdriveUploader: GdriveUploader,
-        private val localFileRepository: OmoideMemoryRepository,
+        private val omoideMemoryRepository: OmoideMemoryRepository,
     ) : CoroutineWorker(appContext, workerParams) {
         companion object {
             const val TAG = "ManualUploadWorker"
@@ -33,14 +33,14 @@ class GdriveUploadWorker
             setForeground(appContext.createForegroundInfo("ManualUpload"))
             return withContext(Dispatchers.IO) {
                 // 引数からハッシュリストを取得
-                val targetHashes = inputData.getStringArray("TARGET_HASHES")?.toList() ?: emptyList()
+                val targetFileIds = inputData.getLongArray("TARGET_FILE_IDS")?.toList() ?: emptyList()
                 val totalCount = inputData.getInt("TOTAL_COUNT", 0)
-                Log.d(TAG, "受け取ったハッシュ件数: ${targetHashes.size}, 合計件数: $totalCount")
+                Log.d(TAG, "受け取ったハッシュ件数: ${targetFileIds.size}, 合計件数: $totalCount")
                 var successCount = 0
                 try {
                     // ここでは Flow (川) は不要。ViewModel 側の川はそのままになり、ここでは都度どんととってきてしまう。last で全部のデータが取ってこられたあとのものをガツっと取得
-                    localFileRepository.getPotentialPendingFiles().collect { file ->
-                        if (file.name in targetHashes) {
+                    omoideMemoryRepository.getPotentialPendingFiles().collect { file ->
+                        if (file.id in targetFileIds) {
                             Log.d(TAG, "手動アップロード開始 ${file.name}")
                             gdriveUploader.upload(sourceWorker = WorkManagerTag.Manual, pendingFile = file).also {
                                 successCount++
