@@ -3,11 +3,45 @@ package com.kasakaid.omoidememory.worker
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
-import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.work.ForegroundInfo
 
 object WorkerHelper {
+    /**
+     * この Worker を「フォアグラウンド実行」にするための情報を作成します。
+     *
+     * Android では、アプリが画面に表示されていない状態（バックグラウンド）で
+     * 長時間の処理を行うと、システムによって停止・延期されることがあります。
+     *
+     * 特にファイルのアップロードのような時間がかかる処理は、
+     * 画面が消えたり、省電力モードに入った場合に中断される可能性があります。
+     *
+     * フォアグラウンド実行とは：
+     *
+     * ・処理中であることを通知としてユーザーに表示する
+     * ・「重要な処理を実行中」であることをシステムに伝える
+     * ・その結果、停止されにくくなる
+     *
+     * という仕組みです。
+     *
+     * このメソッドでは次のものを作成しています：
+     *
+     * 1. 通知チャンネル（Android 8.0 以上で必須）
+     * 2. 処理中に表示される通知
+     * 3. Worker に通知を紐づけるための ForegroundInfo オブジェクト
+     *
+     * 返された ForegroundInfo は、doWork() 内で setForeground() に渡され、
+     * この Worker をフォアグラウンド実行に昇格させます。
+     *
+     * これを行わない場合：
+     *
+     * ・画面オフ時に処理が止まる可能性がある
+     * ・長時間処理がシステムにより制限される可能性がある
+     *
+     * 注意：
+     * ・Android 13 以上では通知権限（POST_NOTIFICATIONS）が必要です
+     * ・処理中はユーザーに通知が表示され続けます
+     */
     fun Context.createForegroundInfo(channelId: String): ForegroundInfo {
         // Android 8+ は通知チャンネルが必要
         val channel =
