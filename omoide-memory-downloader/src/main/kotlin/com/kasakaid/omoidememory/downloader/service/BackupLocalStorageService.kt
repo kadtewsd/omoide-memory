@@ -19,10 +19,13 @@ class BackupLocalStorageService(
 ) {
     private val logger = KotlinLogging.logger {}
 
-    suspend fun execute(target: BackupTarget) {
+    suspend fun execute(
+        target: BackupTarget,
+        omoideBackupDirectory: Path,
+    ) {
         try {
             // 1. Determine target path
-            val determineTargetPath = FileOrganizeService.determineTargetPath(target.fileName, target.captureTime)
+            val determineTargetPath = FileOrganizeService.determineTargetPath(target.fileName, target.captureTime, omoideBackupDirectory)
 
             // 2. Check if it's already backed up
             val key = BackUpKey(target.id, determineTargetPath)

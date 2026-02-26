@@ -12,14 +12,14 @@ object GoogleTokenCollector {
         run {
 
             val clientId =
-                System.getProperty("gdriveClientId")
-                    ?: throw IllegalArgumentException("システムプロパティ gdriveClientId が設定されていません。")
+                System.getenv("GDRIVE_CLIENT_ID")
+                    ?: throw IllegalArgumentException("環境変数 GDRIVE_CLIENT_ID が設定されていません。")
             val clientSecret =
-                System.getProperty("gdriveClientSecret")
-                    ?: throw IllegalArgumentException("システムプロパティ gdriveClientSecret が設定されていません。")
+                System.getenv("GDRIVE_CLIENT_SECRET")
+                    ?: throw IllegalArgumentException("環境変数 GDRIVE_CLIENT_SECRET が設定されていません。")
             val refreshToken =
-                System.getProperty("gdriveRefreshToken")
-                    ?: throw IllegalArgumentException("システムプロパティ gdriveRefreshToken が設定されていません。")
+                System.getenv("GDRIVE_REFRESH_TOKEN")
+                    ?: throw IllegalArgumentException("環境変数 GDRIVE_REFRESH_TOKEN が設定されていません。")
 
             UserCredentials
                 .newBuilder()

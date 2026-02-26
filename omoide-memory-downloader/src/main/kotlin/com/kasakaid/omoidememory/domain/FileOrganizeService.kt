@@ -29,11 +29,10 @@ object FileOrganizeService {
     suspend fun determineTargetPath(
         fileName: String,
         captureTime: OffsetDateTime?,
+        omoideBackupDirectory: Path,
     ): Path =
         withContext(Dispatchers.IO) {
-            val destinationRoot =
-                System.getenv("OMOIDE_BACKUP_DESTINATION")
-                    ?: throw IllegalStateException("OMOIDE_BACKUP_DESTINATION is not set")
+            val destinationRoot = omoideBackupDirectory.toString()
 
             val effectiveCaptureTime =
                 captureTime

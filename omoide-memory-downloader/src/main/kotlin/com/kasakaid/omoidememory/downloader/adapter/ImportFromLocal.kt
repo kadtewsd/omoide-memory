@@ -12,6 +12,7 @@ import org.springframework.boot.ApplicationArguments
 import org.springframework.boot.ApplicationRunner
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.core.env.Environment
+import org.springframework.core.env.getProperty
 import org.springframework.stereotype.Component
 import org.springframework.transaction.reactive.executeAndAwait
 import java.nio.file.Path
@@ -29,8 +30,8 @@ class ImportFromLocal(
         runBlocking {
             logger.info { "ローカルファイルからのインポート処理を開始します" }
             val sourceDir =
-                environment.getProperty("backupDestination")
-                    ?: throw IllegalArgumentException("システムプロパティ backupDestination が設定されていません")
+                environment.getProperty("OMOIDE_BACKUP_DIRECTORY")
+                    ?: throw IllegalArgumentException("環境変数 OMOIDE_BACKUP_DIRECTORY が設定されていません")
 
             logger.info { "対象ディレクトリ: $sourceDir" }
 

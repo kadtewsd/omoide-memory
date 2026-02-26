@@ -202,7 +202,7 @@ curl -X POST https://oauth2.googleapis.com/token \
 
 1. Google Drive で対象フォルダを開く
 2. URL の末尾がフォルダ ID
-   - 例: `https://drive.google.com/drive/folders/1a2b3c4d5e6f7g8h9i0j` → ID は `1a2b3c4d5e6f7g8h9i0j`
+    - 例: `https://drive.google.com/drive/folders/1a2b3c4d5e6f7g8h9i0j` → ID は `1a2b3c4d5e6f7g8h9i0j`
 
 ---
 
@@ -222,7 +222,7 @@ OAuth アプリが**テストモード**のままだと、リフレッシュト�
 
 ## 3-4. セキュリティに関する重要な注意事項
 
-`gdriveClientSecret` と `gdriveRefreshToken` が漏洩した場合、**第三者があなたの Google Drive に対してファイルの閲覧・ダウンロード・削除を含むあらゆる操作を実行できます。**
+`GDRIVE_CLIENT_SECRET` と `GDRIVE_REFRESH_TOKEN` が漏洩した場合、**第三者があなたの Google Drive に対してファイルの閲覧・ダウンロード・削除を含むあらゆる操作を実行できます。**
 
 以下を必ず守ってください。
 
@@ -234,103 +234,103 @@ OAuth アプリが**テストモード**のままだと、リフレッシュト�
 
 ---
 
-# 4. システムプロパティ
+### 4. 環境変数の設定
 
-すべてのパラメータはシステムプロパティ（`-D` オプション）で指定します。
+「システムのプロパティ」/「環境変数」「に以下を追加してください。
 
-| プロパティ名 | 対象コマンド | 説明 | 例 |
-|---|---|---|---|
-| `spring.profiles.active` | 全コマンド | Spring Boot プロファイル | `local` |
-| `runnerName` | 全コマンド | 実行するコマンド名 | `downloadFromGDrive` |
-| `gdriveClientId` | DownloadFromGDrive | OAuth クライアント ID | `123456789-abcdef.apps.googleusercontent.com` |
-| `gdriveClientSecret` | DownloadFromGDrive | OAuth クライアントシークレット | `GOCSPX-xxxxxxxxxx` |
-| `gdriveRefreshToken` | DownloadFromGDrive | ⑤で取得したリフレッシュトークン | `1//0gxxxxxxxx` |
-| `gdriveFolderId` | DownloadFromGDrive | ダウンロード対象の Google Drive フォルダ ID | `1a2b3c4d5e6f7g8h9i0j` |
-| `backupDestination` | DownloadFromGDrive | ダウンロードしたファイルの保存先ディレクトリ | `G:\my-memory` |
-| `localBackupDestination` | ImportFromLocal | ダウンロード済みファイルのバックアップ先ディレクトリ | `G:\my-memory` |
-| `commentFilePath` | CommentImportCommand | インポートするコメントファイルのパス | `C:\Users\user\comments.csv` |
+| 変数名                        | 環境/システム | 対象コマンド                         | 説明                              | 例 |
+|----------------------------|---------|--------------------------------|---------------------------------|---|
+| `spring.profiles.active`   | システム    | 全コマンド                               | Spring Boot プロファイル。デフォルトは debug | `local` |
+| `runnerName`               | システム    | 全コマンド                               | 実行するコマンド名                       | `download-from-gdrive` |
+| `GDRIVE_CLIENT_ID`         | 環境      | DownloadFromGDrive                  | OAuth クライアント ID                 | `123456789-abcdef.apps.googleusercontent.com` |
+| `GDRIVE_CLIENT_SECRET`     | 環境      | DownloadFromGDrive                  | OAuth クライアントシークレット              | `GOCSPX-xxxxxxxxxx` |
+| `GDRIVE_REFRESH_TOKEN`     | 環境      | DownloadFromGDrive                  | ⑤で取得したリフレッシュトークン                | `1//0gxxxxxxxx` |
+| `GDRIVE_FOLDER_ID`         | 環境      | DownloadFromGDrive                  | ダウンロード対象の Google Drive フォルダ ID  | `1a2b3c4d5e6f7g8h9i0j` |
+| `OMOIDE_BACKUP_DIRECTORY`  | 環境      | DownloadFromGDrive / ImportFromLocal | バックアップ先ディレクトリ                   | `G:\my-memory` |
+| `OMOIDE_COMMENT_FILE_PATH` | 環境      | CommentImportCommand                | インポートするコメントファイルのパス              | `C:\Users\user\comments.csv` |
 
----
+
+### 5. FFmpeg のインストール
+
+本アプリケーションは動画処理に `ffmpeg` / `ffprobe` を使用します。
+
+**用途:**
+- `ffprobe`: 動画のメタデータ取得（解像度・フレームレート・コーデック・再生時間など）
+- `ffmpeg`: サムネイル画像の生成
+
+**インストール（Windows）:**
+
+1. [https://ffmpeg.org/download.html](https://ffmpeg.org/download.html) から Windows ビルドをダウンロード
+2. zip を展開（例: `C:\ffmpeg\bin`）
+3. `bin` ディレクトリを環境変数 `PATH` に追加
+4. PowerShell で確認
+
+```powershell
+ffmpeg -version
+ffprobe -version
+```
+
+カスタムパスを使用する場合は以下の環境変数で指定できます。
+
+```powershell
+setx FFMPEG_PATH "C:\ffmpeg\bin\ffmpeg.exe"
+setx FFPROBE_PATH "C:\ffmpeg\bin\ffprobe.exe"
+```
+
 
 # 5. 実行方法
+実行するコマンドは `-DrunnerName` で指定します。環境変数は事前に設定済みであることを前提とします。
 
 ### 開発時の実行
 
-```bash
-# DownloadFromGDrive
-./gradlew :omoide-memory-downloader:bootRun \
-  -Dspring.profiles.active=local \
-  -DrunnerName=downloadFromGDrive \
-  -DgdriveClientId=YOUR_CLIENT_ID \
-  -DgdriveClientSecret=YOUR_CLIENT_SECRET \
-  -DgdriveRefreshToken=YOUR_REFRESH_TOKEN \
-  -DgdriveFolderId=1a2b3c4d5e6f7g8h9i0j \
-  -DbackupDestination=G:\my-memory
+コマンドごとにバッチファイルを作成し、環境変数と実行コマンドをまとめて記述します。
 
-# ImportFromLocal
-./gradlew :omoide-memory-downloader:bootRun \
-  -Dspring.profiles.active=local \
-  -DrunnerName=importFromLocal \
-  -DlocalBackupDestination=G:\my-memory
+### DownloadFromGDrive
 
-# CommentImportCommand
-./gradlew :omoide-memory-downloader:bootRun \
-  -Dspring.profiles.active=local \
-  -DrunnerName=commentImport \
-  -DcommentFilePath=C:\Users\user\comments.csv
+```batch
+@echo off
+set GDRIVE_CLIENT_ID=YOUR_CLIENT_ID
+set GDRIVE_CLIENT_SECRET=YOUR_CLIENT_SECRET
+set GDRIVE_REFRESH_TOKEN=YOUR_REFRESH_TOKEN
+set GDRIVE_FOLDER_ID=1a2b3c4d5e6f7g8h9i0j
+set OMOIDE_BACKUP_DIRECTORY=H:\YOUR_DIRECTORY
+java -Dspring.profiles.active=local -DrunnerName=download-from-gdrive -jar C:\path\to\omoide-memory-downloader.jar
 ```
 
-### jar ファイルでの実行
+### ImportFromLocal
 
-```bash
-# ビルド
-./gradlew :omoide-memory-downloader:build
+```batch
+@echo off
+set BACKUP_DIRECTORY=H:\YOUR_DIRECTORY
+java -Dspring.profiles.active=local -DrunnerName=importFromLocal -jar C:\path\to\omoide-memory-downloader.jar
+```
 
-# DownloadFromGDrive
-java \
-  -Dspring.profiles.active=local \
-  -DrunnerName=downloadFromGDrive \
-  -DgdriveClientId=YOUR_CLIENT_ID \
-  -DgdriveClientSecret=YOUR_CLIENT_SECRET \
-  -DgdriveRefreshToken=YOUR_REFRESH_TOKEN \
-  -DgdriveFolderId=1a2b3c4d5e6f7g8h9i0j \
-  -DbackupDestination=G:\my-memory \
-  -jar omoide-memory-downloader/build/libs/omoide-memory-downloader-0.0.1-SNAPSHOT.jar
+### CommentImportCommand
 
-# ImportFromLocal
-java \
-  -Dspring.profiles.active=local \
-  -DrunnerName=importFromLocal \
-  -DlocalBackupDestination=G:\my-memory \
-  -jar omoide-memory-downloader/build/libs/omoide-memory-downloader-0.0.1-SNAPSHOT.jar
-
-# CommentImportCommand
-java \
-  -Dspring.profiles.active=local \
-  -DrunnerName=commentImport \
-  -DcommentFilePath=C:\Users\user\comments.csv \
-  -jar omoide-memory-downloader/build/libs/omoide-memory-downloader-0.0.1-SNAPSHOT.jar
+```batch
+@echo off
+set OMOIDE_COMMENT_FILE_PATH=C:\path\to\comments.csv
+java -Dspring.profiles.active=local -DrunnerName=commentImport -jar C:\path\to\omoide-memory-downloader.jar
 ```
 
 ---
 
-# 6. Windows タスクスケジューラでの定期実行
+## Windows タスクスケジューラでの定期実行
 
 ### 1. バッチファイルの作成
 
 `run-omoide-downloader.bat` を作成します。
 
+上記の DownloadFromGDrive 用バッチファイルにログ出力を追加します。
+
 ```batch
 @echo off
-java ^
-  -Dspring.profiles.active=local ^
-  -DrunnerName=downloadFromGDrive ^
-  -DgdriveClientId=YOUR_CLIENT_ID ^
-  -DgdriveClientSecret=YOUR_CLIENT_SECRET ^
-  -DgdriveRefreshToken=YOUR_REFRESH_TOKEN ^
-  -DgdriveFolderId=1a2b3c4d5e6f7g8h9i0j ^
-  -DbackupDestination=G:\my-memory ^
-  -jar C:\path\to\omoide-memory-downloader.jar >> C:\logs\omoide-downloader.log 2>&1
+set GDRIVE_CLIENT_ID=YOUR_CLIENT_ID
+set GDRIVE_CLIENT_SECRET=YOUR_CLIENT_SECRET
+set GDRIVE_REFRESH_TOKEN=YOUR_REFRESH_TOKEN
+set GDRIVE_FOLDER_ID=1a2b3c4d5e6f7g8h9i0j
+set OMOIDE_BACKUP_DIRECTORY=H:\YOUR_DIRECTORY
+java -Dspring.profiles.active=local -DrunnerName=download-from-gdrive -jar C:\path\to\omoide-memory-downloader.jar >> C:\logs\omoide-downloader.log 2>&1
 ```
 
 ### 2. タスクスケジューラの設定
@@ -338,11 +338,13 @@ java ^
 1. タスクスケジューラを開く
 2. 「タスクの作成」をクリック
 3. **全般タブ**
-   - 名前: `おもいでメモリダウンローダー`
-   - 「ユーザーがログオンしているときのみ実行する」を選択
+    - 名前: `おもいでメモリダウンローダー`
+    - 「ユーザーがログオンしているときのみ実行する」を選択
 4. **トリガータブ**
-   - 「新規」→ 毎日深夜 2 時などに設定
+    - 「新規」→ 毎日深夜 2 時などに設定
 5. **操作タブ**
-   - 「新規」→「プログラムの開始」
-   - プログラム: `C:\path\to\run-omoide-downloader.bat`
+    - 「新規」→「プログラムの開始」
+    - プログラム: `C:\path\to\run-omoide-downloader.bat`
 6. 「OK」で保存
+
+---

@@ -1,4 +1,6 @@
 spring:
+  profiles:
+      default: debug
   application:
     name: omoide-memory
   r2dbc:
