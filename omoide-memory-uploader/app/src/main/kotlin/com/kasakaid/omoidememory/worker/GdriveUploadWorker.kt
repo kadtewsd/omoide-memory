@@ -6,7 +6,8 @@ import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
-import com.kasakaid.omoidememory.data.OmoideMemoryRepository
+import com.kasakaid.omoidememory.data.LocalFile
+import com.kasakaid.omoidememory.data.LocalFileRepository
 import com.kasakaid.omoidememory.worker.WorkerHelper.createForegroundInfo
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -23,7 +24,7 @@ class GdriveUploadWorker
         @Assisted private val appContext: Context,
         @Assisted workerParams: WorkerParameters,
         private val gdriveUploader: GdriveUploader,
-        private val omoideMemoryRepository: OmoideMemoryRepository,
+        private val localFileRepository: LocalFileRepository,
     ) : CoroutineWorker(appContext, workerParams) {
         companion object {
             const val TAG = "ManualUploadWorker"
@@ -39,8 +40,8 @@ class GdriveUploadWorker
                 var successCount = 0
                 try {
                     // ここでは Flow (川) は不要。ViewModel 側の川はそのままになり、ここでは都度どんととってきてしまう。last で全部のデータが取ってこられたあとのものをガツっと取得
-                    omoideMemoryRepository.getActualPendingFiles().collect { file ->
-                        if (file.hash in targetHashes) {
+                    localFileRepository.getPotentialPendingFiles().collect { file ->
+                        if (file.name in targetHashes) {
                             Log.d(TAG, "手動アップロード開始 ${file.name}")
                             gdriveUploader.upload(sourceWorker = WorkManagerTag.Manual, pendingFile = file).also {
                                 successCount++

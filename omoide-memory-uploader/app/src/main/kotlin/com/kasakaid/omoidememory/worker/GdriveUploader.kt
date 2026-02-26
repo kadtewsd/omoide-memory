@@ -7,8 +7,8 @@ import android.util.Log
 import androidx.work.Constraints
 import androidx.work.ListenableWorker
 import androidx.work.NetworkType
-import com.kasakaid.omoidememory.data.OmoideMemory
-import com.kasakaid.omoidememory.data.OmoideMemoryRepository
+import com.kasakaid.omoidememory.data.LocalFile
+import com.kasakaid.omoidememory.data.LocalFileRepository
 import com.kasakaid.omoidememory.data.OmoideUploadPrefsRepository
 import com.kasakaid.omoidememory.network.GoogleDriveService
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -22,7 +22,7 @@ class GdriveUploader
     constructor(
         @ApplicationContext private val context: Context,
         private val omoideUploadPrefsRepository: OmoideUploadPrefsRepository,
-        private val omoideMemoryRepository: OmoideMemoryRepository,
+        private val omoideMemoryRepository: LocalFileRepository,
         private val driveService: GoogleDriveService,
     ) {
         companion object {
@@ -33,7 +33,7 @@ class GdriveUploader
          * 写真と Video のコンテンツをアップロードする実態
          */
         suspend fun upload(
-            pendingFile: OmoideMemory,
+            pendingFile: LocalFile,
             sourceWorker: WorkManagerTag,
         ): ListenableWorker.Result {
             val tag = "${sourceWorker.value} -> $TAG"
