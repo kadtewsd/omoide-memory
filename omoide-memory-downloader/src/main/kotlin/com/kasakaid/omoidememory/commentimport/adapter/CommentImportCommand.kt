@@ -1,8 +1,8 @@
-package com.kasakaid.omoidememory.downloader.adapter
+package com.kasakaid.omoidememory.commentimport.adapter
 
 import com.kasakaid.omoidememory.APPLICATION_RUNNER_KEY
-import com.kasakaid.omoidememory.downloader.domain.GooglePhotoCommentParser
-import com.kasakaid.omoidememory.downloader.service.CommentImportService
+import com.kasakaid.omoidememory.commentimport.domain.model.GooglePhotoCommentParser
+import com.kasakaid.omoidememory.commentimport.service.CommentImportService
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.runBlocking
 import org.springframework.boot.ApplicationArguments

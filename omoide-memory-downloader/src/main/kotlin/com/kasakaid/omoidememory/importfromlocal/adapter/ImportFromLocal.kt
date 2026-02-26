@@ -1,8 +1,9 @@
-package com.kasakaid.omoidememory.downloader.adapter
+package com.kasakaid.omoidememory.importfromlocal.adapter
 
 import com.kasakaid.omoidememory.APPLICATION_RUNNER_KEY
+import com.kasakaid.omoidememory.downloader.adapter.PostProcess
 import com.kasakaid.omoidememory.downloader.domain.DriveService
-import com.kasakaid.omoidememory.downloader.service.ImportLocalFileService
+import com.kasakaid.omoidememory.importfromlocal.service.ImportLocalFileService
 import com.kasakaid.omoidememory.r2dbc.transaction.RollbackException
 import com.kasakaid.omoidememory.utility.CoroutineHelper.mapWithCoroutine
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -12,8 +13,8 @@ import org.springframework.boot.ApplicationArguments
 import org.springframework.boot.ApplicationRunner
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.core.env.Environment
-import org.springframework.core.env.getProperty
 import org.springframework.stereotype.Component
+import org.springframework.transaction.reactive.TransactionalOperator
 import org.springframework.transaction.reactive.executeAndAwait
 import java.nio.file.Path
 
@@ -23,7 +24,7 @@ private val logger = KotlinLogging.logger {}
 @ConditionalOnProperty(name = [APPLICATION_RUNNER_KEY], havingValue = "import-from-local")
 class ImportFromLocal(
     private val importLocalFileService: ImportLocalFileService,
-    private val transactionalOperator: org.springframework.transaction.reactive.TransactionalOperator,
+    private val transactionalOperator: TransactionalOperator,
     private val environment: Environment,
 ) : ApplicationRunner {
     override fun run(args: ApplicationArguments): Unit =

@@ -1,4 +1,4 @@
-package com.kasakaid.omoidememory.downloader.domain
+package com.kasakaid.omoidememory.commentimport.domain.model
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 

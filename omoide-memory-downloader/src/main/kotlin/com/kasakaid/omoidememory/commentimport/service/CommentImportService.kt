@@ -1,9 +1,9 @@
-package com.kasakaid.omoidememory.downloader.service
+package com.kasakaid.omoidememory.commentimport.service
 
+import com.kasakaid.omoidememory.commentimport.domain.model.ParsedComment
+import com.kasakaid.omoidememory.commentimport.infrastructure.CommentRepository
+import com.kasakaid.omoidememory.commentimport.infrastructure.CommenterRepository
 import com.kasakaid.omoidememory.downloader.domain.MediaType
-import com.kasakaid.omoidememory.downloader.domain.ParsedComment
-import com.kasakaid.omoidememory.infrastructure.CommentRepository
-import com.kasakaid.omoidememory.infrastructure.CommenterRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.stereotype.Service
 
