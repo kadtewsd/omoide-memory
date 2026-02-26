@@ -1,17 +1,13 @@
 package com.kasakaid.omoidememory.worker
 
-import android.os.Build
 import android.util.Log
-import androidx.annotation.RequiresApi
+import androidx.work.Constraints
 import androidx.work.ListenableWorker
+import androidx.work.NetworkType
 import com.kasakaid.omoidememory.data.OmoideMemory
 import com.kasakaid.omoidememory.data.OmoideMemoryRepository
 import com.kasakaid.omoidememory.data.OmoideUploadPrefsRepository
-import com.kasakaid.omoidememory.data.WifiRepository
-import com.kasakaid.omoidememory.data.WifiSetting
 import com.kasakaid.omoidememory.network.GoogleDriveService
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.withTimeout
 import javax.inject.Inject
 
 /**
@@ -20,7 +16,6 @@ import javax.inject.Inject
 class GdriveUploader
     @Inject
     constructor(
-        private val wifiRepository: WifiRepository,
         private val omoideUploadPrefsRepository: OmoideUploadPrefsRepository,
         private val omoideMemoryRepository: OmoideMemoryRepository,
         private val driveService: GoogleDriveService,
@@ -37,42 +32,10 @@ class GdriveUploader
             sourceWorker: WorkManagerTag,
         ): ListenableWorker.Result {
             val tag = "${sourceWorker.value} -> $TAG"
-            val currentWifiSetting =
-                try {
-                    wifiRepository.getCurrentWifi()
-                } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
-                    WifiSetting.NotConnected
-                }
-
+            Constraints
+                .Builder()
+                .setRequiredNetworkType(NetworkType.UNMETERED)
             // first 的な条件で else に来ることはない
-            return when (currentWifiSetting) {
-                WifiSetting.Idle, WifiSetting.Loading -> {
-                    ListenableWorker.Result.retry()
-                }
-
-                WifiSetting.NotConnected -> {
-                    Log.d(tag, "Wifi に接続されておらず. Retry.")
-                    ListenableWorker.Result.retry()
-                }
-
-                is WifiSetting.Found -> {
-                    Log.d(tag, "Wifi が見つかったのでアップロード開始")
-                    executeUpload(tag = tag, found = currentWifiSetting, pendingFile = pendingFile)
-                    ListenableWorker.Result.success()
-                }
-
-                else -> {
-                    Log.d(tag, "Wifi が見つからない。終了")
-                    ListenableWorker.Result.failure()
-                }
-            }
-        }
-
-        private suspend fun executeUpload(
-            tag: String,
-            found: WifiSetting.Found,
-            pendingFile: OmoideMemory,
-        ): ListenableWorker.Result {
             val registeredSecureSsid = omoideUploadPrefsRepository.getSecureWifiSsid()
 
             if (registeredSecureSsid.isNullOrEmpty()) {
@@ -81,15 +44,6 @@ class GdriveUploader
                 // Succeed to stop retrying until user Configures it.
                 return ListenableWorker.Result.failure()
             }
-
-            if (found.ssid != registeredSecureSsid) {
-                Log.d(
-                    tag,
-                    "$found に接続しましたが, $registeredSecureSsid. のみアップロード可能です。スキップします",
-                )
-                return ListenableWorker.Result.retry()
-            }
-            Log.d(tag, "Found ${pendingFile.name} pending files.")
 
             // 4. Upload Files
             try {
