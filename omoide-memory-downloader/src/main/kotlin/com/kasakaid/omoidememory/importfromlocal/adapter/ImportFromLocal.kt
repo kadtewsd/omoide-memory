@@ -46,16 +46,18 @@ class ImportFromLocal(
             // 並列処理（セマフォで同時実行数を制限）
             localFiles.mapWithCoroutine(Semaphore(10)) { localFile ->
                 try {
-                    transactionalOperator.executeAndAwait {
-                        // ReactiveTransaction が引数で入ってくるが、Repository などに渡す必要なし
-                        // Spring の TransactionalOperator は、トランザクション情報を Reactor Context という「目に見えない箱」に入れて、リアクティブなパイプライン（Flux/Mono）の上流から下流まで伝播させます。
-                        importLocalFileService
-                            .execute(localFile, familyId)
-                            .onRight {
-                                PostProcess.onSuccess(it)
-                            }.onLeft {
-                                throw RollbackException(it)
-                            }
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.slf4j.MDCContext(mapOf("requestId" to localFile.name))) {
+                        transactionalOperator.executeAndAwait {
+                            // ReactiveTransaction が引数で入ってくるが、Repository などに渡す必要なし
+                            // Spring の TransactionalOperator は、トランザクション情報を Reactor Context という「目に見えない箱」に入れて、リアクティブなパイプライン（Flux/Mono）の上流から下流まで伝播させます。
+                            importLocalFileService
+                                .execute(localFile, familyId)
+                                .onRight {
+                                    PostProcess.onSuccess(it)
+                                }.onLeft {
+                                    throw RollbackException(it)
+                                }
+                        }
                     }
                 } catch (e: RollbackException) {
                     val error = e.leftValue

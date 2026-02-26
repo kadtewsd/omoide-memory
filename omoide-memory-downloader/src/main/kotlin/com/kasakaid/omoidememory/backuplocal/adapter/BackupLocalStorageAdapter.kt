@@ -49,8 +49,10 @@ class BackupLocalStorageAdapter(
 
             // 並列度を指定して実行
             targets.mapWithCoroutine(Semaphore(10)) { target ->
-                transactionalOperator.executeAndAwait {
-                    backupLocalStorageService.execute(target, destinationPath)
+                kotlinx.coroutines.withContext(kotlinx.coroutines.slf4j.MDCContext(mapOf("requestId" to target.id.toString()))) {
+                    transactionalOperator.executeAndAwait {
+                        backupLocalStorageService.execute(target, destinationPath)
+                    }
                 }
             }
 

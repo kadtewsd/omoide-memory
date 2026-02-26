@@ -53,7 +53,9 @@ class CommentImportCommand(
 
             for (comment in parsedComments) {
                 try {
-                    commentImportService.importComment(comment)
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.slf4j.MDCContext(mapOf("requestId" to comment.fileName))) {
+                        commentImportService.importComment(comment)
+                    }
                 } catch (e: Exception) {
                     logger.error(e) { "Failed to process comment for file: ${comment.fileName}" }
                 }
