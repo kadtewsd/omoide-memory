@@ -11,6 +11,7 @@ import com.kasakaid.omoidememory.utility.CoroutineHelper.mapWithCoroutine
 import com.kasakaid.omoidememory.utility.OneLineLogFormatter
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.slf4j.MDCContext
 import kotlinx.coroutines.sync.Semaphore
 import org.springframework.boot.ApplicationArguments
 import org.springframework.boot.ApplicationRunner
@@ -55,16 +56,18 @@ class DownloadFromGDrive(
             googleDriveFilesInfo.mapWithCoroutine(Semaphore(10)) { googleFile ->
                 try {
                     transactionalOperator.executeAndAwait {
-                        downloadFileBackUpService
-                            .execute(
-                                googleFile = googleFile,
-                                omoideBackupPath = Path.of(destination),
-                                gdriveFolderId = folderId,
-                            ).onRight {
-                                PostProcess.onSuccess(it)
-                            }.onLeft {
-                                throw RollbackException(it)
-                            }
+                        kotlinx.coroutines.withContext(MDCContext(mapOf("requestId" to "${googleFile.name}:${googleFile.id}"))) {
+                            downloadFileBackUpService
+                                .execute(
+                                    googleFile = googleFile,
+                                    omoideBackupPath = Path.of(destination),
+                                    gdriveFolderId = folderId,
+                                ).onRight {
+                                    PostProcess.onSuccess(it)
+                                }.onLeft {
+                                    throw RollbackException(it)
+                                }
+                        }
                     }
                 } catch (e: RollbackException) {
                     val error = e.leftValue

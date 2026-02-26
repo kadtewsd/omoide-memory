@@ -53,9 +53,12 @@ class CommentImportCommand(
 
             for (comment in parsedComments) {
                 try {
+                    org.slf4j.MDC.put("requestId", comment.fileName)
                     commentImportService.importComment(comment)
                 } catch (e: Exception) {
                     logger.error(e) { "Failed to process comment for file: ${comment.fileName}" }
+                } finally {
+                    org.slf4j.MDC.remove("requestId")
                 }
             }
 
