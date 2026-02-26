@@ -37,54 +37,58 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 
-
 @HiltViewModel
-class WifiSettingViewModel @Inject constructor(
-    wifiRepository: WifiRepository,
-    private val omoideUploadPrefsRepository: OmoideUploadPrefsRepository,
-) : ViewModel() {
+class WifiSettingViewModel
+    @Inject
+    constructor(
+        wifiRepository: WifiRepository,
+        private val omoideUploadPrefsRepository: OmoideUploadPrefsRepository,
+    ) : ViewModel() {
+        // 権限状態を管理する Flow
+        private val hasPermission = MutableStateFlow(false)
 
-    // 権限状態を管理する Flow
-    private val _hasPermission = MutableStateFlow(false)
+        // observeWifiSSID() を「実行」して、StateFlow に変換して保持する
+        // これにより、リスナーの登録は「ViewModel の生存期間中、一回だけ」になる
+        // callbackFlow は、誰かが collect（購読）を開始するたびに中身のブロックが最初から実行される**「Cold Flow」**です。
+        // stateIn なし: 画面が再描画（Recomposition）されるたびに registerNetworkCallback と unregister が繰り返され、OS側が「短時間に何度も登録しすぎ」と判断して値を返さなくなったり、挙動が不安定になります。
+        // first だと一度実行したら川が終わってしまう。flatMapLatest を使って川を流したままにする
+        @OptIn(ExperimentalCoroutinesApi::class)
+        val wifiState: StateFlow<WifiSetting> =
+            hasPermission
+                .flatMapLatest { granted ->
+                    if (granted) {
+                        // 権限がある時だけ、OSの監視を開始する
+                        wifiRepository.observeWifiSSID()
+                    } else {
+                        flowOf(WifiSetting.Idle)
+                    }
+                }.stateIn(
+                    scope = viewModelScope,
+                    // アップロード後に戻ってくるので、SharingStarted.WhileSubscribed(5000) ではまずいため。切ってしまってはいけない
+                    started = SharingStarted.Eagerly,
+                    initialValue = WifiSetting.Idle,
+                )
 
-    // observeWifiSSID() を「実行」して、StateFlow に変換して保持する
-    // これにより、リスナーの登録は「ViewModel の生存期間中、一回だけ」になる
-    // callbackFlow は、誰かが collect（購読）を開始するたびに中身のブロックが最初から実行される**「Cold Flow」**です。
-    // stateIn なし: 画面が再描画（Recomposition）されるたびに registerNetworkCallback と unregister が繰り返され、OS側が「短時間に何度も登録しすぎ」と判断して値を返さなくなったり、挙動が不安定になります。
-    // first だと一度実行したら川が終わってしまう。flatMapLatest を使って川を流したままにする
-    @OptIn(ExperimentalCoroutinesApi::class)
-    val wifiState: StateFlow<WifiSetting> = _hasPermission.flatMapLatest { granted ->
-        if (granted) {
-            // 権限がある時だけ、OSの監視を開始する
-            wifiRepository.observeWifiSSID()
-        } else {
-            flowOf(WifiSetting.Idle)
+        // 権限が変わったことを外部から伝える
+        fun updatePermissionStatus(isGranted: Boolean) {
+            hasPermission.value = isGranted
         }
-    }.stateIn(
-        scope = viewModelScope,
-        // 誰も見なくなった後に、いつ監視（コネクション）を切るか
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = WifiSetting.Idle,
-    )
 
-    // 権限が変わったことを外部から伝える
-    fun updatePermissionStatus(isGranted: Boolean) {
-        _hasPermission.value = isGranted
-    }
+        /**
+         * 確定した Wifi の SSID を取得する
+         */
+        private val _fixedSecureWifiSsid: MutableStateFlow<String?> =
+            MutableStateFlow(
+                omoideUploadPrefsRepository.getSecureWifiSsid(),
+            )
+        val fixedSecureWifiSsid = _fixedSecureWifiSsid.asStateFlow()
 
-    /**
-     * 確定した Wifi の SSID を取得する
-     */
-    val _fixedSecureWifiSsid: MutableStateFlow<String?> = MutableStateFlow(
-        omoideUploadPrefsRepository.getSecureWifiSsid()
-    )
-    val fixedSecureWifiSsid = _fixedSecureWifiSsid.asStateFlow()
-    fun changeWifiState(ssid: String) {
-        // 再開可能な関数はないです。値をセットすることでいきなりイベントが伝播しますよ
-        _fixedSecureWifiSsid.value = ssid
-        omoideUploadPrefsRepository.saveSecureWifiSsid(ssid)
+        fun changeWifiState(ssid: String) {
+            // 再開可能な関数はないです。値をセットすることでいきなりイベントが伝播しますよ
+            _fixedSecureWifiSsid.value = ssid
+            omoideUploadPrefsRepository.saveSecureWifiSsid(ssid)
+        }
     }
-}
 
 @Composable
 fun WifiSettingsCardRoute(
@@ -152,15 +156,16 @@ private fun WifiSettingsCard(
                 is WifiSetting.Found -> {
                     // 今接続中のWi-Fiがある場合
                     if (fixedSecureSsid != null) {
-                        val currentState = if (wifiSetting.ssid == fixedSecureSsid) {
-                            "✅ 設定済みの WiFi $fixedSecureSsid"
-                        } else {
-                            "設定されていない Wifi: ${wifiSetting.ssid}"
-                        }
+                        val currentState =
+                            if (wifiSetting.ssid == fixedSecureSsid) {
+                                "✅ 設定済みの WiFi $fixedSecureSsid"
+                            } else {
+                                "設定されていない Wifi: ${wifiSetting.ssid}"
+                            }
                         // --- 設定済みの場合 ---
                         Text(
                             "${currentState}に接続中です。",
-                            color = Color(0xFF4CAF50)
+                            color = Color(0xFF4CAF50),
                         )
                         if (wifiSetting.ssid == fixedSecureSsid) {
                             // 既存の設定を今回の Wifi に上書きする場合の選択肢
@@ -170,17 +175,18 @@ private fun WifiSettingsCard(
                         Text(
                             text = AnnotatedString(text = "検出されたWi-Fi: ${wifiSetting.ssid}"),
                             fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.bodyLarge
+                            style = MaterialTheme.typography.bodyLarge,
                         )
                         Button(
                             onClick = { onFixSecureSsid(wifiSetting) },
-                            modifier = Modifier.padding(top = 8.dp)
+                            modifier = Modifier.padding(top = 8.dp),
                         ) {
                             // ここに入るたびに、onFixSecureSsid をするとなにかをするたびに無駄に動く。ボタンを押した時だけにする
                             Text("${wifiSetting.ssid} を安全なWi-Fiに設定する")
                         }
                     }
                 }
+
                 // Wifi の状態を取得できなかったようです
                 // Wi-Fiが取れていない場合
                 is WifiSetting.NotConnected, WifiSetting.NotFound -> {
