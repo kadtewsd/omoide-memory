@@ -1,8 +1,8 @@
-package com.kasakaid.omoidememory.downloader.adapter
+package com.kasakaid.omoidememory.backuplocal.adapter
 
 import com.kasakaid.omoidememory.APPLICATION_RUNNER_KEY
-import com.kasakaid.omoidememory.downloader.service.BackupLocalStorageService
-import com.kasakaid.omoidememory.infrastructure.OmoideStorageBackupRepository
+import com.kasakaid.omoidememory.backuplocal.infrastructure.OmoideStorageBackupRepository
+import com.kasakaid.omoidememory.backuplocal.service.BackupLocalStorageService
 import com.kasakaid.omoidememory.utility.CoroutineHelper.mapWithCoroutine
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.runBlocking

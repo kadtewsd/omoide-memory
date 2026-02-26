@@ -1,4 +1,4 @@
-package com.kasakaid.omoidememory.downloader.service
+package com.kasakaid.omoidememory.importfromlocal.service
 
 import arrow.core.Either
 import arrow.core.raise.context.bind
@@ -8,6 +8,7 @@ import com.kasakaid.omoidememory.domain.LocalFile
 import com.kasakaid.omoidememory.domain.MetadataExtractError
 import com.kasakaid.omoidememory.domain.OmoideMemoryMetadataService
 import com.kasakaid.omoidememory.downloader.domain.MediaType
+import com.kasakaid.omoidememory.downloader.service.FileIOFinish
 import com.kasakaid.omoidememory.infrastructure.SyncedMemoryRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.stereotype.Service

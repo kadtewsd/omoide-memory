@@ -1,4 +1,4 @@
-package com.kasakaid.omoidememory.infrastructure
+package com.kasakaid.omoidememory.commentimport.infrastructure
 
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.COMMENT_OMOIDE_PHOTO
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.COMMENT_OMOIDE_VIDEO

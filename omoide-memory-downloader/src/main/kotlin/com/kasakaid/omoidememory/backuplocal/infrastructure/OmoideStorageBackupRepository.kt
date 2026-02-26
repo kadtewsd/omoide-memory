@@ -1,4 +1,4 @@
-package com.kasakaid.omoidememory.infrastructure
+package com.kasakaid.omoidememory.backuplocal.infrastructure
 
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.OMOIDE_STORAGE_BACKUP
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_PHOTO
