@@ -33,6 +33,9 @@ class ImportFromLocal(
                 environment.getProperty("OMOIDE_BACKUP_DIRECTORY")
                     ?: throw IllegalArgumentException("環境変数 OMOIDE_BACKUP_DIRECTORY が設定されていません")
 
+            val familyId =
+                environment.getProperty("GDRIVE_FOLDER_ID")
+                    ?: throw IllegalArgumentException("環境変数 GDRIVE_FOLDER_ID が設定されていません")
             logger.info { "対象ディレクトリ: $sourceDir" }
 
             // ディレクトリ配下の全ファイルを取得
@@ -46,7 +49,7 @@ class ImportFromLocal(
                         // ReactiveTransaction が引数で入ってくるが、Repository などに渡す必要なし
                         // Spring の TransactionalOperator は、トランザクション情報を Reactor Context という「目に見えない箱」に入れて、リアクティブなパイプライン（Flux/Mono）の上流から下流まで伝播させます。
                         importLocalFileService
-                            .execute(localFile)
+                            .execute(localFile, familyId)
                             .onRight {
                                 PostProcess.onSuccess(it)
                             }.onLeft {

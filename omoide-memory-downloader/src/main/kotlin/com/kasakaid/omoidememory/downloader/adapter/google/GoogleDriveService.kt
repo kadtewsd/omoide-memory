@@ -129,6 +129,7 @@ class GoogleDriveService(
         googleFile: File,
         omoideBackupPath: Path,
         mediaType: MediaType,
+        familyId: String,
     ): Either<DriveService.WriteError, OmoideMemory> =
         withContext(Dispatchers.IO) {
             either {
@@ -199,8 +200,9 @@ class GoogleDriveService(
 
                     finalMetadata
                         .toMedia(
-                            SourceFile.fromGoogleDrive(googleFile),
-                            locationName,
+                            sourceFile = SourceFile.fromGoogleDrive(googleFile),
+                            familyId = familyId,
+                            locationName = locationName,
                         ).mapLeft {
                             logger.error { "一時ファイル ${googleFile.name} のメディア化失敗。" }
                             logger.error { OneLineLogFormatter.format(it.ex) }

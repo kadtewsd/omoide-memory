@@ -10,6 +10,7 @@ import java.time.OffsetDateTime
 sealed interface OmoideMemory {
     val localPath: Path
     val name: String
+    val familyId: String
     val mediaType: String
     val driveFileId: String? // ドライブから取得されていないデータもあるため、整合性をとるため NULL 許可
     val captureTime: OffsetDateTime
@@ -18,6 +19,7 @@ sealed interface OmoideMemory {
     class Photo(
         override val localPath: Path,
         override val name: String,
+        override val familyId: String,
         override val mediaType: String,
         override val driveFileId: String?,
         override val fileSize: Long,
@@ -42,6 +44,7 @@ sealed interface OmoideMemory {
     class Video(
         override val localPath: Path,
         override val name: String,
+        override val familyId: String,
         override val mediaType: String,
         override val driveFileId: String?,
         override val fileSize: Long,

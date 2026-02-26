@@ -25,7 +25,7 @@ CREATE TABLE omoide_memory.synced_omoide_video (
 );
 
 COMMENT ON TABLE  omoide_memory.synced_omoide_video IS '同期済みおもいで動画';
-COMMENT ON COLUMN omoide_memory.commenter.family_id IS '家族ID。OMOIDE_FOLDER_ID にはいっているドライブのIDがはいる';
+COMMENT ON COLUMN omoide_memory.commenter.family_id IS '家族ID。GDRIVE_FOLDER_ID にはいっているドライブのIDがはいる';
 COMMENT ON COLUMN omoide_memory.synced_omoide_video.id IS 'サロゲートキー';
 COMMENT ON COLUMN omoide_memory.synced_omoide_video.file_name IS 'ファイル名（ユニーク）';
 COMMENT ON COLUMN omoide_memory.synced_omoide_video.server_path IS 'サーバー上のパス';

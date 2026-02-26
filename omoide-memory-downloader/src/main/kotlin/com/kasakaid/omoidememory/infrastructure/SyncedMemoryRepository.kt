@@ -16,8 +16,6 @@ class SyncedMemoryRepository(
     private val dslContext: DSLContext,
     environment: Environment,
 ) : OmoideMemoryRepository {
-    val familyId = environment.getProperty("OMOIDE_FOLDER_ID")!!
-
     /**
      * 呼び出し元では、 TransactionalOperator.executeAndAwait から実行されることにより、本クラスの awaitSingle などを実行すると、
      * 内部で Publisher 化されるので、トランザクションは伝わる
@@ -41,7 +39,7 @@ class SyncedMemoryRepository(
                 .insertInto(this)
                 .set(ID, MyUUIDGenerator.generateUUIDv7())
                 .set(FILE_NAME, memory.name)
-                .set(FAMILY_ID, familyId)
+                .set(FAMILY_ID, memory.familyId)
                 .set(SERVER_PATH, memory.localPath.toString())
                 .set(CAPTURE_TIME, memory.captureTime)
                 .set(LATITUDE, memory.latitude?.toBigDecimal())

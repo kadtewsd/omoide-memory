@@ -27,6 +27,7 @@ class OmoideMemoryMetadataService(
     suspend fun extractOmoideMemoryFromLocalFile(
         localFile: LocalFile,
         mediaType: MediaType,
+        familyId: String,
     ): Either<MetadataExtractError, OmoideMemory> =
         withContext(Dispatchers.IO) {
             either {
@@ -54,6 +55,7 @@ class OmoideMemoryMetadataService(
                     mediaMetadata
                         .toMedia(
                             sourceFile = SourceFile.fromLocalFile(path),
+                            familyId = familyId,
                             locationName = locationName,
                         ).mapLeft {
                             raise(MetadataExtractError(it.ex))
