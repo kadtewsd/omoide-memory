@@ -14,19 +14,19 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object AppModule {
-
     @Provides
     @Singleton
-    fun provideAppDatabase(@ApplicationContext context: Context): AppDatabase {
-        return Room.databaseBuilder(
-            context,
-            AppDatabase::class.java,
-            "picture-uploader-db"
-        ).build()
-    }
+    fun provideAppDatabase(
+        @ApplicationContext context: Context,
+    ): AppDatabase =
+        Room
+            .databaseBuilder(
+                context,
+                AppDatabase::class.java,
+                "picture-uploader-db",
+            ).fallbackToDestructiveMigration() // ← これを追加！
+            .build()
 
     @Provides
-    fun provideOmoideMemoryDao(database: AppDatabase): OmoideMemoryDao {
-        return database.omoideMemoryDao()
-    }
+    fun provideOmoideMemoryDao(database: AppDatabase): OmoideMemoryDao = database.omoideMemoryDao()
 }

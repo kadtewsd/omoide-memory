@@ -67,71 +67,73 @@ import javax.inject.Inject
 import kotlin.collections.set
 
 @HiltViewModel
-class FileSelectionViewModel @Inject constructor(
-    omoideMemoryRepository: OmoideMemoryRepository,
-    private val application: Application,
-) : ViewModel() {
-    /**
-     * 下記の挙動であるため、画面上に「なにも表示されない」時間がない。scan を使うことで UX を向上 (改善の余地はある)
-     * scan を使ったリスト構築の挙動
-     * 現在のコードだと、以下のような挙動になります：
-     * fileA が届く → [fileA] を流す
-     * fileB が届く → [fileA, fileB] を流す
-     * fileC が届く → [fileA, fileB, fileC] を流す
-     *
-     * メリット: 画面（LazyColumnなど）に、ファイルが一つずつ「ポポポッ」と追加されていくような、視覚的に面白い動きになります。
-     * デメリット: * 100件ある場合、UI は 100 回更新されます。また、途中の「未完成のリスト」を UI が受け取ることになります。
-     */
-    val pendingFiles: StateFlow<List<OmoideMemory>> = omoideMemoryRepository
-        .getActualPendingFiles()
-        .onEach { file ->
-            // 🚀 データが流れてきたタイミングで、まだ選択状態が空なら全選択にする
-            selectedHashes[file.hash] = _onOff.value.isChecked
+class FileSelectionViewModel
+    @Inject
+    constructor(
+        localFileRepository: OmoideMemoryRepository,
+        private val application: Application,
+    ) : ViewModel() {
+        /**
+         * 下記の挙動であるため、画面上に「なにも表示されない」時間がない。scan を使うことで UX を向上 (改善の余地はある)
+         * scan を使ったリスト構築の挙動
+         * 現在のコードだと、以下のような挙動になります：
+         * fileA が届く → [fileA] を流す
+         * fileB が届く → [fileA, fileB] を流す
+         * fileC が届く → [fileA, fileB, fileC] を流す
+         *
+         * メリット: 画面（LazyColumnなど）に、ファイルが一つずつ「ポポポッ」と追加されていくような、視覚的に面白い動きになります。
+         * デメリット: * 100件ある場合、UI は 100 回更新されます。また、途中の「未完成のリスト」を UI が受け取ることになります。
+         */
+        val pendingFiles: StateFlow<List<OmoideMemory>> =
+            localFileRepository
+                .getPotentialPendingFiles()
+                .onEach { file ->
+                    // 🚀 データが流れてきたタイミングで、まだ選択状態が空なら全選択にする
+                    selectedIds[file.id] = _onOff.value.isChecked
+                }.scan(emptyList<OmoideMemory>()) { acc, value -> acc + value } // リストに成長させる
+                .stateIn(
+                    scope = viewModelScope,
+                    started = SharingStarted.WhileSubscribed(5000),
+                    initialValue = emptyList(),
+                )
+
+        // 選択されたハッシュを管理する Set
+        val selectedIds = mutableStateMapOf<Long, Boolean>()
+
+        fun toggleSelection(id: Long) {
+            selectedIds[id] = !(selectedIds[id] ?: false)
         }
-        .scan(emptyList<OmoideMemory>()) { acc, value -> acc + value } // リストに成長させる
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = emptyList()
-        )
 
-    // 選択されたハッシュを管理する Set
-    val selectedHashes = mutableStateMapOf<String, Boolean>()
+        private val _onOff: MutableStateFlow<OnOff> = MutableStateFlow(OnOff.On)
+        val onOff: StateFlow<OnOff> = _onOff.asStateFlow()
 
-    fun toggleSelection(hash: String) {
-        selectedHashes[hash] = !(selectedHashes[hash] ?: false)
-    }
+        /**
+         *  すべてのコンテンツを反転
+         */
+        fun toggleAll(onOff: OnOff) {
+            _onOff.value = onOff
+            selectedIds.forEach { (hash, _) ->
+                selectedIds[hash] = onOff.isChecked
+            }
+        }
 
-    val _onOff: MutableStateFlow<OnOff> = MutableStateFlow(OnOff.On)
-    val onOff: StateFlow<OnOff> = _onOff.asStateFlow()
+        private val workManager = WorkManager.getInstance(application)
+        val isUploading: StateFlow<Boolean> =
+            workManager.observeUploadingStateByManualTag(
+                viewModelScope = viewModelScope,
+            )
+        val progress: StateFlow<Pair<Int, Int>?> =
+            workManager.observeProgressByManual(
+                viewModelScope = viewModelScope,
+            )
 
-    /**
-     *  すべてのコンテンツを反転
-     */
-    fun toggleAll(onOff: OnOff) {
-        _onOff.value = onOff
-        selectedHashes.forEach { (hash, _) ->
-            selectedHashes[hash] = onOff.isChecked
+        fun enqueueWManualUpload(ids: Array<Long>) {
+            workManager.enqueueWManualUpload(
+                ids = ids,
+                totalCount = selectedIds.count { it.value },
+            )
         }
     }
-
-    private val workManager = WorkManager.getInstance(application)
-    val isUploading: StateFlow<Boolean> = workManager.observeUploadingStateByManualTag(
-        viewModelScope = viewModelScope,
-    )
-    val progress: StateFlow<Pair<Int, Int>?> = workManager.observeProgressByManual(
-        viewModelScope = viewModelScope,
-    )
-
-    fun enqueueWManualUpload(
-        hashes: Array<String>,
-    ) {
-        workManager.enqueueWManualUpload(
-            hashes = hashes,
-            totalCount = selectedHashes.count { it.value },
-        )
-    }
-}
 
 @Composable
 fun FileSelectionRoute(
@@ -160,14 +162,14 @@ fun FileSelectionRoute(
     }
 
     FileSelectionScreen(
-        selectedHashes = viewModel.selectedHashes,
+        selectedIds = viewModel.selectedIds,
         pendingFiles = pendingFiles,
-        onContentFixed = { hashes ->
+        onContentFixed = { ids ->
             // 🚀 ここで Worker をキック
-            viewModel.enqueueWManualUpload(hashes)
+            viewModel.enqueueWManualUpload(ids)
         },
-        onToggle = { hash ->
-            viewModel.toggleSelection(hash)
+        onToggle = { id ->
+            viewModel.toggleSelection(id)
         },
         toMainScreen = toMainScreen,
         onOff = onOff,
@@ -181,63 +183,65 @@ fun FileSelectionRoute(
 
 @Composable
 fun FileSelectionScreen(
-    selectedHashes: Map<String, Boolean>,
+    selectedIds: Map<Long, Boolean>,
     pendingFiles: List<OmoideMemory>,
-    onContentFixed: (hashes: Array<String>) -> Unit,
-    onToggle: (hash: String) -> Unit,
+    onContentFixed: (fileIds: Array<Long>) -> Unit,
+    onToggle: (hash: Long) -> Unit,
     toMainScreen: () -> Unit,
     onOff: OnOff,
     onSwitchChanged: (OnOff) -> Unit,
     isUploading: Boolean,
     progress: Pair<Int, Int>?,
 ) {
-
     Scaffold(
         topBar = { AppBarWithBackIcon(toMainScreen) },
         bottomBar = {
             Button(
                 onClick = {
-                    val hashes = selectedHashes.filter { it.value }.keys.toTypedArray()
+                    val hashes = selectedIds.filter { it.value }.keys.toTypedArray()
                     onContentFixed(hashes)
                 },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                enabled = !isUploading && selectedHashes.values.any { it } // 🚀 アップロード中は無効化
-
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                enabled = !isUploading && selectedIds.values.any { it }, // 🚀 アップロード中は無効化
             ) {
-                Text("${selectedHashes.values.count { it }} 件をアップロード")
+                Text("${selectedIds.values.count { it }} 件をアップロード")
             }
-        }
-    ) { innerPadding -> // 🚀 Scaffold が「ここがコンテンツの表示可能領域だよ」と教えてくれている
+        },
+    ) { innerPadding ->
+        // 🚀 Scaffold が「ここがコンテンツの表示可能領域だよ」と教えてくれている
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
         ) {
             MySwitch(
                 onOff = onOff,
-                onSwitchChanged
+                onSwitchChanged,
             )
 
             Spacer(Modifier.size(1.dp))
 
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(100.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    // グリッド内の余白も Scaffold に合わせるならここでも padding を使う
-                    .padding(8.dp),
-                contentPadding = PaddingValues(4.dp)
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        // グリッド内の余白も Scaffold に合わせるならここでも padding を使う
+                        .padding(8.dp),
+                contentPadding = PaddingValues(4.dp),
             ) {
                 items(
                     items = pendingFiles,
-                    key = { it.hash }
+                    key = { it.id },
                 ) { item ->
                     FileItemCard(
                         item = item,
-                        isSelected = selectedHashes[item.hash] ?: false,
-                        onToggle = { onToggle(item.hash) },
+                        isSelected = selectedIds[item.id] ?: false,
+                        onToggle = { onToggle(item.id) },
                     )
                 }
             }
@@ -252,9 +256,9 @@ fun FileSelectionScreen(
 }
 
 fun Context.imageLoader(): ImageLoader {
-
     // Activity や Application クラス、または DI モジュールで設定
-    return ImageLoader.Builder(this)
+    return ImageLoader
+        .Builder(this)
         .components {
             if (Build.VERSION.SDK_INT >= 28) {
                 add(ImageDecoderDecoder.Factory())
@@ -263,37 +267,45 @@ fun Context.imageLoader(): ImageLoader {
             }
             // 🚀 これが動画サムネイルの正体！
             add(VideoFrameDecoder.Factory())
-        }
-        .build()
+        }.build()
 }
 
 @Composable
-fun FileItemCard(item: OmoideMemory, isSelected: Boolean, onToggle: () -> Unit) {
+fun FileItemCard(
+    item: OmoideMemory,
+    isSelected: Boolean,
+    onToggle: () -> Unit,
+) {
     // 選択状態に応じた色の定義
     val borderColor = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
     val borderStroke = if (isSelected) 3.dp else 0.dp
 
     // Box で AsyncImage と CheckBox を重ねる
     Box(
-        modifier = Modifier
-            .padding(4.dp)
-            .aspectRatio(1f) // Box自体を正方形に
-            .border(borderStroke, borderColor, RoundedCornerShape(8.dp)) // 枠線を追加
-            .clip(RoundedCornerShape(8.dp))
-            .clickable { onToggle() } // clip の後に clickable を書くのがコツ
+        modifier =
+            Modifier
+                .padding(4.dp)
+                .aspectRatio(1f) // Box自体を正方形に
+                .border(borderStroke, borderColor, RoundedCornerShape(8.dp)) // 枠線を追加
+                .clip(RoundedCornerShape(8.dp))
+                .clickable { onToggle() }, // clip の後に clickable を書くのがコツ
     ) {
         AsyncImage(
-            model = ImageRequest.Builder(LocalContext.current)
-                .data(item.filePath)
-                .videoFrameMillis(1000) // 🚀 1秒目のフレームを指定 (画像の場合は関係ないようよしなに Coil がやってくれる)
-                .crossfade(true) // じわっと表示させる（非同期感が出る）
-                .build(),
+            model =
+                ImageRequest
+                    .Builder(LocalContext.current)
+                    .data(item.filePath)
+                    .videoFrameMillis(1000) // 🚀 1秒目のフレームを指定 (画像の場合は関係ないようよしなに Coil がやってくれる)
+                    .crossfade(true) // じわっと表示させる（非同期感が出る）
+                    .build(),
             imageLoader = LocalContext.current.imageLoader(),
             contentDescription = null,
-            modifier = Modifier
-                .fillMaxSize()
-                .alpha(if (isSelected) 1f else 0.8f), // 選択時に少し強めに暗くする
-            contentScale = ContentScale.Crop
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .alpha(if (isSelected) 1f else 0.8f),
+            // 選択時に少し強めに暗くする
+            contentScale = ContentScale.Crop,
         )
 
         // チェックボックスも Material3 らしい配置に
@@ -301,7 +313,7 @@ fun FileItemCard(item: OmoideMemory, isSelected: Boolean, onToggle: () -> Unit) 
             checked = isSelected,
             onCheckedChange = { onToggle() },
             // チェックボックスはトップに吸い寄せられてコンテンツの上側に描画
-            modifier = Modifier.align(Alignment.TopEnd)
+            modifier = Modifier.align(Alignment.TopEnd),
         )
     }
 }

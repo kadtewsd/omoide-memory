@@ -11,8 +11,6 @@ import com.google.api.client.json.gson.GsonFactory
 import com.google.api.client.util.DateTime
 import com.google.api.services.drive.Drive
 import com.google.api.services.drive.DriveScopes
-import com.google.api.services.drive.model.Permission
-import com.kasakaid.omoidememory.BuildConfig
 import com.kasakaid.omoidememory.data.OmoideMemory
 import com.kasakaid.omoidememory.data.OmoideUploadPrefsRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -71,8 +69,7 @@ class GoogleDriveService
                 // 重複排除やDBとの紐付けに非常に有益
                 appProperties =
                     mapOf(
-                        "file_hash" to omoide.hash,
-                        "local_id" to omoide.id,
+                        "local_id" to omoide.id.toString(),
                         "origin_device_id" to Build.ID, // 端末識別の一助
                     )
             }

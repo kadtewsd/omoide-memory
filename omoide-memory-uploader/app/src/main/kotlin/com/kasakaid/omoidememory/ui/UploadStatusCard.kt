@@ -28,7 +28,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.WorkManager
-import com.kasakaid.omoidememory.data.LocalFileRepository
 import com.kasakaid.omoidememory.data.OmoideMemoryDao
 import com.kasakaid.omoidememory.data.OmoideMemoryRepository
 import com.kasakaid.omoidememory.data.OmoideUploadPrefsRepository
@@ -45,86 +44,80 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-
 @HiltViewModel
-class UploadStatusViewModel @Inject constructor(
-    private val application: Application,
-    private val localFileRepository: LocalFileRepository,
-    private val omoideMemoryRepository: OmoideMemoryRepository,
-    omoideUploadPrefsRepository: OmoideUploadPrefsRepository,
-    omoideMemoryDao: OmoideMemoryDao,
-) : ViewModel() {
+class UploadStatusViewModel
+    @Inject
+    constructor(
+        application: Application,
+        private val omoideMemoryRepository: OmoideMemoryRepository,
+        omoideUploadPrefsRepository: OmoideUploadPrefsRepository,
+        omoideMemoryDao: OmoideMemoryDao,
+    ) : ViewModel() {
+        /**
+         * パーミッション、アカウントの設定が完了してアップロードが行えるか？
+         */
+        private var canUpload: MutableStateFlow<Boolean> = MutableStateFlow(false)
 
-    /**
-     * パーミッション、アカウントの設定が完了してアップロードが行えるか？
-     */
-    private var _canUpload: MutableStateFlow<Boolean> = MutableStateFlow(false)
-    fun updateCanUpload(value: Boolean) {
-        _canUpload.value = value
-    }
-
-    /**
-     * 変化があった時に画面で描画させるために viewModelScope で枚数を変更する。
-     * Flow (リアクティブ) ではなくて直接実行するので
-     * 取得するファイルは名前でアップロードしたものと称号をかけるので「おそらくアップロードされていないモノ」を列挙している
-     */
-//    fun refreshPendingFiles() {
-//        viewModelScope.launch {
-//            val pending: List<LocalFile> = localFileRepository.getPotentialPendingFiles()
-//            _pendingFilesCount.value = pending.size
-//        }
-//    }
-    /**
-     * モバイルの権限、Google のサインインができたらファイル検索をしたい。
-     * また検索条件の基準日がユーザーによって変更されたらファイルを変更されたら検索したい。
-     * 1. _canUpload ( モバイルの権限、Google のサインイン) は呼び出し元から
-     * 2. 検索条件の基準日は、Repository の flow から
-     * この 2 つを合成するために, combine を実施しています。
-     */
-    val pendingFilesCount: StateFlow<Int> = combine(
-        _canUpload, // 現場からの報告（Flow）
-        omoideUploadPrefsRepository.getUploadBaseLineInstant(), // リポジトリの蛇口（Flow）
-        // 🚀 DBの「アップロード済みハッシュ」の変更を監視するFlowを追加！これにより MainScreen で一括アップロードが完了して永続化されたら再描画してくれる。
-        omoideMemoryDao.getAllUploadedHashesAsFlow(),
-    ) { granted, _, _ ->
-        // 許可と基準日のペアを届ける
-        if (granted) {
-            localFileRepository.getPotentialPendingFiles().count()
-        } else {
-            0
+        fun updateCanUpload(value: Boolean) {
+            canUpload.value = value
         }
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = 0
-    )
 
-    // UI State
-    val uploadedCount: StateFlow<Int> = omoideMemoryRepository.getUploadedCount()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
-
-
-    fun triggerManualUpload() {
-        viewModelScope.launch {
-            /**
-             * まとめて取得したい時は、last でも first でもなくて、toList。R2DBC の Flux を取り出す時と同じ。
-             */
-            val files = omoideMemoryRepository.getActualPendingFiles().toList()
-            workManager.enqueueWManualUpload(
-                hashes = files.map { it.hash }.toTypedArray(),
-                totalCount = files.size,
+        /**
+         * 変化があった時に画面で描画させるために viewModelScope で枚数を変更する。
+         * Flow (リアクティブ) ではなくて直接実行するので
+         * 取得するファイルは名前でアップロードしたものと称号をかけるので「おそらくアップロードされていないモノ」を列挙している
+         * モバイルの権限、Google のサインインができたらファイル検索をしたい。
+         * また検索条件の基準日がユーザーによって変更されたらファイルを変更されたら検索したい。
+         * 1. _canUpload ( モバイルの権限、Google のサインイン) は呼び出し元から
+         * 2. 検索条件の基準日は、Repository の flow から
+         * この 2 つを合成するために, combine を実施しています。
+         */
+        val pendingFilesCount: StateFlow<Int> =
+            combine(
+                canUpload, // 現場からの報告（Flow）
+                omoideUploadPrefsRepository.getUploadBaseLineInstant(), // リポジトリの蛇口（Flow）
+                // 🚀 DBの「アップロード済みハッシュ」の変更を監視するFlowを追加！これにより MainScreen で一括アップロードが完了して永続化されたら再描画してくれる。
+                omoideMemoryDao.getAllUploadedIdsAsFlow(),
+            ) { granted, _, _ ->
+                // 許可と基準日のペアを届ける
+                if (granted) {
+                    omoideMemoryRepository.getPotentialPendingFiles().count()
+                } else {
+                    0
+                }
+            }.stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5000),
+                initialValue = 0,
             )
+
+        // UI State
+        val uploadedCount: StateFlow<Int> =
+            omoideMemoryRepository
+                .getUploadedCount()
+                .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+        fun triggerManualUpload() {
+            viewModelScope.launch {
+                /**
+                 * まとめて取得したい時は、last でも first でもなくて、toList。R2DBC の Flux を取り出す時と同じ。
+                 */
+                val files = omoideMemoryRepository.getPotentialPendingFiles().toList()
+                workManager.enqueueWManualUpload(
+                    ids = files.map { it.id }.toTypedArray(),
+                    totalCount = files.size,
+                )
+            }
         }
+
+        private val workManager = WorkManager.getInstance(application)
+
+        // WorkInfo から進捗を取り出して StateFlow に変換
+        val uploadProgress: StateFlow<Pair<Int, Int>?> =
+            workManager.observeProgressByManual(
+                viewModelScope = viewModelScope,
+            )
     }
-
-    private val workManager = WorkManager.getInstance(application)
-
-    // WorkInfo から進捗を取り出して StateFlow に変換
-    val uploadProgress: StateFlow<Pair<Int, Int>?> = workManager.observeProgressByManual(
-        viewModelScope = viewModelScope,
-    )
-}
-
 
 @Composable
 fun UploadStatusRoute(
@@ -133,7 +126,6 @@ fun UploadStatusRoute(
     // 手動アップロードを選択した際の画面遷移先
     onNavigateToContentSelection: () -> Unit,
 ) {
-
     val pendingFilesCount by viewModel.pendingFilesCount.collectAsState()
     val uploadedCount by viewModel.uploadedCount.collectAsState()
     val uploadProgress by viewModel.uploadProgress.collectAsState()
@@ -160,13 +152,13 @@ fun UploadStatusCard(
     pendingFilesCount: Int,
     uploadedCount: Int,
     canUpload: Boolean, // 権限状態を引数で受け取る
-    onUploadClick: () -> Unit,      // ボタンクリック時のアクション
+    onUploadClick: () -> Unit, // ボタンクリック時のアクション
     onNavigateToContentSelection: () -> Unit,
     progress: Pair<Int, Int>?,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text("Status", style = MaterialTheme.typography.titleMedium)
@@ -178,14 +170,14 @@ fun UploadStatusCard(
             // 横並びにする
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp) // ボタン間の隙間
+                horizontalArrangement = Arrangement.spacedBy(8.dp), // ボタン間の隙間
             ) {
                 // 「選択」ボタンを左に（サブアクション的な位置付け）
                 OutlinedButton( // 種類を変えて「全アップロード」と差別化しても良い
                     onClick = onNavigateToContentSelection,
                     modifier = Modifier.weight(1f),
                     enabled = canUpload,
-                    contentPadding = PaddingValues(vertical = 12.dp)
+                    contentPadding = PaddingValues(vertical = 12.dp),
                 ) {
                     Text("選択してUP", textAlign = TextAlign.Center)
                 }
@@ -195,7 +187,7 @@ fun UploadStatusCard(
                     onClick = onUploadClick,
                     modifier = Modifier.weight(1f),
                     enabled = canUpload,
-                    contentPadding = PaddingValues(vertical = 12.dp)
+                    contentPadding = PaddingValues(vertical = 12.dp),
                 ) {
                     Text("すべてUP", textAlign = TextAlign.Center)
                 }
@@ -210,11 +202,11 @@ fun UploadStatusCard(
                     Spacer(modifier = Modifier.height(8.dp))
                     LinearProgressIndicator(
                         progress = { current.toFloat() / total.toFloat() },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
                     )
                     Text(
                         text = "アップロード中: $current / $total",
-                        style = MaterialTheme.typography.bodySmall
+                        style = MaterialTheme.typography.bodySmall,
                     )
                 }
             }
@@ -224,7 +216,7 @@ fun UploadStatusCard(
                     text = "権限またはサインインが必要です",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(top = 8.dp)
+                    modifier = Modifier.padding(top = 8.dp),
                 )
             }
         }
