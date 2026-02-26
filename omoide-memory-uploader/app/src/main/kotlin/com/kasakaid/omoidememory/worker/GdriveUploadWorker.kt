@@ -7,6 +7,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.kasakaid.omoidememory.data.OmoideMemoryRepository
+import com.kasakaid.omoidememory.worker.WorkerHelper.createForegroundInfo
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.Dispatchers
@@ -19,7 +20,7 @@ import kotlinx.coroutines.withContext
 class GdriveUploadWorker
     @AssistedInject
     constructor(
-        @Assisted appContext: Context,
+        @Assisted private val appContext: Context,
         @Assisted workerParams: WorkerParameters,
         private val gdriveUploader: GdriveUploader,
         private val omoideMemoryRepository: OmoideMemoryRepository,
@@ -28,8 +29,9 @@ class GdriveUploadWorker
             const val TAG = "ManualUploadWorker"
         }
 
-        override suspend fun doWork(): Result =
-            withContext(Dispatchers.IO) {
+        override suspend fun doWork(): Result {
+            setForeground(appContext.createForegroundInfo("ManualUpload"))
+            return withContext(Dispatchers.IO) {
                 // 引数からハッシュリストを取得
                 val targetHashes = inputData.getStringArray("TARGET_HASHES")?.toList() ?: emptyList()
                 val totalCount = inputData.getInt("TOTAL_COUNT", 0)
@@ -52,10 +54,11 @@ class GdriveUploadWorker
                             )
                         }
                     }
-                    return@withContext Result.success()
+                    Result.success()
                 } catch (e: Exception) {
                     Log.e(TAG, "例外が発生", e)
-                    return@withContext Result.retry()
+                    Result.retry()
                 }
             }
+        }
     }
