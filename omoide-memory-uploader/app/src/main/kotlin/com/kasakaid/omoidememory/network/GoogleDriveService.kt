@@ -32,7 +32,6 @@ class GoogleDriveService
         omoideUploadPrefsRepository: OmoideUploadPrefsRepository,
     ) {
         private val accountName: String = omoideUploadPrefsRepository.getAccountName() ?: throw SecurityException("共有したいフォルダを持つアカウントでログインしてください")
-        private val omoideSaAccount: String = BuildConfig.OMOIDE_SA_EMAIL_ADDRESS
         private val service: Drive =
             run {
                 val credentials =
@@ -100,30 +99,6 @@ class GoogleDriveService
                             .execute()
 
                     if (uploadedFile?.id == null) throw IOException("Upload failed: ID is null")
-
-                    // 次のPermission付与リクエストまで少し待機（429対策）
-                    delay(500)
-
-                    // 2. SAへのPermission付与（ここが重要）
-                    // SA も見える & ゴミ箱移動できるようにするため Permission をセット
-                    // 削除の制限: マイドライブ内のファイルを完全にゴミ箱移動できるのは、原則としてそのファイルのオーナーとと編集者（Writer）もゴミ箱へ移動（Trash）させることができます
-                    // 「親フォルダに編集者権限があっても、個別にPermissionを付与（または意識した実装）をしないと、SA側からゴミ箱へ移動できない（あるいは孤立したゴミになる）可能性が高い
-                    // オーナーではないアカウントが、delete にするとリンクだけ切れてゴミが残る可能性があるので Trash で対処
-                    val userPermission =
-                        Permission().apply {
-                            type = "user"
-                            role = "writer"
-                            emailAddress = omoideSaAccount
-                        }
-
-                    service
-                        .permissions()
-                        .create(uploadedFile.id, userPermission)
-                        .setSendNotificationEmail(false) // SAへの通知メールは不要
-                        .execute()
-
-                    Log.d("Drive", "Successfully uploaded and shared: ${uploadedFile.id}")
-
                     // 全工程成功。次のファイル処理のために少し待機
                     delay(800)
                     return@withContext uploadedFile.id
