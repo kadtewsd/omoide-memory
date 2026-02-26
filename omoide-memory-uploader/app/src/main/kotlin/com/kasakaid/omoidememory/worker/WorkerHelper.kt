@@ -3,6 +3,8 @@ package com.kasakaid.omoidememory.worker
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
+import android.content.pm.ServiceInfo
+import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.work.ForegroundInfo
 
@@ -41,6 +43,21 @@ object WorkerHelper {
      * 注意：
      * ・Android 13 以上では通知権限（POST_NOTIFICATIONS）が必要です
      * ・処理中はユーザーに通知が表示され続けます
+     *
+     * WorkManager は内部で SystemForegroundService を起動しますが、
+     * foregroundServiceType="none" 扱いになります。
+     *
+     * API 34 ではこれが禁止されています。
+     * Google Drive アップロードは：
+     * ネットワーク通信
+     * データ同期
+     * バックグラウンド処理
+     * なので適切な type は
+     *         <service
+     *             android:name="androidx.work.impl.foreground.SystemForegroundService"
+     *             android:foregroundServiceType="dataSync"
+     *             tools:node="merge" />
+     *
      */
     fun Context.createForegroundInfo(channelId: String): ForegroundInfo {
         // Android 8+ は通知チャンネルが必要
@@ -65,9 +82,19 @@ object WorkerHelper {
                 .setOngoing(true)
                 .build()
 
-        return ForegroundInfo(
-            1, // notificationId
-            notification,
-        )
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            // API 29+
+            ForegroundInfo(
+                1,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
+            )
+        } else {
+            // API 26〜28
+            ForegroundInfo(
+                1,
+                notification,
+            )
+        }
     }
 }
