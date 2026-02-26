@@ -236,16 +236,19 @@ OAuth アプリが**テストモード**のままだと、リフレッシュト�
 
 ### 4. 環境変数の設定
 
-「システムのプロパティ」→「環境変数」→「ユーザー環境変数」に以下を追加してください。
+「システムのプロパティ」/「環境変数」「に以下を追加してください。
 
-| 環境変数名 | 対象コマンド | 説明 | 例 |
-|---|---|---|---|
-| `GDRIVE_CLIENT_ID` | DownloadFromGDrive | OAuth クライアント ID | `123456789-abcdef.apps.googleusercontent.com` |
-| `GDRIVE_CLIENT_SECRET` | DownloadFromGDrive | OAuth クライアントシークレット | `GOCSPX-xxxxxxxxxx` |
-| `GDRIVE_REFRESH_TOKEN` | DownloadFromGDrive | ⑤で取得したリフレッシュトークン | `1//0gxxxxxxxx` |
-| `GDRIVE_FOLDER_ID` | DownloadFromGDrive | ダウンロード対象の Google Drive フォルダ ID | `1a2b3c4d5e6f7g8h9i0j` |
-| `OMOIDE_BACKUP_DIRECTORY` | DownloadFromGDrive / ImportFromLocal | バックアップ先ディレクトリ | `G:\my-memory` |
-| `OMOIDE_COMMENT_FILE_PATH` | CommentImportCommand | インポートするコメントファイルのパス | `C:\Users\user\comments.csv` |
+| 変数名                        | 環境/システム | 対象コマンド                         | 説明                              | 例 |
+|----------------------------|---------|--------------------------------|---------------------------------|---|
+| `spring.profiles.active`   | システム    | 全コマンド                               | Spring Boot プロファイル。デフォルトは debug | `local` |
+| `runnerName`               | システム    | 全コマンド                               | 実行するコマンド名                       | `downloadFromGDrive` |
+| `GDRIVE_CLIENT_ID`         | 環境      | DownloadFromGDrive                  | OAuth クライアント ID                 | `123456789-abcdef.apps.googleusercontent.com` |
+| `GDRIVE_CLIENT_SECRET`     | 環境      | DownloadFromGDrive                  | OAuth クライアントシークレット              | `GOCSPX-xxxxxxxxxx` |
+| `GDRIVE_REFRESH_TOKEN`     | 環境      | DownloadFromGDrive                  | ⑤で取得したリフレッシュトークン                | `1//0gxxxxxxxx` |
+| `GDRIVE_FOLDER_ID`         | 環境      | DownloadFromGDrive                  | ダウンロード対象の Google Drive フォルダ ID  | `1a2b3c4d5e6f7g8h9i0j` |
+| `OMOIDE_BACKUP_DIRECTORY`  | 環境      | DownloadFromGDrive / ImportFromLocal | バックアップ先ディレクトリ                   | `G:\my-memory` |
+| `OMOIDE_COMMENT_FILE_PATH` | 環境      | CommentImportCommand                | インポートするコメントファイルのパス              | `C:\Users\user\comments.csv` |
+
 
 ### 5. FFmpeg のインストール
 

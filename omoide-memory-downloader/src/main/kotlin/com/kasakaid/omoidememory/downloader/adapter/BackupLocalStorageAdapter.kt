@@ -5,9 +5,6 @@ import com.kasakaid.omoidememory.downloader.service.BackupLocalStorageService
 import com.kasakaid.omoidememory.infrastructure.OmoideStorageBackupRepository
 import com.kasakaid.omoidememory.utility.CoroutineHelper.mapWithCoroutine
 import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Semaphore
 import org.springframework.boot.ApplicationArguments
@@ -33,11 +30,11 @@ class BackupLocalStorageAdapter(
             logger.info { "ローカルドライブへのバックアップ処理を開始します。外界のチェックを Adapter 層で実施！" }
 
             // 1. 環境変数・ドライブ接続チェック
-            val destinationPathAttr =
+            val omoideBackupDirectory =
                 System.getenv("OMOIDE_BACKUP_DIRECTORY")
                     ?: throw IllegalStateException("環境変数 OMOIDE_BACKUP_DIRECTORY が設定されていません。")
 
-            val destinationPath = Path.of(destinationPathAttr)
+            val destinationPath = Path.of(omoideBackupDirectory)
             if (!Files.exists(destinationPath) || !Files.isDirectory(destinationPath)) {
                 throw IllegalStateException("指定されたバックアップ先ディレクトリが存在しません（ドライブ未接続）: $destinationPath")
             }
@@ -53,7 +50,7 @@ class BackupLocalStorageAdapter(
             // 並列度を指定して実行
             targets.mapWithCoroutine(Semaphore(10)) { target ->
                 transactionalOperator.executeAndAwait {
-                    backupLocalStorageService.execute(target)
+                    backupLocalStorageService.execute(target, destinationPath)
                 }
             }
 

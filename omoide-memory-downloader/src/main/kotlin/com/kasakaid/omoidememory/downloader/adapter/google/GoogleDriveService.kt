@@ -168,6 +168,7 @@ class GoogleDriveService(
                             .determineTargetPath(
                                 fileName = googleFile.name,
                                 captureTime = metadata.capturedTime,
+                                omoideBackupDirectory = omoideBackupPath,
                             ).right()
                     }.bind()
 
