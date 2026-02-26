@@ -34,8 +34,8 @@ class BackupLocalStorageAdapter(
 
             // 1. 環境変数・ドライブ接続チェック
             val destinationPathAttr =
-                System.getenv("OMOIDE_BACKUP_DESTINATION")
-                    ?: throw IllegalStateException("環境変数 OMOIDE_BACKUP_DESTINATION が設定されていません。")
+                System.getenv("OMOIDE_BACKUP_DIRECTORY")
+                    ?: throw IllegalStateException("環境変数 OMOIDE_BACKUP_DIRECTORY が設定されていません。")
 
             val destinationPath = Path.of(destinationPathAttr)
             if (!Files.exists(destinationPath) || !Files.isDirectory(destinationPath)) {

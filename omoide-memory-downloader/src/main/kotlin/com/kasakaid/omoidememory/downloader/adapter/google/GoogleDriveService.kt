@@ -63,7 +63,7 @@ class GoogleDriveService(
             }
         }
 
-    override suspend fun listFiles(): List<File> {
+    override suspend fun listFiles(gdriveFolderId: String): List<File> {
         val googleFiles = mutableListOf<File>()
         var pageToken: String? = null
 
@@ -81,7 +81,7 @@ class GoogleDriveService(
                             """
                             trashed = false
                             and mimeType != 'application/vnd.google-apps.folder'
-                            and '${System.getProperty("gdriveFolderId")}' in parents
+                            and '$gdriveFolderId' in parents
                             """.trimIndent(),
                         ).setFields(fields)
                         .setPageToken(pageToken)

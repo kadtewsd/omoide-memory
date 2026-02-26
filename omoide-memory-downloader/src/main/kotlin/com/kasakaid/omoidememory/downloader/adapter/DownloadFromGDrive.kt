@@ -31,17 +31,17 @@ class DownloadFromGDrive(
 ) : ApplicationRunner {
     override fun run(args: ApplicationArguments): Unit =
         runBlocking {
-            val folderId = System.getProperty("gdriveFolderId")
+            val folderId = System.getenv("GDRIVE_FOLDER_ID")
             if (folderId.isNullOrBlank()) {
                 throw IllegalArgumentException(
-                    "コンテンツが入ったGoogle DriveフォルダIDをシステムプロパティ gdriveFolderId に指定してください。",
+                    "コンテンツが入ったGoogle DriveフォルダIDを GDRIVE_FOLDER_ID 環境変数に指定してください。",
                 )
             }
 
             val destination =
-                System.getProperty("backupDestination")
+                System.getenv("OMOIDE_BACKUP_DIRECTORY")
                     ?: throw IllegalArgumentException(
-                        "システムプロパティ backupDestination が設定されていません。",
+                        "OMOIDE_BACKUP_DIRECTORY 環境変数が設定されていません。",
                     )
 
             if (!Path.of(destination).isAbsolute) {
@@ -50,7 +50,7 @@ class DownloadFromGDrive(
 
             logger.info { "Google Driveからのダウンロード処理を開始します" }
             // 1. Google Driveから対象フォルダ配下の全ファイルを取得
-            val googleDriveFilesInfo: List<File> = driveService.listFiles()
+            val googleDriveFilesInfo: List<File> = driveService.listFiles(folderId)
             // Google API のレートに引っ掛かるなどの可能性があるので 10 程度にする
             googleDriveFilesInfo.mapWithCoroutine(Semaphore(10)) { googleFile ->
                 try {
@@ -59,6 +59,7 @@ class DownloadFromGDrive(
                             .execute(
                                 googleFile = googleFile,
                                 omoideBackupPath = Path.of(destination),
+                                gdriveFolderId = folderId,
                             ).onRight {
                                 PostProcess.onSuccess(it)
                             }.onLeft {

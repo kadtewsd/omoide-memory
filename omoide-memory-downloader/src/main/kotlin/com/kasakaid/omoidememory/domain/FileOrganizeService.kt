@@ -32,8 +32,8 @@ object FileOrganizeService {
     ): Path =
         withContext(Dispatchers.IO) {
             val destinationRoot =
-                System.getenv("OMOIDE_BACKUP_DESTINATION")
-                    ?: throw IllegalStateException("OMOIDE_BACKUP_DESTINATION is not set")
+                System.getenv("MOIDE_BACKUP_DESTINATION")
+                    ?: throw IllegalStateException("OMOIDE_BACKUP_DIRECTORY is not set")
 
             val effectiveCaptureTime =
                 captureTime

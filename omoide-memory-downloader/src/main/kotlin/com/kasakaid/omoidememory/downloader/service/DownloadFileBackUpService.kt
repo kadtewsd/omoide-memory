@@ -27,6 +27,7 @@ class DownloadFileBackUpService(
     suspend fun execute(
         googleFile: File,
         omoideBackupPath: Path,
+        gdriveFolderId: String,
     ): Either<DriveService.WriteError, FileIOFinish> =
         either {
             logger.info { "取得対象ファイル: ${googleFile.name}" }
