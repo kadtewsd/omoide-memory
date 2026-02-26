@@ -1,5 +1,8 @@
 package com.kasakaid.omoidememory.worker
 
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.util.Log
 import androidx.work.Constraints
 import androidx.work.ListenableWorker
@@ -8,6 +11,7 @@ import com.kasakaid.omoidememory.data.OmoideMemory
 import com.kasakaid.omoidememory.data.OmoideMemoryRepository
 import com.kasakaid.omoidememory.data.OmoideUploadPrefsRepository
 import com.kasakaid.omoidememory.network.GoogleDriveService
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 
 /**
@@ -16,6 +20,7 @@ import javax.inject.Inject
 class GdriveUploader
     @Inject
     constructor(
+        @ApplicationContext private val context: Context,
         private val omoideUploadPrefsRepository: OmoideUploadPrefsRepository,
         private val omoideMemoryRepository: OmoideMemoryRepository,
         private val driveService: GoogleDriveService,
@@ -32,6 +37,12 @@ class GdriveUploader
             sourceWorker: WorkManagerTag,
         ): ListenableWorker.Result {
             val tag = "${sourceWorker.value} -> $TAG"
+            val cm = context.getSystemService(ConnectivityManager::class.java)
+            val caps = cm.getNetworkCapabilities(cm.activeNetwork)
+
+            if (caps?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) != true) {
+                return ListenableWorker.Result.retry()
+            }
             Constraints
                 .Builder()
                 .setRequiredNetworkType(NetworkType.UNMETERED)
