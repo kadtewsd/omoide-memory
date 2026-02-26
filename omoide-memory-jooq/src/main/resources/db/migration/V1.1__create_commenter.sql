@@ -11,7 +11,7 @@ CREATE TABLE omoide_memory.commenter (
 
 COMMENT ON TABLE  omoide_memory.commenter IS 'コメント投稿者';
 COMMENT ON COLUMN omoide_memory.commenter.id IS 'コメント投稿者ID（サロゲートキー）';
-COMMENT ON COLUMN omoide_memory.commenter.family_id IS '家族ID。OMOIDE_FOLDER_ID にはいっているドライブのIDがはいる';
+COMMENT ON COLUMN omoide_memory.commenter.family_id IS '家族ID。GDRIVE_FOLDER_ID にはいっているドライブのIDがはいる';
 COMMENT ON COLUMN omoide_memory.commenter.name IS 'コメント投稿者名';
 COMMENT ON COLUMN omoide_memory.commenter.icon IS 'コメント投稿者のアイコン。Base64エンコード済み文字列で格納される。Bytea だと永続化時にバイナリにしないといけないが、投入用ツールがないため';
 COMMENT ON COLUMN omoide_memory.commenter.created_at IS 'レコード作成日時（タイムゾーン付き）';

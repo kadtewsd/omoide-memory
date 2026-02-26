@@ -48,7 +48,10 @@ class ImportLocalFileService(
     /**
      * 単一ファイルのインポート処理
      */
-    suspend fun execute(localFile: LocalFile): Either<MetadataExtractError, FileIOFinish> =
+    suspend fun execute(
+        localFile: LocalFile,
+        familyId: String,
+    ): Either<MetadataExtractError, FileIOFinish> =
         either {
             logger.info { "インポート開始: ${localFile.name}" }
 
@@ -82,6 +85,7 @@ class ImportLocalFileService(
                     .extractOmoideMemoryFromLocalFile(
                         localFile = localFile,
                         mediaType = mediaType,
+                        familyId = familyId,
                     ).bind()
 
             // DBに保存

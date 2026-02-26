@@ -6,6 +6,7 @@ plugins {
     id("io.spring.dependency-management") version "1.1.7"
     id("nu.studer.jooq") version "9.0"
     id("org.jlleitschuh.gradle.ktlint") version "12.3.0" apply true
+    `java-library`
 }
 
 ktlint {
@@ -19,7 +20,7 @@ dependencyManagement {
 }
 
 group = "com.kasakaid"
-version = "0.0.1-SNAPSHOT"
+version = ""
 description = "Omoide Memory の JOOQ (DB アクセスリソース)"
 
 java {

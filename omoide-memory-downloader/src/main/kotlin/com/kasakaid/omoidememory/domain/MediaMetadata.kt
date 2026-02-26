@@ -19,6 +19,7 @@ sealed interface MediaMetadata {
 
     suspend fun toMedia(
         sourceFile: SourceFile,
+        familyId: String,
         locationName: String? = null,
     ): Either<MetadataExtractError, OmoideMemory>
 }
@@ -66,12 +67,14 @@ class VideoMetadata(
 ) : MediaMetadata {
     override suspend fun toMedia(
         sourceFile: SourceFile,
+        familyId: String,
         locationName: String?,
     ): Either<MetadataExtractError, OmoideMemory> =
         either {
             OmoideMemory.Video(
                 localPath = filePath,
                 name = sourceFile.name,
+                familyId = familyId,
                 mediaType = sourceFile.mimeType,
                 driveFileId = sourceFile.driveFileId,
                 fileSize = sourceFile.size,
@@ -107,6 +110,7 @@ class PhotoMetadata(
 
     override suspend fun toMedia(
         sourceFile: SourceFile,
+        familyId: String,
         locationName: String?,
     ): Either<MetadataExtractError, OmoideMemory> {
         require(this.capturedTime != null) { "このタイミングでは captureTime は NULL になっていてはいけない。確実に作成日は決定すること" }
@@ -115,6 +119,7 @@ class PhotoMetadata(
                 .Photo(
                     localPath = filePath,
                     name = sourceFile.name,
+                    familyId = familyId,
                     mediaType = sourceFile.mimeType,
                     driveFileId = sourceFile.driveFileId,
                     fileSize = sourceFile.size,

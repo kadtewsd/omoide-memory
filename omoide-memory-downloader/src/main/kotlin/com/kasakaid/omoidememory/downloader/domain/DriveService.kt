@@ -32,6 +32,7 @@ interface DriveService {
         googleFile: File,
         omoideBackupPath: Path,
         mediaType: MediaType,
+        familyId: String,
     ): Either<WriteError, OmoideMemory>
 
     /**

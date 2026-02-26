@@ -61,6 +61,7 @@ class DownloadFileBackUpService(
                         googleFile = googleFile,
                         omoideBackupPath = omoideBackupPath,
                         mediaType = type,
+                        familyId = gdriveFolderId,
                     ).bind()
 
             // 6. DBに保存
