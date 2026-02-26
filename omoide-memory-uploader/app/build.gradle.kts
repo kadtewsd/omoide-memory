@@ -40,12 +40,7 @@ android {
         if (localPropertiesFile.exists()) {
             localProperties.load(localPropertiesFile.inputStream())
         }
-        // 1. ファイル名の設定（取得してすぐ field にバインド）
-        localProperties.getProperty("omoide.sa.email.address")?.let { name ->
-            buildConfigField("String", "OMOIDE_SA_EMAIL_ADDRESS", "\"$name\"")
-        } ?: throw IllegalStateException("local.properties: 'omoide.sa.email.address' が未定義です")
-
-        // 2. フォルダIDの設定
+        // 1. フォルダIDの設定
         localProperties.getProperty("omoide.folder.id")?.let { id ->
             buildConfigField("String", "OMOIDE_FOLDER_ID", "\"$id\"")
         } ?: throw IllegalStateException("local.properties: 'omoide.folder.id' が未定義です")
