@@ -5,8 +5,8 @@ import android.util.Log
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.kasakaid.omoidememory.data.LocalFile
-import com.kasakaid.omoidememory.data.LocalFileRepository
+import com.kasakaid.omoidememory.data.OmoideMemory
+import com.kasakaid.omoidememory.data.OmoideMemoryRepository
 import com.kasakaid.omoidememory.data.OmoideUploadPrefsRepository
 import com.kasakaid.omoidememory.worker.WorkerHelper.createForegroundInfo
 import dagger.assisted.Assisted
@@ -25,7 +25,7 @@ class AutoGDriveUploadWorker
         @Assisted workerParams: WorkerParameters,
         private val omoideUploadPrefsRepository: OmoideUploadPrefsRepository,
         private val gdriveUploader: GdriveUploader,
-        private val localFileRepository: LocalFileRepository,
+        private val localFileRepository: OmoideMemoryRepository,
     ) : CoroutineWorker(appContext, workerParams) {
         companion object {
             const val TAG = "AutoUploadWorker"
@@ -44,7 +44,7 @@ class AutoGDriveUploadWorker
 
                     val uploadResult = mutableListOf<Result>()
                     var current = 0
-                    localFileRepository.getPotentialPendingFiles().collect { omoideMemory: LocalFile ->
+                    localFileRepository.getPotentialPendingFiles().collect { omoideMemory: OmoideMemory ->
                         // currentList には、その時点で「見つかっている分（20, 40, 60...）」が流れてくる
                         Log.d(TAG, "${++current}件目を開始")
                         gdriveUploader.upload(sourceWorker = WorkManagerTag.Auto, pendingFile = omoideMemory)

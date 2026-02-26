@@ -20,5 +20,5 @@ interface OmoideMemoryDao {
     fun getAllUploadedNamesAsFlow(): Flow<String>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertUploadedFile(localFile: LocalFile)
+    suspend fun insertUploadedFile(omoideMemory: OmoideMemory)
 }

@@ -6,8 +6,7 @@ import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
-import com.kasakaid.omoidememory.data.LocalFile
-import com.kasakaid.omoidememory.data.LocalFileRepository
+import com.kasakaid.omoidememory.data.OmoideMemoryRepository
 import com.kasakaid.omoidememory.worker.WorkerHelper.createForegroundInfo
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -24,7 +23,7 @@ class GdriveUploadWorker
         @Assisted private val appContext: Context,
         @Assisted workerParams: WorkerParameters,
         private val gdriveUploader: GdriveUploader,
-        private val localFileRepository: LocalFileRepository,
+        private val localFileRepository: OmoideMemoryRepository,
     ) : CoroutineWorker(appContext, workerParams) {
         companion object {
             const val TAG = "ManualUploadWorker"

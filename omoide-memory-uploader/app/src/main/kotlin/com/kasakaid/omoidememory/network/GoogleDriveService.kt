@@ -11,7 +11,7 @@ import com.google.api.client.json.gson.GsonFactory
 import com.google.api.client.util.DateTime
 import com.google.api.services.drive.Drive
 import com.google.api.services.drive.DriveScopes
-import com.kasakaid.omoidememory.data.LocalFile
+import com.kasakaid.omoidememory.data.OmoideMemory
 import com.kasakaid.omoidememory.data.OmoideUploadPrefsRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -46,7 +46,7 @@ class GoogleDriveService
                     .build()
             }
 
-        private fun LocalFile.toDriveFileMetaData(): com.google.api.services.drive.model.File {
+        private fun OmoideMemory.toDriveFileMetaData(): com.google.api.services.drive.model.File {
             val omoide = this
             return com.google.api.services.drive.model.File().apply {
                 // 1. 基本情報
@@ -79,7 +79,7 @@ class GoogleDriveService
          * ファイルをアップロードします
          */
         suspend fun uploadFile(
-            localFile: LocalFile,
+            omoideMemory: OmoideMemory,
             attempt: Int = 1,
         ): String? =
             withContext(Dispatchers.IO) {
@@ -90,8 +90,8 @@ class GoogleDriveService
                         service
                             .files()
                             .create(
-                                localFile.toDriveFileMetaData(),
-                                FileContent(localFile.mimeType, File(localFile.filePath)),
+                                omoideMemory.toDriveFileMetaData(),
+                                FileContent(omoideMemory.mimeType, File(omoideMemory.filePath)),
                             ).setFields("id")
                             .execute()
 
@@ -107,9 +107,9 @@ class GoogleDriveService
                         Log.w("Drive", "Attempt $attempt failed. Retrying in ${waitTime}ms... Error: ${e.message}")
 
                         delay(waitTime)
-                        return@withContext uploadFile(localFile, attempt + 1)
+                        return@withContext uploadFile(omoideMemory, attempt + 1)
                     } else {
-                        Log.e("Drive", "All attempts failed for ${localFile.name}", e)
+                        Log.e("Drive", "All attempts failed for ${omoideMemory.name}", e)
                         return@withContext null
                     }
                 }

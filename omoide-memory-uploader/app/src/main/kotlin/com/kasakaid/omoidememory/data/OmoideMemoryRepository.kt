@@ -4,8 +4,6 @@ import android.content.Context
 import android.database.Cursor
 import android.provider.MediaStore
 import android.util.Log
-import androidx.room.Entity
-import androidx.room.PrimaryKey
 import arrow.core.Either
 import arrow.core.Option
 import arrow.core.left
@@ -30,7 +28,7 @@ import javax.inject.Singleton
  * 端末に存在するファイルを取得します。
  */
 @Singleton
-class LocalFileRepository
+class OmoideMemoryRepository
     @Inject
     constructor(
         @param:ApplicationContext private val context: Context,
@@ -42,7 +40,7 @@ class LocalFileRepository
         }
 
         // 1. メタデータだけで「たぶん未アップロード」なものをガバッと取る（高速）
-        fun getPotentialPendingFiles(): Flow<LocalFile> =
+        fun getPotentialPendingFiles(): Flow<OmoideMemory> =
             flow {
                 // MediaStore から名前・サイズ・パスを取得
                 // Room から「アップロード済みメタデータ一覧」を取得して、名前・サイズで簡易フィルタ
@@ -60,7 +58,7 @@ class LocalFileRepository
         )
 
         // 2. 取得処理
-        fun Cursor.toLocalFile(): Either<PathNoneError, LocalFile> {
+        fun Cursor.toLocalFile(): Either<PathNoneError, OmoideMemory> {
             // getColumnIndex は存在しないと -1 を返す
             val idIdx = getColumnIndex(MediaStore.Files.FileColumns._ID)
             val nameIdx = getColumnIndex(MediaStore.Files.FileColumns.DISPLAY_NAME)
@@ -81,7 +79,7 @@ class LocalFileRepository
             return if (pathIdx == -1 || getString(pathIdx).isNullOrEmpty()) {
                 PathNoneError(name).left()
             } else {
-                LocalFile(
+                OmoideMemory(
                     id = getColumnIndex(MediaStore.Files.FileColumns._ID),
                     name = name,
                     filePath = getString(pathIdx)!!,
@@ -110,7 +108,7 @@ class LocalFileRepository
         /**
          * 見つかったら一つづつちょろちょろと川を流して呼び出し元に教えて (send) してあげる
          */
-        fun <T> getPendingFiles(filterUnuploadedFile: (LocalFile) -> Option<T>): Flow<T> =
+        fun <T> getPendingFiles(filterUnuploadedFile: (OmoideMemory) -> Option<T>): Flow<T> =
             channelFlow {
                 // channelFlow の中は、デフォルトで適切なスコープで動くので
                 // そのまま IO 処理を書いて OK です
@@ -176,7 +174,7 @@ class LocalFileRepository
          */
         fun getUploadedCount(): Flow<Int> = omoideMemoryDao.getUploadedCount()
 
-        suspend fun markAsUploaded(entity: LocalFile) {
+        suspend fun markAsUploaded(entity: OmoideMemory) {
             omoideMemoryDao.insertUploadedFile(entity)
         }
     }

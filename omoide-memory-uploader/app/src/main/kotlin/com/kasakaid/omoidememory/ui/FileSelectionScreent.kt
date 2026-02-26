@@ -50,8 +50,8 @@ import coil.decode.ImageDecoderDecoder
 import coil.decode.VideoFrameDecoder
 import coil.request.ImageRequest
 import coil.request.videoFrameMillis
-import com.kasakaid.omoidememory.data.LocalFile
-import com.kasakaid.omoidememory.data.LocalFileRepository
+import com.kasakaid.omoidememory.data.OmoideMemory
+import com.kasakaid.omoidememory.data.OmoideMemoryRepository
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.enqueueWManualUpload
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeProgressByManual
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeUploadingStateByManualTag
@@ -70,7 +70,7 @@ import kotlin.collections.set
 class FileSelectionViewModel
     @Inject
     constructor(
-        localFileRepository: LocalFileRepository,
+        localFileRepository: OmoideMemoryRepository,
         private val application: Application,
     ) : ViewModel() {
         /**
@@ -84,13 +84,13 @@ class FileSelectionViewModel
          * メリット: 画面（LazyColumnなど）に、ファイルが一つずつ「ポポポッ」と追加されていくような、視覚的に面白い動きになります。
          * デメリット: * 100件ある場合、UI は 100 回更新されます。また、途中の「未完成のリスト」を UI が受け取ることになります。
          */
-        val pendingFiles: StateFlow<List<LocalFile>> =
+        val pendingFiles: StateFlow<List<OmoideMemory>> =
             localFileRepository
                 .getPotentialPendingFiles()
                 .onEach { file ->
                     // 🚀 データが流れてきたタイミングで、まだ選択状態が空なら全選択にする
                     selectedHashes[file.name] = _onOff.value.isChecked
-                }.scan(emptyList<LocalFile>()) { acc, value -> acc + value } // リストに成長させる
+                }.scan(emptyList<OmoideMemory>()) { acc, value -> acc + value } // リストに成長させる
                 .stateIn(
                     scope = viewModelScope,
                     started = SharingStarted.WhileSubscribed(5000),
@@ -184,7 +184,7 @@ fun FileSelectionRoute(
 @Composable
 fun FileSelectionScreen(
     selectedHashes: Map<String, Boolean>,
-    pendingFiles: List<LocalFile>,
+    pendingFiles: List<OmoideMemory>,
     onContentFixed: (hashes: Array<String>) -> Unit,
     onToggle: (hash: String) -> Unit,
     toMainScreen: () -> Unit,
@@ -272,7 +272,7 @@ fun Context.imageLoader(): ImageLoader {
 
 @Composable
 fun FileItemCard(
-    item: LocalFile,
+    item: OmoideMemory,
     isSelected: Boolean,
     onToggle: () -> Unit,
 ) {

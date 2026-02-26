@@ -8,7 +8,7 @@ import androidx.room.PrimaryKey
  * data class にすると遅いので class だけにします。
  */
 @Entity(tableName = "uploaded_memories")
-class LocalFile(
+class OmoideMemory(
     @PrimaryKey val id: Int,
     val name: String,
     val filePath: String?,
@@ -22,7 +22,7 @@ class LocalFile(
     // Google Drive File ID。アップロードが完了するまで NULL をいれておく。。。別の LocalFileWithHash のようなオブジェクトを作ると不自然のため
     var driveFileId: String? = null,
 ) {
-    fun onUploaded(uploadedDriveFileId: String): LocalFile =
+    fun onUploaded(uploadedDriveFileId: String): OmoideMemory =
         apply {
             driveFileId = uploadedDriveFileId
         }

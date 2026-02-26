@@ -28,8 +28,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.WorkManager
-import com.kasakaid.omoidememory.data.LocalFileRepository
 import com.kasakaid.omoidememory.data.OmoideMemoryDao
+import com.kasakaid.omoidememory.data.OmoideMemoryRepository
 import com.kasakaid.omoidememory.data.OmoideUploadPrefsRepository
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.enqueueWManualUpload
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeProgressByManual
@@ -49,7 +49,7 @@ class UploadStatusViewModel
     @Inject
     constructor(
         application: Application,
-        private val omoideMemoryRepository: LocalFileRepository,
+        private val omoideMemoryRepository: OmoideMemoryRepository,
         omoideUploadPrefsRepository: OmoideUploadPrefsRepository,
         omoideMemoryDao: OmoideMemoryDao,
     ) : ViewModel() {
