@@ -82,7 +82,7 @@ object FileOrganizeService {
                 Files.createDirectories(targetPath.parent)
             }
 
-            Files.move(sourcePath, targetPath, StandardCopyOption.ATOMIC_MOVE)
+            Files.move(sourcePath, targetPath, StandardCopyOption.REPLACE_EXISTING)
             targetPath
         }
 
