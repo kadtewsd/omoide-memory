@@ -176,4 +176,13 @@ class OmoideMemoryRepository
         suspend fun markAsUploaded(entity: OmoideMemory) {
             omoideMemoryDao.insertUploadedFile(entity)
         }
+
+        suspend fun findReadyForUpload(): List<OmoideMemory> = omoideMemoryDao.findReadyForUpload()
+
+        suspend fun markAsReady(ids: List<Long>) = omoideMemoryDao.markAsReady(ids)
+
+        suspend fun markAsDone(
+            id: Long,
+            driveFileId: String,
+        ) = omoideMemoryDao.markAsDone(id, driveFileId)
     }

@@ -63,6 +63,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.scan
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import kotlin.collections.set
 
@@ -70,7 +71,7 @@ import kotlin.collections.set
 class FileSelectionViewModel
     @Inject
     constructor(
-        localFileRepository: OmoideMemoryRepository,
+        private val localFileRepository: OmoideMemoryRepository,
         private val application: Application,
     ) : ViewModel() {
         /**
@@ -127,11 +128,11 @@ class FileSelectionViewModel
                 viewModelScope = viewModelScope,
             )
 
-        fun enqueueWManualUpload(ids: Array<Long>) {
-            workManager.enqueueWManualUpload(
-                ids = ids,
-                totalCount = selectedIds.count { it.value },
-            )
+        fun startManualUpload(ids: List<Long>) {
+            viewModelScope.launch {
+                localFileRepository.markAsReady(ids)
+                workManager.enqueueWManualUpload()
+            }
         }
     }
 
@@ -166,7 +167,7 @@ fun FileSelectionRoute(
         pendingFiles = pendingFiles,
         onContentFixed = { ids ->
             // 🚀 ここで Worker をキック
-            viewModel.enqueueWManualUpload(ids)
+            viewModel.startManualUpload(ids)
         },
         onToggle = { id ->
             viewModel.toggleSelection(id)
@@ -185,7 +186,7 @@ fun FileSelectionRoute(
 fun FileSelectionScreen(
     selectedIds: Map<Long, Boolean>,
     pendingFiles: List<OmoideMemory>,
-    onContentFixed: (fileIds: Array<Long>) -> Unit,
+    onContentFixed: (fileIds: List<Long>) -> Unit,
     onToggle: (hash: Long) -> Unit,
     toMainScreen: () -> Unit,
     onOff: OnOff,
@@ -198,7 +199,7 @@ fun FileSelectionScreen(
         bottomBar = {
             Button(
                 onClick = {
-                    val hashes = selectedIds.filter { it.value }.keys.toTypedArray()
+                    val hashes = selectedIds.filter { it.value }.keys.toList()
                     onContentFixed(hashes)
                 },
                 modifier =

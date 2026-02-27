@@ -31,17 +31,18 @@ class GdriveUploader
 
         /**
          * 写真と Video のコンテンツをアップロードする実態
+         * @return アップロードされた Google Drive の File ID
          */
         suspend fun upload(
             pendingFile: OmoideMemory,
             sourceWorker: WorkManagerTag,
-        ): ListenableWorker.Result {
+        ): String {
             val tag = "${sourceWorker.value} -> $TAG"
             val cm = context.getSystemService(ConnectivityManager::class.java)
             val caps = cm.getNetworkCapabilities(cm.activeNetwork)
 
             if (caps?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) != true) {
-                return ListenableWorker.Result.retry()
+                throw RuntimeException("WiFi is not connected")
             }
             Constraints
                 .Builder()
@@ -50,32 +51,25 @@ class GdriveUploader
             val registeredSecureSsid = omoideUploadPrefsRepository.getSecureWifiSsid()
 
             if (registeredSecureSsid.isNullOrEmpty()) {
-                Log.w(tag, "SSID が構成されいている OK !")
-                // Should we fail or succeed?
-                // Succeed to stop retrying until user Configures it.
-                return ListenableWorker.Result.failure()
+                Log.w(tag, "SSID が構成されていません")
+                throw RuntimeException("SSID is not configured")
             }
 
             // 4. Upload Files
             try {
                 val fileId = driveService.uploadFile(pendingFile)
                 if (fileId != null) {
-                    omoideMemoryRepository.markAsUploaded(
-                        pendingFile.onUploaded(fileId),
-                    )
                     Log.d(tag, "Uploaded: ${pendingFile.name}")
+                    return fileId
+                } else {
+                    throw RuntimeException("Upload failed: fileId is null")
                 }
             } catch (e: SecurityException) {
                 Log.e(tag, "Auth Error: ${e.message}")
-                // Trigger Re-Auth notification or UI update?
-                // For now, fail so we might retry later, but better to stop if auth is broken.
-                return ListenableWorker.Result.failure()
+                throw e
             } catch (e: Exception) {
                 Log.e(tag, "Upload Failed for ${pendingFile.name}: ${e.message}")
-                return ListenableWorker.Result.failure()
-            }
-            return ListenableWorker.Result.success().also {
-                Log.i(tag, "${pendingFile.name}が正常にアップロードされました")
+                throw e
             }
         }
     }
