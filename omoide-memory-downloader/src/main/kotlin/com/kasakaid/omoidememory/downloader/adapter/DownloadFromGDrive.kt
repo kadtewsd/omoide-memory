@@ -77,6 +77,7 @@ class DownloadFromGDrive(
                     }
                 }
             }
+            PostProcess.finish()
             logger.info { "Google Driveからのダウンロード処理を終了。" }
         }
 }

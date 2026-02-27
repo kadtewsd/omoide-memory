@@ -15,33 +15,38 @@ private val logger = KotlinLogging.logger {}
 
 object PostProcess {
     private val errorLogFileName = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss-SSS"))
+    private val failedPaths = java.util.Collections.synchronizedList(mutableListOf<Path>())
 
     fun onFailure(failure: DriveService.WriteError): DriveService.WriteError =
         failure.run {
-            // createDirectory だとすでに存在していたら例外を投げてくる。createDirectories だと、なにもしない
-            Files.createDirectories(Path.of("log"))
-            val logFilePath =
-                Path.of(
-                    "log",
-                    "failed_downloads_$errorLogFileName",
-                )
             when (failure) {
                 is DriveService.WriteError -> {
                     failure.paths.forEach {
-                        val logEntry = "${it.toFile().name}\n"
-                        try {
-                            // java.io.File を使ったシンプルな追記
-                            logFilePath.toFile().appendText(logEntry)
-                        } catch (e: Exception) {
-                            System.err.println("Failed to write to log file: ${e.message}")
-                        }
-                        Files.deleteIfExists(it)
+                        failedPaths.add(it)
                         logger.error { "バックアップ時になんらかのエラー発生。${it.name}の物理ファイルを削除します。" }
+                        Files.deleteIfExists(it)
                     }
                 }
             }
             failure
         }
+
+    fun finish() {
+        if (failedPaths.isEmpty()) return
+
+        Files.createDirectories(Path.of("log"))
+        val logFilePath =
+            Path.of(
+                "log",
+                "failed_downloads_$errorLogFileName",
+            )
+        val logContent = failedPaths.joinToString("\n") { it.toFile().name } + "\n"
+        try {
+            logFilePath.toFile().writeText(logContent)
+        } catch (e: Exception) {
+            System.err.println("Failed to write to log file: ${e.message}")
+        }
+    }
 
     fun onSuccess(filePath: FileIOFinish): FileIOFinish =
         filePath.also {
