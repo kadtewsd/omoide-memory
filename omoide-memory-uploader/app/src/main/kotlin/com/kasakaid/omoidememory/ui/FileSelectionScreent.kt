@@ -206,17 +206,29 @@ fun FileSelectionScreen(
         bottomBar = {
             val selectedFiles = pendingFiles.filter { selectedIds[it.id] == true }
             val totalSize = selectedFiles.sumOf { it.fileSize ?: 0L }
-            Button(
-                onClick = {
-                    onContentFixed(selectedFiles.map { it.id })
-                },
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                enabled = !isUploading && selectedFiles.isNotEmpty(), // 🚀 アップロード中は無効化
+            val limit = 10 * 1024 * 1024 * 1024L
+            val isOverLimit = totalSize > limit
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text("${selectedFiles.size} 件 (${formatSize(totalSize)}) をアップロード")
+                if (isOverLimit) {
+                    Text(
+                        text = "10GB を超えるアップロードはできません",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    )
+                }
+                Button(
+                    onClick = {
+                        onContentFixed(selectedFiles.map { it.id })
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isUploading && selectedFiles.isNotEmpty() && !isOverLimit,
+                ) {
+                    Text("${selectedFiles.size} 件 (${formatSize(totalSize)}) をアップロード")
+                }
             }
         },
     ) { innerPadding ->

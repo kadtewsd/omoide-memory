@@ -43,11 +43,19 @@ class AutoGDriveUploadWorker
                         return@withContext Result.success()
                     }
 
+                    val limit = 10 * 1024 * 1024 * 1024L
+                    val uploadedSizes = java.util.Collections.synchronizedList(mutableListOf<Long>())
                     val uploadResult = mutableListOf<Result>()
-                    var current = 0
+                    var currentCount = 0
+
                     localFileRepository.getPotentialPendingFiles().collect { omoideMemory: OmoideMemory ->
-                        // currentList には、その時点で「見つかっている分（20, 40, 60...）」が流れてくる
-                        Log.d(TAG, "${++current}件目を開始")
+                        val currentTotalSize = uploadedSizes.sum()
+                        if (currentTotalSize >= limit) {
+                            Log.i(TAG, "10GB の制限に達したためアップロードを中断します (現在: $currentTotalSize bytes)")
+                            return@collect
+                        }
+
+                        Log.d(TAG, "${++currentCount}件目を開始: ${omoideMemory.name}")
                         try {
                             val driveId =
                                 gdriveUploader.upload(sourceWorker = WorkManagerTag.Auto, pendingFile = omoideMemory)
@@ -57,6 +65,7 @@ class AutoGDriveUploadWorker
                                     state = UploadState.DONE
                                 },
                             )
+                            uploadedSizes.add(omoideMemory.fileSize)
                             uploadResult.add(Result.success())
                         } catch (e: Exception) {
                             Log.e(TAG, "${omoideMemory.name} のアップロードに失敗", e)
