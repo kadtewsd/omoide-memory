@@ -53,6 +53,8 @@ import coil.request.videoFrameMillis
 import com.kasakaid.omoidememory.data.OmoideMemory
 import com.kasakaid.omoidememory.data.OmoideMemoryRepository
 import com.kasakaid.omoidememory.data.UploadState
+import com.kasakaid.omoidememory.data.isOverLimit
+import com.kasakaid.omoidememory.data.totalSize
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.enqueueWManualUpload
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeProgressByManual
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeUploadingStateByManualTag
@@ -205,18 +207,29 @@ fun FileSelectionScreen(
         topBar = { AppBarWithBackIcon(toMainScreen) },
         bottomBar = {
             val selectedFiles = pendingFiles.filter { selectedIds[it.id] == true }
-            val totalSize = selectedFiles.sumOf { it.fileSize ?: 0L }
-            Button(
-                onClick = {
-                    onContentFixed(selectedFiles.map { it.id })
-                },
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                enabled = !isUploading && selectedFiles.isNotEmpty(), // 🚀 アップロード中は無効化
+            val totalSize = selectedFiles.totalSize()
+            val isOverLimit = selectedFiles.isOverLimit()
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text("${selectedFiles.size} 件 (${formatSize(totalSize)}) をアップロード")
+                if (isOverLimit) {
+                    Text(
+                        text = "10GB を超えるアップロードはできません",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    )
+                }
+                Button(
+                    onClick = {
+                        onContentFixed(selectedFiles.map { it.id })
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isUploading && selectedFiles.isNotEmpty() && !isOverLimit,
+                ) {
+                    Text("${selectedFiles.size} 件 (${formatSize(totalSize)}) をアップロード")
+                }
             }
         },
     ) { innerPadding ->
