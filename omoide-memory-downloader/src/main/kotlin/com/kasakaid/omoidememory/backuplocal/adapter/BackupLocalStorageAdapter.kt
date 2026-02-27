@@ -1,7 +1,6 @@
 package com.kasakaid.omoidememory.backuplocal.adapter
 
 import com.kasakaid.omoidememory.APPLICATION_RUNNER_KEY
-import com.kasakaid.omoidememory.backuplocal.infrastructure.OmoideStorageBackupRepository
 import com.kasakaid.omoidememory.backuplocal.service.BackupLocalStorageService
 import com.kasakaid.omoidememory.utility.CoroutineHelper.mapWithCoroutine
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -20,42 +19,58 @@ import java.nio.file.Path
 @ConditionalOnProperty(name = [APPLICATION_RUNNER_KEY], havingValue = "backup-to-local")
 class BackupLocalStorageAdapter(
     private val backupLocalStorageService: BackupLocalStorageService,
-    private val omoideStorageBackupRepository: OmoideStorageBackupRepository,
     private val transactionalOperator: TransactionalOperator,
 ) : ApplicationRunner {
     private val logger = KotlinLogging.logger {}
 
     override fun run(args: ApplicationArguments): Unit =
         runBlocking {
-            logger.info { "ローカルドライブへのバックアップ処理を開始します。外界のチェックを Adapter 層で実施！" }
+            logger.info { "外付けドライブへのバックアップ処理を開始します。" }
 
-            // 1. 環境変数・ドライブ接続チェック
-            val omoideBackupDirectory =
+            // 1-a. ローカルスキャン元のチェック
+            val localRootEnv =
                 System.getenv("OMOIDE_BACKUP_DIRECTORY")
                     ?: throw IllegalStateException("環境変数 OMOIDE_BACKUP_DIRECTORY が設定されていません。")
 
-            val destinationPath = Path.of(omoideBackupDirectory)
-            if (!Files.exists(destinationPath) || !Files.isDirectory(destinationPath)) {
-                throw IllegalStateException("指定されたバックアップ先ディレクトリが存在しません（ドライブ未接続）: $destinationPath")
+            val localRoot = Path.of(localRootEnv)
+            if (!Files.exists(localRoot) || !Files.isDirectory(localRoot)) {
+                throw IllegalStateException("スキャン元ディレクトリが存在しません: $localRoot")
             }
-
-            if (!Files.isWritable(destinationPath)) {
-                throw IllegalStateException("指定されたバックアップ先ディレクトリに書き込み権限がありません: $destinationPath")
+            if (!Files.isReadable(localRoot)) {
+                throw IllegalStateException("スキャン元ディレクトリを読み取れません: $localRoot")
             }
+            logger.info { "スキャン元: $localRoot" }
 
-            // 2. バックアップ対象ファイルの取得
-            val targets = omoideStorageBackupRepository.findBackupTargets().toList()
+            // 1-b. 外付けバックアップ先のチェック
+            val externalRootEnv =
+                System.getenv("EXTERNAL_STORAGE_BACKUP_DIRECTORY")
+                    ?: throw IllegalStateException("環境変数 EXTERNAL_STORAGE_BACKUP_DIRECTORY が設定されていません。")
+
+            val externalRoot = Path.of(externalRootEnv)
+            if (!Files.exists(externalRoot) || !Files.isDirectory(externalRoot)) {
+                throw IllegalStateException("外付けドライブのバックアップ先が存在しません（ドライブ未接続）: $externalRoot")
+            }
+            if (!Files.isWritable(externalRoot)) {
+                throw IllegalStateException("外付けドライブのバックアップ先に書き込み権限がありません: $externalRoot")
+            }
+            logger.info { "バックアップ先: $externalRoot" }
+
+            // 2. ローカルディレクトリの再帰スキャン（DB 参照なし）
+            val targets: List<Path> =
+                Files
+                    .walk(localRoot)
+                    .filter { Files.isRegularFile(it) }
+                    .toList()
+
             logger.info { "バックアップ対象ファイル ${targets.size} 件を処理します" }
 
             // 並列度を指定して実行
-            targets.mapWithCoroutine(Semaphore(10)) { target ->
+            targets.mapWithCoroutine(Semaphore(10)) { targetPath ->
                 transactionalOperator.executeAndAwait {
-                    kotlinx.coroutines.withContext(kotlinx.coroutines.slf4j.MDCContext(mapOf("requestId" to target.id.toString()))) {
-                        backupLocalStorageService.execute(target, destinationPath)
-                    }
+                    backupLocalStorageService.execute(targetPath, localRoot, externalRoot)
                 }
             }
 
-            logger.info { "ローカルドライブへのバックアップ処理を終了しました。" }
+            logger.info { "外付けドライブへのバックアップ処理を終了しました。" }
         }
 }
