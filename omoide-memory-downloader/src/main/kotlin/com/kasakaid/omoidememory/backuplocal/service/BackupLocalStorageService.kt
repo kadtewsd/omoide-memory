@@ -26,6 +26,7 @@ class BackupLocalStorageService(
             // 1. Determine target path
             val relativePath = localRoot.relativize(targetPath)
             val determineTargetPath = externalRoot.resolve(relativePath)
+            logger.debug { "バックアップ先 : $determineTargetPath" }
 
             // 2. Check if it's already backed up
             val backupPathStr = determineTargetPath.toString()
@@ -45,6 +46,7 @@ class BackupLocalStorageService(
                     Files.createDirectories(determineTargetPath.parent)
                 }
                 Files.copy(targetPath, determineTargetPath, StandardCopyOption.REPLACE_EXISTING)
+                logger.debug { "$targetPath を $determineTargetPath にコピー" }
             }
 
             // 4. Record to Database
