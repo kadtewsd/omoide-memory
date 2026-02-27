@@ -16,14 +16,11 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun UploadIndicator(
-    uploadProgress: Pair<Int, Int>?,
-) {
-
+fun UploadIndicator(uploadProgress: Pair<Int, Int>?) {
     // 背景を少し白くして、クリックを無効化する
     Box(
         modifier = Modifier.fillMaxSize().background(Color.White.copy(alpha = 0.7f)).pointerInput(Unit) {},
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             // 🚀 進捗データがあるかどうかで表示を切り替える
@@ -33,11 +30,11 @@ fun UploadIndicator(
                 val progressValue = if (total > 0) current.toFloat() / total.toFloat() else 0f
                 LinearProgressIndicator(
                     progress = { progressValue.coerceIn(0f, 1f) },
-                    modifier = Modifier.width(200.dp)
+                    modifier = Modifier.width(200.dp),
                 )
                 Text("$current / $total アップロード中...")
             } else {
-                // まだハッシュ計算中や起動待ちの時はグルグル
+                // まだ起動待ちの時はグルグル
                 CircularProgressIndicator()
                 Text("準備中...")
             }

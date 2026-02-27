@@ -62,7 +62,7 @@ object WorkManagerExtension {
         viewModelScope: CoroutineScope,
         workManagerTag: WorkManagerTag,
     ): StateFlow<Boolean> =
-        getWorkInfosByTagFlow(workManagerTag.value)
+        getWorkInfosForUniqueWorkFlow("manual_upload")
             .map { infos ->
                 infos.any { it.state == WorkInfo.State.RUNNING || it.state == WorkInfo.State.ENQUEUED }
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
@@ -80,9 +80,8 @@ object WorkManagerExtension {
         viewModelScope: CoroutineScope,
         workManagerTag: WorkManagerTag,
     ): StateFlow<Pair<Int, Int>?> =
-        getWorkInfosByTagFlow(workManagerTag.value)
+        getWorkInfosForUniqueWorkFlow("manual_upload")
             .map { workInfos ->
-                Log.d("アップロード監視", "${workInfos.size}件のワークフロー")
                 val runningWork = workInfos.find { it.state == WorkInfo.State.RUNNING }
                 val progress = runningWork?.progress
                 if (progress != null) {

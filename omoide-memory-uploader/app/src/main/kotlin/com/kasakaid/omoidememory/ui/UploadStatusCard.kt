@@ -103,10 +103,7 @@ class UploadStatusViewModel
                  * まとめて取得したい時は、last でも first でもなくて、toList。R2DBC の Flux を取り出す時と同じ。
                  */
                 val files = omoideMemoryRepository.getPotentialPendingFiles().toList()
-                workManager.enqueueWManualUpload(
-                    ids = files.map { it.id }.toTypedArray(),
-                    totalCount = files.size,
-                )
+                workManager.enqueueWManualUpload()
             }
         }
 

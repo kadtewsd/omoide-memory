@@ -44,6 +44,14 @@ class GdriveUploadWorker
                 Log.d(TAG, "アップロード対象件数: $totalCount")
                 var successCount = 0
 
+                // 🚀 最初に 0 件目の進捗を出すことで、UI の「準備中」を早く終わらせる
+                setProgress(
+                    workDataOf(
+                        "PROGRESS_CURRENT" to 0,
+                        "PROGRESS_TOTAL" to totalCount,
+                    ),
+                )
+
                 try {
                     for (file in targets) {
                         Log.d(TAG, "手動アップロード開始 ${file.name}")
