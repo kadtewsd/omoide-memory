@@ -1,6 +1,7 @@
 package com.kasakaid.omoidememory.backuplocal.adapter
 
 import com.kasakaid.omoidememory.APPLICATION_RUNNER_KEY
+import com.kasakaid.omoidememory.backuplocal.domain.model.BackupStrategy
 import com.kasakaid.omoidememory.backuplocal.service.BackupLocalStorageService
 import com.kasakaid.omoidememory.utility.CoroutineHelper.mapWithCoroutine
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -56,18 +57,24 @@ class BackupLocalStorageAdapter(
             logger.info { "バックアップ先: $externalRoot" }
 
             // 2. ローカルディレクトリの再帰スキャン（DB 参照なし）
-            val targets: List<Path> =
+            val sourceAbsolutePath: List<Path> =
                 Files
                     .walk(localRoot)
                     .filter { Files.isRegularFile(it) }
                     .toList()
 
-            logger.info { "バックアップ対象ファイル ${targets.size} 件を処理します" }
+            logger.info { "バックアップ対象ファイル ${sourceAbsolutePath.size} 件を処理します" }
 
             // 並列度を指定して実行
-            targets.mapWithCoroutine(Semaphore(10)) { targetPath ->
+            sourceAbsolutePath.mapWithCoroutine(Semaphore(10)) { targetPath ->
                 transactionalOperator.executeAndAwait {
-                    backupLocalStorageService.execute(targetPath, localRoot, externalRoot)
+                    backupLocalStorageService.execute(
+                        BackupStrategy(
+                            sourceAbsolutePath = targetPath,
+                            localRoot = localRoot,
+                            externalRoot = externalRoot,
+                        ),
+                    )
                 }
             }
 
