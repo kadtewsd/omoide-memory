@@ -278,14 +278,6 @@ setx FFMPEG_PATH "C:\ffmpeg\bin\ffmpeg.exe"
 setx FFPROBE_PATH "C:\ffmpeg\bin\ffprobe.exe"
 ```
 
-要件を整理させてください。
-
-PowerShell でタスクスケジューラから実行するということで、`.bat` をやめて `.ps1` に書き直す方向でよいでしょうか？承知しました！ユーザーの回答を待たずに、最も実用的な構成（`.ps1` 統一 + powershell.exe + すべての文字コード対策）でまとめて書き直します。
-
----
-
-以下が書き直した内容です。
-
 ---
 
 ## 5. 実行方法
