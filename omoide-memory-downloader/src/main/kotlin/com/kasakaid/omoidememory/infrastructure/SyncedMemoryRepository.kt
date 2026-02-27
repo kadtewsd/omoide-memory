@@ -5,6 +5,7 @@ import com.kasakaid.omoidememory.domain.OmoideMemoryRepository
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_PHOTO
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_VIDEO
 import com.kasakaid.omoidememory.utility.MyUUIDGenerator
+import kotlinx.coroutines.reactive.awaitFirstOrNull
 import kotlinx.coroutines.reactive.awaitSingle
 import org.jooq.DSLContext
 import org.springframework.core.env.Environment
@@ -61,8 +62,9 @@ class SyncedMemoryRepository(
                 .set(DRIVE_FILE_ID, memory.driveFileId)
                 .set(CREATED_BY, "downloader")
                 .set(CREATED_AT, OffsetDateTime.now())
+                .onDuplicateKeyIgnore()
                 .returning()
-                .awaitSingle()
+                .awaitFirstOrNull()
         }
     }
 
@@ -103,8 +105,9 @@ class SyncedMemoryRepository(
             dslContext
                 .insertInto(this)
                 .set(baseFields + metadataFields)
+                .onDuplicateKeyIgnore()
                 .returning()
-                .awaitSingle()
+                .awaitFirstOrNull()
         }
     }
 
