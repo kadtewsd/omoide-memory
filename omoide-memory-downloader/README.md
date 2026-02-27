@@ -278,87 +278,135 @@ setx FFMPEG_PATH "C:\ffmpeg\bin\ffmpeg.exe"
 setx FFPROBE_PATH "C:\ffmpeg\bin\ffprobe.exe"
 ```
 
+---
 
-# 5. 実行方法
+## 5. 実行方法
+
 実行するコマンドは `-DrunnerName` で指定します。環境変数は事前に設定済みであることを前提とします。
 
 ### 開発時の実行
 
-コマンドごとにバッチファイルを作成し、環境変数と実行コマンドをまとめて記述します。
+コマンドごとに PowerShell スクリプト（`.ps1`）を作成し、環境変数と実行コマンドをまとめて記述します。
+`.bat` は Shift\_JIS と UTF-8 の文字コード問題が発生しやすいため、`.ps1` を推奨します。
 
 ### download-from-gdrive
 
-```batch
-@echo off
-set GDRIVE_CLIENT_ID=YOUR_CLIENT_ID
-set GDRIVE_CLIENT_SECRET=YOUR_CLIENT_SECRET
-set GDRIVE_REFRESH_TOKEN=YOUR_REFRESH_TOKEN
-set GDRIVE_FOLDER_ID=1a2b3c4d5e6f7g8h9i0j
-set OMOIDE_BACKUP_DIRECTORY=H:\YOUR_DIRECTORY
+```powershell
+
+$logFile = "$PSScriptRoot\log\download-from-gdrive.log"
+"[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] 実行開始" | Out-File -FilePath $logFile -Encoding utf8
+
+java -Dspring.profiles.active=local -DrunnerName=download-from-gdrive -jar C:\path\to\omoide-memory-downloader.jar 2>&1 |
+    Out-File -FilePath $logFile -Encoding utf8 -Append
+
+"[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] 実行終了" | Out-File -FilePath $logFile -Encoding utf8 -Append
+
+$env:GDRIVE_CLIENT_ID      = "YOUR_CLIENT_ID"
+$env:GDRIVE_CLIENT_SECRET  = "YOUR_CLIENT_SECRET"
+$env:GDRIVE_REFRESH_TOKEN  = "YOUR_REFRESH_TOKEN"
+$env:GDRIVE_FOLDER_ID      = "1a2b3c4d5e6f7g8h9i0j"
+$env:OMOIDE_BACKUP_DIRECTORY = "H:\YOUR_DIRECTORY"
+
 java -Dspring.profiles.active=local -DrunnerName=download-from-gdrive -jar C:\path\to\omoide-memory-downloader.jar
 ```
 
 ### import-from-local
 
-```batch
-@echo off
-set OMOIDE_BACKUP_DIRECTORY=H:\YOUR_DIRECTORY
+```powershell
+$env:OMOIDE_BACKUP_DIRECTORY = "H:\YOUR_DIRECTORY"
 java -Dspring.profiles.active=local -DrunnerName=importFromLocal -jar C:\path\to\omoide-memory-downloader.jar
 ```
 
 ### import-comments
 
-```batch
-@echo off
-set OMOIDE_COMMENT_FILE_PATH=C:\path\to\comments.csv
+```powershell
+$env:OMOIDE_COMMENT_FILE_PATH = "C:\path\to\comments.csv"
 java -Dspring.profiles.active=local -DrunnerName=commentImport -jar C:\path\to\omoide-memory-downloader.jar
 ```
 
 ### backup-to-local
 
-```batch
-@echo off
-set OMOIDE_BACKUP_DIRECTORY=H:\YOUR_DIRECTORY
-set EXTERNAL_STORAGE_BACKUP_DIRECTORY=G:\YOUR_DIRECTORY
-java -Dspring.profiles.active=local -DrunnerName=importFromLocal -jar C:\path\to\omoide-memory-downloader.jar
+```powershell
+$logFile = "$PSScriptRoot\log\backup-to-local.log"
+"[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] 実行開始" | Out-File -FilePath $logFile -Encoding utf8
+
+"[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] 実行終了" | Out-File -FilePath $logFile -Encoding utf8 -Append
+
+$env:OMOIDE_BACKUP_DIRECTORY          = "H:\YOUR_DIRECTORY"
+$env:EXTERNAL_STORAGE_BACKUP_DIRECTORY = "G:\YOUR_DIRECTORY"
+java -Dspring.profiles.active=local -DrunnerName=backup-to-local -jar C:\path\to\omoide-memory-downloader.jar 2>&1 |
+    Out-File -FilePath $logFile -Encoding utf8 -Append
 ```
 
 ---
 
 ## Windows タスクスケジューラでの定期実行
 
-### 1. バッチファイルの作成
+### 1. PowerShell スクリプトの作成
 
-`run-omoide-downloader.bat` を作成します。
+`run-omoide-downloader.ps1` を作成します。
+文字コードのトラブルを抑制するために、冒頭で UTF-8 出力を明示的に設定します。
 
-上記の download-from-gdrive 用バッチファイルにログ出力を追加します。
+```powershell
+# UTF-8 出力設定（ログ文字化け防止）
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding             = [System.Text.Encoding]::UTF8
 
-```batch
-@echo off
-set GDRIVE_CLIENT_ID=YOUR_CLIENT_ID
-set GDRIVE_CLIENT_SECRET=YOUR_CLIENT_SECRET
-set GDRIVE_REFRESH_TOKEN=YOUR_REFRESH_TOKEN
-set GDRIVE_FOLDER_ID=1a2b3c4d5e6f7g8h9i0j
-set OMOIDE_BACKUP_DIRECTORY=H:\YOUR_DIRECTORY
-java -Dspring.profiles.active=local -DrunnerName=download-from-gdrive -jar C:\path\to\omoide-memory-downloader.jar >> C:\logs\omoide-downloader.log 2>&1
+$env:GDRIVE_CLIENT_ID        = "YOUR_CLIENT_ID"
+$env:GDRIVE_CLIENT_SECRET    = "YOUR_CLIENT_SECRET"
+$env:GDRIVE_REFRESH_TOKEN    = "YOUR_REFRESH_TOKEN"
+$env:GDRIVE_FOLDER_ID        = "1a2b3c4d5e6f7g8h9i0j"
+$env:OMOIDE_BACKUP_DIRECTORY = "H:\YOUR_DIRECTORY"
+
+$logFile = "C:\logs\omoide-downloader.log"
+$timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+
+"[$timestamp] 実行開始" | Out-File -FilePath $logFile -Encoding utf8 -Append
+
+java -Dspring.profiles.active=local -DrunnerName=download-from-gdrive -jar C:\path\to\omoide-memory-downloader.jar 2>&1 |
+    Out-File -FilePath $logFile -Encoding utf8 -Append
+
+"[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] 実行終了" | Out-File -FilePath $logFile -Encoding utf8 -Append
 ```
 
-### 2. タスクスケジューラの設定
+> **ログファイルの文字コードについて**
+> `Out-File -Encoding utf8` は Windows PowerShell 5.1 では BOM 付き UTF-8 で出力されます。
+> BOM なしが必要な場合は `-Encoding utf8NoBOM`（PowerShell 7 以降）または `[System.IO.File]::AppendAllText()` を使用してください。
+
+### 2. ExecutionPolicy の設定（初回のみ）
+
+`.ps1` はデフォルトで実行が制限されています。初回に一度だけ、管理者権限の PowerShell で以下を実行してください。
+
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope LocalMachine
+```
+
+| ポリシー | 意味 |
+|---|---|
+| `RemoteSigned` | ローカルの `.ps1` はそのまま実行可。インターネットからダウンロードしたものは署名が必要。 |
+| `Unrestricted` | すべて実行可（非推奨）。 |
+
+### 3. タスクスケジューラの設定
 
 1. タスクスケジューラを開く
 2. 「タスクの作成」をクリック
 3. **全般タブ**
     - 名前: `おもいでメモリダウンローダー`
-    - 「ユーザーがログオンしているときのみ実行する」を選択
+    - 「ユーザーがログオンしているかどうかにかかわらず実行する」を選択（バックグラウンド実行したい場合）
 4. **トリガータブ**
     - 「新規」→ 毎日深夜 2 時などに設定
 5. **操作タブ**
     - 「新規」→「プログラムの開始」
-    - プログラム: `C:\path\to\run-omoide-downloader.bat`
+    - プログラム: `powershell.exe`
+    - 引数: `-ExecutionPolicy Bypass -NonInteractive -File "C:\path\to\run-omoide-downloader.ps1"`
 6. 「OK」で保存
+
+> **引数の `-ExecutionPolicy Bypass` について**
+> タスクスケジューラ経由では ExecutionPolicy が別途効いてくる場合があるため、スクリプトごとに `-ExecutionPolicy Bypass` を渡しておくのが確実です。`Set-ExecutionPolicy` でシステム全体に設定済みの場合でも、引数で明示しておくと環境差異による実行失敗を防げます。
 
 ---
 
+主な変更点をまとめると、`.bat` をすべて `.ps1` に置き換えてスクリプト冒頭に `[Console]::OutputEncoding` と `$OutputEncoding` の2行を追加しています。タスクスケジューラの操作タブでは `powershell.exe` を直接指定し、引数に `-ExecutionPolicy Bypass -NonInteractive -File` を渡す形にしました。これで Shift\_JIS 問題と「スクリプトが実行できない」問題の両方を回避できます。
 
 # インストールする必要があるもの
 
