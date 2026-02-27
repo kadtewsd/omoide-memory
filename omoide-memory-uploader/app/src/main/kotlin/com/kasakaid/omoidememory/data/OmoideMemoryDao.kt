@@ -30,14 +30,8 @@ interface OmoideMemoryDao {
     )
     suspend fun findReadyForUpload(): List<OmoideMemory>
 
-    @Query(
-        """
-        UPDATE uploaded_memories
-        SET state = 'READY'
-        WHERE id IN (:ids)
-    """,
-    )
-    suspend fun markAsReady(ids: List<Long>)
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertUploadedFiles(omoideMemories: List<OmoideMemory>)
 
     @Query(
         """

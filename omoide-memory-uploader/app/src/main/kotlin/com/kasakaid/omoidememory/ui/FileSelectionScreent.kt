@@ -52,6 +52,7 @@ import coil.request.ImageRequest
 import coil.request.videoFrameMillis
 import com.kasakaid.omoidememory.data.OmoideMemory
 import com.kasakaid.omoidememory.data.OmoideMemoryRepository
+import com.kasakaid.omoidememory.data.UploadState
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.enqueueWManualUpload
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeProgressByManual
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeUploadingStateByManualTag
@@ -130,7 +131,13 @@ class FileSelectionViewModel
 
         fun startManualUpload(ids: List<Long>) {
             viewModelScope.launch {
-                localFileRepository.markAsReady(ids)
+                val targets =
+                    pendingFiles.value
+                        .filter { it.id in ids }
+                        .map {
+                            it.apply { state = UploadState.READY }
+                        }
+                localFileRepository.markAsReady(targets)
                 workManager.enqueueWManualUpload()
             }
         }
