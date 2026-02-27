@@ -14,7 +14,7 @@ import kotlin.io.path.name
 private val logger = KotlinLogging.logger {}
 
 object PostProcess {
-    private val errorLogFileName = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+    private val errorLogFileName = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss-SSS"))
 
     fun onFailure(failure: DriveService.WriteError): DriveService.WriteError =
         failure.run {
