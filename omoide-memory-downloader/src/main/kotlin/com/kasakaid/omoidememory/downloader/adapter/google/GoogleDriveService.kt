@@ -63,8 +63,13 @@ class GoogleDriveService(
             }
         }
 
+    /**
+     * GDrive は名前が重複していても別ファイルとして扱える。
+     * やりたいこととしてはそこまで厳密に違うものとして扱いたいわけではなく、
+     * 同じファイル名であれば同じものとして扱うで十分、そのため、重複は落とす。
+     */
     override suspend fun listFiles(gdriveFolderId: String): List<File> {
-        val googleFiles = mutableListOf<File>()
+        val googleFiles = mutableMapOf<String, File>()
         var pageToken: String? = null
 
         // Fields to fetch: include imageMediaMetadata, videoMediaMetadata for OmoideMemory population
@@ -90,14 +95,16 @@ class GoogleDriveService(
 
             result.files?.forEach { file ->
                 logger.debug { "Processing file: ${file.name} (${file.mimeType})" }
-                googleFiles.add(file)
+                if (!googleFiles.containsKey(file.name)) {
+                    googleFiles[file.name] = file
+                }
             }
 
             pageToken = result.nextPageToken
         } while (pageToken != null)
 
-        logger.info { "Found ${googleFiles.size} files in Google Drive compatible with OmoideMemory" }
-        return googleFiles
+        logger.info { "Found ${googleFiles.size} unique files in Google Drive compatible with OmoideMemory" }
+        return googleFiles.values.toList()
     }
 
     suspend fun <T> tryIo(
@@ -220,7 +227,32 @@ class GoogleDriveService(
             Either
                 .catch {
                     executeWithSafeRefresh {
-                        driveService.files().update(fileId, File().setTrashed(true)).execute()
+                        val fileInfo =
+                            driveService
+                                .files()
+                                .get(fileId)
+                                .setFields("name, parents")
+                                .execute()
+                        val fileName = fileInfo.name
+                        val parents = fileInfo.parents
+
+                        if (fileName != null && parents != null && parents.isNotEmpty()) {
+                            val parentId = parents[0]
+                            val q = "name = '${fileName.replace("'", "\\'")}' and '$parentId' in parents and trashed = false"
+                            val filesToDelete =
+                                driveService
+                                    .files()
+                                    .list()
+                                    .setQ(q)
+                                    .setFields("files(id)")
+                                    .execute()
+                            filesToDelete.files?.forEach { f ->
+                                driveService.files().update(f.id, File().setTrashed(true)).execute()
+                                logger.info { "同名ファイルをゴミ箱へ移動しました: $fileName (ID: ${f.id})" }
+                            }
+                        } else {
+                            driveService.files().update(fileId, File().setTrashed(true)).execute()
+                        }
                     }
                     Unit
                 }.mapLeft { e ->
