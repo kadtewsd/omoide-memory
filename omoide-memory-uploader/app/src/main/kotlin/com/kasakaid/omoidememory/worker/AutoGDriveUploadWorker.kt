@@ -43,14 +43,13 @@ class AutoGDriveUploadWorker
                         return@withContext Result.success()
                     }
 
-                    val limit = 10 * 1024 * 1024 * 1024L
                     val uploadedSizes = java.util.Collections.synchronizedList(mutableListOf<Long>())
                     val uploadResult = mutableListOf<Result>()
                     var currentCount = 0
 
                     localFileRepository.getPotentialPendingFiles().collect { omoideMemory: OmoideMemory ->
                         val currentTotalSize = uploadedSizes.sum()
-                        if (currentTotalSize >= limit) {
+                        if (currentTotalSize >= OmoideMemory.UPLOAD_LIMIT_BYTES) {
                             Log.i(TAG, "10GB の制限に達したためアップロードを中断します (現在: $currentTotalSize bytes)")
                             return@collect
                         }

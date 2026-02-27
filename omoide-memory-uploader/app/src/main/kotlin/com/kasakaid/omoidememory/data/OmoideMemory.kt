@@ -23,7 +23,15 @@ class OmoideMemory(
     var driveFileId: String? = null,
     @androidx.room.ColumnInfo(defaultValue = "DONE")
     var state: UploadState = UploadState.DONE,
-)
+) {
+    companion object {
+        const val UPLOAD_LIMIT_BYTES = 10 * 1024 * 1024 * 1024L
+    }
+}
+
+fun List<OmoideMemory>.totalSize(): Long = sumOf { it.fileSize ?: 0L }
+
+fun List<OmoideMemory>.isOverLimit(): Boolean = totalSize() > OmoideMemory.UPLOAD_LIMIT_BYTES
 
 enum class UploadState {
     READY, // アップロード待ち

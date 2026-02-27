@@ -53,6 +53,8 @@ import coil.request.videoFrameMillis
 import com.kasakaid.omoidememory.data.OmoideMemory
 import com.kasakaid.omoidememory.data.OmoideMemoryRepository
 import com.kasakaid.omoidememory.data.UploadState
+import com.kasakaid.omoidememory.data.isOverLimit
+import com.kasakaid.omoidememory.data.totalSize
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.enqueueWManualUpload
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeProgressByManual
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeUploadingStateByManualTag
@@ -205,9 +207,8 @@ fun FileSelectionScreen(
         topBar = { AppBarWithBackIcon(toMainScreen) },
         bottomBar = {
             val selectedFiles = pendingFiles.filter { selectedIds[it.id] == true }
-            val totalSize = selectedFiles.sumOf { it.fileSize ?: 0L }
-            val limit = 10 * 1024 * 1024 * 1024L
-            val isOverLimit = totalSize > limit
+            val totalSize = selectedFiles.totalSize()
+            val isOverLimit = selectedFiles.isOverLimit()
             Column(
                 modifier = Modifier.fillMaxWidth().padding(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
