@@ -238,16 +238,17 @@ OAuth アプリが**テストモード**のままだと、リフレッシュト�
 
 「システムのプロパティ」/「環境変数」「に以下を追加してください。
 
-| 変数名                        | 環境/システム | 対象コマンド                         | 説明                              | 例 |
-|----------------------------|---------|--------------------------------|---------------------------------|---|
-| `spring.profiles.active`   | システム    | 全コマンド                               | Spring Boot プロファイル。デフォルトは debug | `local` |
-| `runnerName`               | システム    | 全コマンド                               | 実行するコマンド名                       | `download-from-gdrive` |
-| `GDRIVE_CLIENT_ID`         | 環境      | DownloadFromGDrive                  | OAuth クライアント ID                 | `123456789-abcdef.apps.googleusercontent.com` |
-| `GDRIVE_CLIENT_SECRET`     | 環境      | DownloadFromGDrive                  | OAuth クライアントシークレット              | `GOCSPX-xxxxxxxxxx` |
-| `GDRIVE_REFRESH_TOKEN`     | 環境      | DownloadFromGDrive                  | ⑤で取得したリフレッシュトークン                | `1//0gxxxxxxxx` |
-| `GDRIVE_FOLDER_ID`         | 環境      | DownloadFromGDrive                  | ダウンロード対象の Google Drive フォルダ ID  | `1a2b3c4d5e6f7g8h9i0j` |
-| `OMOIDE_BACKUP_DIRECTORY`  | 環境      | DownloadFromGDrive / ImportFromLocal | バックアップ先ディレクトリ                   | `G:\my-memory` |
-| `OMOIDE_COMMENT_FILE_PATH` | 環境      | CommentImportCommand                | インポートするコメントファイルのパス              | `C:\Users\user\comments.csv` |
+| 変数名                                 | 環境/システム | 対象コマンド                                 | 説明                              | 例 |
+|-------------------------------------|---------|----------------------------------------|---------------------------------|---|
+| `spring.profiles.active`            | システム    | 全コマンド                                  | Spring Boot プロファイル。デフォルトは debug | `local` |
+| `runnerName`                        | システム    | 全コマンド                                  | 実行するコマンド名                       | `download-from-gdrive` |
+| `GDRIVE_CLIENT_ID`                  | 環境      | download-from-gdrive                   | OAuth クライアント ID                 | `123456789-abcdef.apps.googleusercontent.com` |
+| `GDRIVE_CLIENT_SECRET`              | 環境      | download-from-gdrive                   | OAuth クライアントシークレット              | `GOCSPX-xxxxxxxxxx` |
+| `GDRIVE_REFRESH_TOKEN`              | 環境      | download-from-gdrive                   | ⑤で取得したリフレッシュトークン                | `1//0gxxxxxxxx` |
+| `GDRIVE_FOLDER_ID`                  | 環境      | download-from-gdrive                   | ダウンロード対象の Google Drive フォルダ ID  | `1a2b3c4d5e6f7g8h9i0j` |
+| `OMOIDE_BACKUP_DIRECTORY`           | 環境      | download-from-gdrive / ImportFromLocal | バックアップ先ディレクトリ                   | `G:\my-memory` |
+| `OMOIDE_COMMENT_FILE_PATH`          | 環境      | comment-import                         | インポートするコメントファイルのパス              | `C:\Users\user\comments.csv` |
+| `EXTERNAL_STORAGE_BACKUP_DIRECTORY` | 環境      | backup-to-local                       | バックアップ先ディレクトリ                   | `G:\my-memory` |
 
 
 ### 5. FFmpeg のインストール
@@ -285,7 +286,7 @@ setx FFPROBE_PATH "C:\ffmpeg\bin\ffprobe.exe"
 
 コマンドごとにバッチファイルを作成し、環境変数と実行コマンドをまとめて記述します。
 
-### DownloadFromGDrive
+### download-from-gdrive
 
 ```batch
 @echo off
@@ -297,20 +298,29 @@ set OMOIDE_BACKUP_DIRECTORY=H:\YOUR_DIRECTORY
 java -Dspring.profiles.active=local -DrunnerName=download-from-gdrive -jar C:\path\to\omoide-memory-downloader.jar
 ```
 
-### ImportFromLocal
+### import-from-local
 
 ```batch
 @echo off
-set BACKUP_DIRECTORY=H:\YOUR_DIRECTORY
+set OMOIDE_BACKUP_DIRECTORY=H:\YOUR_DIRECTORY
 java -Dspring.profiles.active=local -DrunnerName=importFromLocal -jar C:\path\to\omoide-memory-downloader.jar
 ```
 
-### CommentImportCommand
+### import-comments
 
 ```batch
 @echo off
 set OMOIDE_COMMENT_FILE_PATH=C:\path\to\comments.csv
 java -Dspring.profiles.active=local -DrunnerName=commentImport -jar C:\path\to\omoide-memory-downloader.jar
+```
+
+### backup-to-local
+
+```batch
+@echo off
+set OMOIDE_BACKUP_DIRECTORY=H:\YOUR_DIRECTORY
+set EXTERNAL_STORAGE_BACKUP_DIRECTORY=G:\YOUR_DIRECTORY
+java -Dspring.profiles.active=local -DrunnerName=importFromLocal -jar C:\path\to\omoide-memory-downloader.jar
 ```
 
 ---
@@ -321,7 +331,7 @@ java -Dspring.profiles.active=local -DrunnerName=commentImport -jar C:\path\to\o
 
 `run-omoide-downloader.bat` を作成します。
 
-上記の DownloadFromGDrive 用バッチファイルにログ出力を追加します。
+上記の download-from-gdrive 用バッチファイルにログ出力を追加します。
 
 ```batch
 @echo off

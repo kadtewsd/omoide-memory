@@ -1,9 +1,6 @@
 package com.kasakaid.omoidememory.backuplocal.service
 
-import com.kasakaid.omoidememory.backuplocal.infrastructure.BackUpKey
-import com.kasakaid.omoidememory.backuplocal.infrastructure.BackupTarget
 import com.kasakaid.omoidememory.backuplocal.infrastructure.OmoideStorageBackupRepository
-import com.kasakaid.omoidememory.domain.FileOrganizeService
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -12,6 +9,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import kotlin.io.path.exists
+import kotlin.io.path.name
 
 @Service
 class BackupLocalStorageService(
@@ -20,24 +18,25 @@ class BackupLocalStorageService(
     private val logger = KotlinLogging.logger {}
 
     suspend fun execute(
-        target: BackupTarget,
-        omoideBackupDirectory: Path,
+        targetPath: Path,
+        localRoot: Path,
+        externalRoot: Path,
     ) {
         try {
             // 1. Determine target path
-            val determineTargetPath = FileOrganizeService.determineTargetPath(target.fileName, target.captureTime, omoideBackupDirectory)
+            val relativePath = localRoot.relativize(targetPath)
+            val determineTargetPath = externalRoot.resolve(relativePath)
 
             // 2. Check if it's already backed up
-            val key = BackUpKey(target.id, determineTargetPath)
-            if (omoideStorageBackupRepository.exists(key)) {
-                logger.debug { "Skip: ${target.fileName} is already backed up at $determineTargetPath." }
+            val backupPathStr = determineTargetPath.toString()
+            if (omoideStorageBackupRepository.exists(backupPathStr)) {
+                logger.debug { "Skip: ${targetPath.name} is already backed up at $determineTargetPath." }
                 return
             }
 
             // 3. Copy file
-            val sourcePath = Path.of(target.serverPath)
-            if (!sourcePath.exists()) {
-                logger.warn { "Source file not found: ${target.serverPath}" }
+            if (!targetPath.exists()) {
+                logger.warn { "Source file not found: $targetPath" }
                 return
             }
 
@@ -45,19 +44,18 @@ class BackupLocalStorageService(
                 if (determineTargetPath.parent != null && !Files.exists(determineTargetPath.parent)) {
                     Files.createDirectories(determineTargetPath.parent)
                 }
-                Files.copy(sourcePath, determineTargetPath, StandardCopyOption.REPLACE_EXISTING)
+                Files.copy(targetPath, determineTargetPath, StandardCopyOption.REPLACE_EXISTING)
             }
 
             // 4. Record to Database
             omoideStorageBackupRepository.saveBackupRecord(
-                sourceId = target.id,
-                fileName = target.fileName,
-                backupPath = determineTargetPath.toString(),
+                fileName = targetPath.name,
+                backupPath = backupPathStr,
             )
 
-            logger.info { "Successfully backed up ${target.fileName} to $determineTargetPath" }
+            logger.info { "Successfully backed up ${targetPath.name} to $determineTargetPath" }
         } catch (e: Exception) {
-            logger.error(e) { "Failed to back up file: ${target.fileName}" }
+            logger.error(e) { "Failed to back up file: ${targetPath.name}" }
             // Do not throw so that the batch can continue
         }
     }
