@@ -204,18 +204,19 @@ fun FileSelectionScreen(
     Scaffold(
         topBar = { AppBarWithBackIcon(toMainScreen) },
         bottomBar = {
+            val selectedFiles = pendingFiles.filter { selectedIds[it.id] == true }
+            val totalSize = selectedFiles.sumOf { it.fileSize ?: 0L }
             Button(
                 onClick = {
-                    val hashes = selectedIds.filter { it.value }.keys.toList()
-                    onContentFixed(hashes)
+                    onContentFixed(selectedFiles.map { it.id })
                 },
                 modifier =
                     Modifier
                         .fillMaxWidth()
                         .padding(16.dp),
-                enabled = !isUploading && selectedIds.values.any { it }, // 🚀 アップロード中は無効化
+                enabled = !isUploading && selectedFiles.isNotEmpty(), // 🚀 アップロード中は無効化
             ) {
-                Text("${selectedIds.values.count { it }} 件をアップロード")
+                Text("${selectedFiles.size} 件 (${formatSize(totalSize)}) をアップロード")
             }
         },
     ) { innerPadding ->
@@ -323,5 +324,19 @@ fun FileItemCard(
             // チェックボックスはトップに吸い寄せられてコンテンツの上側に描画
             modifier = Modifier.align(Alignment.TopEnd),
         )
+    }
+}
+
+/**
+ * バイト数を見やすく表示
+ */
+private fun formatSize(bytes: Long): String {
+    val mb = 1024 * 1024L
+    val gb = 1024 * 1024 * 1024L
+
+    return if (bytes >= gb) {
+        "%.2f GB".format(bytes.toDouble() / gb)
+    } else {
+        "%.2f MB".format(bytes.toDouble() / mb)
     }
 }
