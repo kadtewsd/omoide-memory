@@ -32,27 +32,41 @@ class GdriveUploadWorker
         override suspend fun doWork(): Result {
             setForeground(appContext.createForegroundInfo("ManualUpload"))
             return withContext(Dispatchers.IO) {
-                // 引数からハッシュリストを取得
-                val targetFileIds = inputData.getLongArray("TARGET_FILE_IDS")?.toList() ?: emptyList()
-                val totalCount = inputData.getInt("TOTAL_COUNT", 0)
-                Log.d(TAG, "受け取ったハッシュ件数: ${targetFileIds.size}, 合計件数: $totalCount")
+                // READY のものを DB から取得
+                val targets = omoideMemoryRepository.findReadyForUpload()
+
+                if (targets.isEmpty()) {
+                    Log.d(TAG, "アップロード対象がありません")
+                    return@withContext Result.success()
+                }
+
+                val totalCount = targets.size
+                Log.d(TAG, "アップロード対象件数: $totalCount")
                 var successCount = 0
+
                 try {
-                    // ここでは Flow (川) は不要。ViewModel 側の川はそのままになり、ここでは都度どんととってきてしまう。last で全部のデータが取ってこられたあとのものをガツっと取得
-                    omoideMemoryRepository.getPotentialPendingFiles().collect { file ->
-                        if (file.id in targetFileIds) {
-                            Log.d(TAG, "手動アップロード開始 ${file.name}")
-                            gdriveUploader.upload(sourceWorker = WorkManagerTag.Manual, pendingFile = file).also {
-                                successCount++
-                                Log.i(TAG, "$successCount / $totalCount アップロード試行完了")
-                            }
-                            setProgress(
-                                workDataOf(
-                                    "PROGRESS_CURRENT" to successCount,
-                                    "PROGRESS_TOTAL" to totalCount,
-                                ),
+                    for (file in targets) {
+                        Log.d(TAG, "手動アップロード開始 ${file.name}")
+                        val driveId =
+                            gdriveUploader.upload(
+                                sourceWorker = WorkManagerTag.Manual,
+                                pendingFile = file,
                             )
-                        }
+
+                        omoideMemoryRepository.markAsDone(
+                            id = file.id,
+                            driveFileId = driveId,
+                        )
+
+                        successCount++
+                        Log.i(TAG, "$successCount / $totalCount アップロード試行完了")
+
+                        setProgress(
+                            workDataOf(
+                                "PROGRESS_CURRENT" to successCount,
+                                "PROGRESS_TOTAL" to totalCount,
+                            ),
+                        )
                     }
                     Result.success()
                 } catch (e: Exception) {

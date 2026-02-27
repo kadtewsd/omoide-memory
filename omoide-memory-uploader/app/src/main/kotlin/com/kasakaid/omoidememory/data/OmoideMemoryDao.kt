@@ -21,4 +21,34 @@ interface OmoideMemoryDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertUploadedFile(omoideMemory: OmoideMemory)
+
+    @Query(
+        """
+        SELECT * FROM uploaded_memories
+        WHERE state = 'READY'
+    """,
+    )
+    suspend fun findReadyForUpload(): List<OmoideMemory>
+
+    @Query(
+        """
+        UPDATE uploaded_memories
+        SET state = 'READY'
+        WHERE id IN (:ids)
+    """,
+    )
+    suspend fun markAsReady(ids: List<Long>)
+
+    @Query(
+        """
+        UPDATE uploaded_memories
+        SET state = 'DONE',
+            driveFileId = :driveFileId
+        WHERE id = :id
+    """,
+    )
+    suspend fun markAsDone(
+        id: Long,
+        driveFileId: String,
+    )
 }

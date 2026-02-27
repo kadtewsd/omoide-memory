@@ -22,15 +22,7 @@ object WorkManagerExtension {
      * そのため、Context は都度作るので、やれるのであれば Application が良い。
      * 利用元は、application を指定することを想定
      */
-    fun WorkManager.enqueueWManualUpload(
-        ids: Array<Long>,
-        totalCount: Int,
-    ) {
-        val workData =
-            workDataOf(
-                "TARGET_FILE_IDS" to ids,
-                "TOTAL_COUNT" to totalCount,
-            )
+    fun WorkManager.enqueueWManualUpload() {
         val constraints =
             Constraints
                 .Builder()
@@ -40,19 +32,18 @@ object WorkManagerExtension {
 
         val uploadRequest =
             OneTimeWorkRequestBuilder<GdriveUploadWorker>()
-                .setInputData(workData)
                 .addTag(GdriveUploadWorker.TAG)
                 .setConstraints(constraints)
                 .build()
         val tag = "FileSelectionRoute"
-        Log.d(tag, "選択されたhash ${ids.size}件")
+        Log.d(tag, "手動アップロードをキューに入れました")
 
         // enqueueUniqueWork + REPLACE は 「名前（Unique Name）」を指定することで、ひとつの管理枠を作ります。
         // 唯一性の保証: 同じ名前のジョブがすでにキューにある場合、WorkManager が介入します。
-        // REPLACE の魔法: 新しいリクエストが来たら、**古い方を即座にキャンセル（中断）**して、新しい方を最初から実行します。
+        // KEEP の魔法: 前のリクエストが完了していない場合は何もしない
         enqueueUniqueWork(
             "manual_upload",
-            ExistingWorkPolicy.REPLACE, // これで「都度上書き」される
+            ExistingWorkPolicy.KEEP,
             uploadRequest,
         )
     }

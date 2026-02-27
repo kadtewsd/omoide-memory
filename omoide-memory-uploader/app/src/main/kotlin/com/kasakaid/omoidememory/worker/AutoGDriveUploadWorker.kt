@@ -8,6 +8,7 @@ import androidx.work.WorkerParameters
 import com.kasakaid.omoidememory.data.OmoideMemory
 import com.kasakaid.omoidememory.data.OmoideMemoryRepository
 import com.kasakaid.omoidememory.data.OmoideUploadPrefsRepository
+import com.kasakaid.omoidememory.data.UploadState
 import com.kasakaid.omoidememory.worker.WorkerHelper.createForegroundInfo
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -47,12 +48,28 @@ class AutoGDriveUploadWorker
                     localFileRepository.getPotentialPendingFiles().collect { omoideMemory: OmoideMemory ->
                         // currentList には、その時点で「見つかっている分（20, 40, 60...）」が流れてくる
                         Log.d(TAG, "${++current}件目を開始")
-                        gdriveUploader.upload(sourceWorker = WorkManagerTag.Auto, pendingFile = omoideMemory)
+                        try {
+                            val driveId =
+                                gdriveUploader.upload(sourceWorker = WorkManagerTag.Auto, pendingFile = omoideMemory)
+                            localFileRepository.markAsUploaded(
+                                omoideMemory.apply {
+                                    driveFileId = driveId
+                                    state = UploadState.DONE
+                                },
+                            )
+                            uploadResult.add(Result.success())
+                        } catch (e: Exception) {
+                            Log.e(TAG, "${omoideMemory.name} のアップロードに失敗", e)
+                            uploadResult.add(Result.failure())
+                        }
                     }
-                    if (uploadResult.distinct().size == 1) {
+                    if (uploadResult.all { it is Result.Success }) {
                         Result.success()
                     } else {
-                        Result.failure()
+                        // 一部失敗しても、全体としては success にして次回に回すか、
+                        // failure にしてリトライさせるかは運用次第。
+                        // ここでは既存のロジック（一つでも失敗があれば failure/retry 相当）に近い形にする。
+                        Result.retry()
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "例外が発生", e)
