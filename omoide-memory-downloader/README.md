@@ -358,3 +358,314 @@ java -Dspring.profiles.active=local -DrunnerName=download-from-gdrive -jar C:\pa
 6. 「OK」で保存
 
 ---
+
+
+# インストールする必要があるもの
+
+## podman
+Podman を利用する利用
+
+理由：
+
+- Docker Desktop が不要（ライセンス問題なし）
+- 軽量
+- rootless 実行可能
+- Docker Compose 互換（`podman compose`）
+
+個人開発用途では Podman で十分です。
+
+---
+
+### Mac 環境
+```
+brew install podman
+podman machine init
+podman machine start
+```
+
+### Wiindows 環境
+Windows 環境では **WSL2（Windows Subsystem for Linux）上でコンテナを動かす構成** します。
+さらに、**WSL の保存先を C ドライブ以外（例：G ドライブ）へ移動することを強く推奨**します。
+
+---
+
+### なぜ C ドライブ以外に WSL を配置するのか？
+
+WSL2 は Linux ファイルシステムを 1 つの仮想ディスク（`ext4.vhdx`）として保存します。
+デフォルトでは以下に保存されます：
+C:\Users<ユーザー名>\AppData\Local\Packages...
+
+そのため：
+
+- コンテナの DB データ
+- ボリューム
+- イメージ
+- Linux ホームディレクトリ
+
+すべてが **C ドライブ（SSD）を消費します**。
+
+本アプリは個人用途を想定しており、
+
+- DB は大きくなる可能性がある
+- パフォーマンスよりも容量確保を優先したい
+
+という前提から、
+
+> ✅ WSL 自体を G ドライブなど容量の大きいディスクに配置することを推奨します。
+
+---
+
+## セットアップ手順
+
+### ① WSL をインストール
+
+PowerShell（管理者）で：
+
+```powershell
+wsl --install
+````
+
+再起動後、Ubuntu などを初期セットアップします。
+
+---
+
+### ② 現在の WSL 名を確認
+
+```powershell
+wsl -l -v
+```
+
+例：
+
+```
+NAME      STATE    VERSION
+Ubuntu    Running  2
+```
+
+---
+
+### ③ WSL を G ドライブへ移動する
+
+#### 1. エクスポート
+
+```powershell
+wsl --export Ubuntu G:\wsl-backup\ubuntu.tar
+```
+
+#### 2. 保存先ディレクトリ作成
+
+```powershell
+mkdir G:\wsl\ubuntu
+```
+
+#### 3. G ドライブへインポート
+
+```powershell
+wsl --import Ubuntu-G G:\wsl\ubuntu G:\wsl-backup\ubuntu.tar --version 2
+```
+
+#### 4. デフォルトに設定
+
+```powershell
+wsl --set-default Ubuntu-G
+```
+
+#### 5. 動作確認
+
+```powershell
+wsl
+```
+
+正常に起動すれば成功です。
+
+#### 6. 古い WSL を削除
+確認後古い DSL 削除を実施
+
+```powershell
+wsl --unregister Ubuntu
+```
+
+これで C ドライブの仮想ディスクが削除されます。
+
+---
+
+# ④ Podman を winget でインストール
+
+PowerShell（通常権限でOK）：
+
+```powershell
+winget search podman
+```
+
+通常はこれ：
+
+```
+RedHat.Podman
+```
+
+インストール：
+
+```powershell
+winget install RedHat.Podman
+```
+
+完了後確認：
+
+```powershell
+podman --version
+```
+
+---
+
+# 🟢 STEP 1: podman machine 作成（いったん C に作る）
+
+```powershell
+podman machine init
+podman machine start
+```
+
+確認：
+
+```powershell
+podman machine ls
+wsl -l -v
+```
+
+ここで：
+
+```
+podman-machine-default
+```
+
+という WSL ディストリができます。
+
+# 🛑 STEP 3: 完全停止
+
+超重要：
+
+```powershell
+podman machine stop
+wsl --shutdown
+```
+
+---
+
+# 💾 STEP 4: H ドライブへ移動（正攻法）
+
+## ① エクスポート
+
+```powershell
+wsl --export podman-machine-default H:\wsl-backup\podman-machine-default.tar
+```
+
+---
+
+## ② 登録解除
+
+```powershell
+wsl --unregister podman-machine-default
+```
+
+---
+
+## ③ H に再インポート
+
+```powershell
+wsl --import podman-machine-default H:\wsl\podman H:\wsl-backup\podman-machine-default.tar --version 2
+```
+
+ここで：
+
+```
+H:\wsl\podman\ext4.vhdx
+```
+
+が作られます。
+
+---
+
+# 🟢 STEP 5: 再起動
+
+```powershell
+podman machine start
+```
+
+確認：
+
+```powershell
+podman info
+```
+
+テスト：
+
+```powershell
+podman run --rm hello-world
+```
+
+---
+
+# 🎯 完成後の構造
+
+```
+Windows:
+  podman.exe (Cにインストール)
+
+H:
+  H:\wsl\podman\ext4.vhdx ← コンテナ実データ
+```
+
+C には巨大 VHDX は残りません。
+
+### ⑤ コンテナ DB を起動
+
+プロジェクトルートで：
+
+```bash
+podman compose up -d
+```
+
+これにより：
+
+* PostgreSQL コンテナ
+* DB データ
+* コンテナイメージ
+
+すべてが **G ドライブ上の WSL 領域に保存されます**。
+
+---
+
+### この構成のメリット
+
+| 項目               | 効果               |
+| ---------------- | ---------------- |
+| C ドライブ容量         | 消費しない            |
+| Linux ネイティブ ext4 | 維持               |
+| DB パフォーマンス       | Windows マウントより高速 |
+| 運用の安定性           | 高い               |
+
+---
+
+### 注意事項
+
+* G ドライブが外付けの場合、取り外すと WSL が起動できなくなります。
+* インポート後は必ず動作確認を行ってから旧ディストリを削除してください。
+
+---
+
+
+---
+
+# 🧠 重要な注意点
+
+Podman は：
+
+* WSL ディストリ名で紐づく
+* パスではなく「名前」で追跡する
+
+なので import するときに
+
+```
+podman-machine-default
+```
+
+という **同じ名前** にするのが超重要です。
