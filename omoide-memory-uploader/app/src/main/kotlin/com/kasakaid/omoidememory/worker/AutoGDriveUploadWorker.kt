@@ -13,6 +13,7 @@ import com.kasakaid.omoidememory.worker.WorkerHelper.createForegroundInfo
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.takeWhile
 import kotlinx.coroutines.withContext
 
 /**
@@ -47,36 +48,45 @@ class AutoGDriveUploadWorker
                     val uploadResult = mutableListOf<Result>()
                     var currentCount = 0
 
-                    localFileRepository.getPotentialPendingFiles().collect { omoideMemory: OmoideMemory ->
-                        val currentTotalSize = uploadedSizes.sum()
-                        if (currentTotalSize >= OmoideMemory.UPLOAD_LIMIT_BYTES) {
-                            Log.i(TAG, "10GB の制限に達したためアップロードを中断します (現在: $currentTotalSize bytes)")
-                            return@collect
-                        }
+                    var shouldStop = false
+                    localFileRepository
+                        .getPotentialPendingFiles()
+                        .takeWhile { !shouldStop }
+                        .collect { omoideMemory: OmoideMemory ->
+                            val currentTotalSize = uploadedSizes.sum()
+                            if (currentTotalSize >= OmoideMemory.UPLOAD_LIMIT_BYTES) {
+                                Log.i(TAG, "10GB の制限に達したためアップロードを中断します (現在: $currentTotalSize bytes)")
+                                shouldStop = true
+                                return@collect
+                            }
 
-                        Log.d(TAG, "${++currentCount}件目を開始: ${omoideMemory.name}")
-                        try {
-                            val driveId =
+                            Log.d(TAG, "${++currentCount}件目を開始: ${omoideMemory.name}")
+                            val result =
                                 gdriveUploader.upload(sourceWorker = WorkManagerTag.Auto, pendingFile = omoideMemory)
-                            localFileRepository.markAsUploaded(
-                                omoideMemory.apply {
-                                    driveFileId = driveId
-                                    state = UploadState.DONE
+
+                            result.fold(
+                                ifLeft = { error ->
+                                    Log.e(TAG, "${omoideMemory.name} のアップロード中断: ${error.message}")
+                                    uploadResult.add(Result.failure())
+                                    shouldStop = true
+                                },
+                                ifRight = { driveId ->
+                                    localFileRepository.markAsUploaded(
+                                        omoideMemory.apply {
+                                            driveFileId = driveId
+                                            state = UploadState.DONE
+                                        },
+                                    )
+                                    uploadedSizes.add(omoideMemory.fileSize)
+                                    uploadResult.add(Result.success())
                                 },
                             )
-                            uploadedSizes.add(omoideMemory.fileSize)
-                            uploadResult.add(Result.success())
-                        } catch (e: Exception) {
-                            Log.e(TAG, "${omoideMemory.name} のアップロードに失敗", e)
-                            uploadResult.add(Result.failure())
                         }
-                    }
-                    if (uploadResult.all { it is Result.Success }) {
+                    if (uploadResult.isNotEmpty() && uploadResult.all { it is Result.Success }) {
+                        Result.success()
+                    } else if (uploadResult.isEmpty()) {
                         Result.success()
                     } else {
-                        // 一部失敗しても、全体としては success にして次回に回すか、
-                        // failure にしてリトライさせるかは運用次第。
-                        // ここでは既存のロジック（一つでも失敗があれば failure/retry 相当）に近い形にする。
                         Result.retry()
                     }
                 } catch (e: Exception) {
