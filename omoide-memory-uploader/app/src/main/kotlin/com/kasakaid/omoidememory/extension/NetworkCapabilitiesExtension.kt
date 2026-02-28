@@ -11,7 +11,7 @@ object NetworkCapabilitiesExtension {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             // API 29+
             val wifiInfo = transportInfo as? WifiInfo
-            wifiInfo?.ssid?.replace("\"", "")
+            wifiInfo?.ssid?.removePrefix("\"")?.removeSuffix("\"")
         } else {
             // API 26–28 fallback
             @Suppress("DEPRECATION")
@@ -19,6 +19,9 @@ object NetworkCapabilitiesExtension {
                 context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
 
             @Suppress("DEPRECATION")
-            wifiManager.connectionInfo?.ssid?.replace("\"", "")
+            wifiManager.connectionInfo
+                ?.ssid
+                ?.removePrefix("\"")
+                ?.removeSuffix("\"")
         }
 }

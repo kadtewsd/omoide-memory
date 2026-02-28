@@ -4,12 +4,14 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.util.Log
-import androidx.work.Constraints
-import androidx.work.ListenableWorker
-import androidx.work.NetworkType
+import arrow.core.Either
+import arrow.core.left
+import arrow.core.right
 import com.kasakaid.omoidememory.data.OmoideMemory
 import com.kasakaid.omoidememory.data.OmoideMemoryRepository
 import com.kasakaid.omoidememory.data.OmoideUploadPrefsRepository
+import com.kasakaid.omoidememory.data.WifiRepository
+import com.kasakaid.omoidememory.data.WifiSetting
 import com.kasakaid.omoidememory.network.GoogleDriveService
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -22,6 +24,7 @@ class GdriveUploader
     constructor(
         @ApplicationContext private val context: Context,
         private val omoideUploadPrefsRepository: OmoideUploadPrefsRepository,
+        private val wifiRepository: WifiRepository,
         private val omoideMemoryRepository: OmoideMemoryRepository,
         private val driveService: GoogleDriveService,
     ) {
@@ -36,40 +39,50 @@ class GdriveUploader
         suspend fun upload(
             pendingFile: OmoideMemory,
             sourceWorker: WorkManagerTag,
-        ): String {
+        ): Either<WorkerExecutionError, String> {
             val tag = "${sourceWorker.value} -> $TAG"
-            val cm = context.getSystemService(ConnectivityManager::class.java)
-            val caps = cm.getNetworkCapabilities(cm.activeNetwork)
 
-            if (caps?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) != true) {
-                throw RuntimeException("WiFi is not connected")
-            }
-            Constraints
-                .Builder()
-                .setRequiredNetworkType(NetworkType.UNMETERED)
-            // first 的な条件で else に来ることはない
+            val wifiSetting = wifiRepository.snapshotSsid()
+
             val registeredSecureSsid = omoideUploadPrefsRepository.getSecureWifiSsid()
-
             if (registeredSecureSsid.isNullOrEmpty()) {
                 Log.w(tag, "SSID が構成されていません")
-                throw RuntimeException("SSID is not configured")
+                return WorkerExecutionError.SsidNotConfigured.left()
+            }
+
+            when (wifiSetting) {
+                is WifiSetting.Found -> {
+                    if (wifiSetting.ssid != registeredSecureSsid) {
+                        Log.w(tag, "SSID が一致しません: ${wifiSetting.ssid} != $registeredSecureSsid")
+                        return WorkerExecutionError.SsidMismatch(wifiSetting.ssid, registeredSecureSsid).left()
+                    }
+                }
+
+                WifiSetting.NotConnected -> {
+                    return WorkerExecutionError.WifiNotConnected.left()
+                }
+
+                else -> {
+                    Log.w(tag, "Wi-Fi 状態を確定できませんでした: ${wifiSetting.message}")
+                    return WorkerExecutionError.WifiNotConnected.left()
+                }
             }
 
             // 4. Upload Files
-            try {
+            return try {
                 val fileId = driveService.uploadFile(pendingFile)
                 if (fileId != null) {
                     Log.d(tag, "Uploaded: ${pendingFile.name}")
-                    return fileId
+                    fileId.right()
                 } else {
-                    throw RuntimeException("Upload failed: fileId is null")
+                    WorkerExecutionError.UploadFailed("Upload failed: fileId is null").left()
                 }
             } catch (e: SecurityException) {
                 Log.e(tag, "Auth Error: ${e.message}")
-                throw e
+                WorkerExecutionError.AuthError(e.message ?: "SecurityException during upload").left()
             } catch (e: Exception) {
                 Log.e(tag, "Upload Failed for ${pendingFile.name}: ${e.message}")
-                throw e
+                WorkerExecutionError.UploadFailed(e.message ?: "Unknown error during upload").left()
             }
         }
     }

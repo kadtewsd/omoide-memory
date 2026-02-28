@@ -52,35 +52,39 @@ class GdriveUploadWorker
                     ),
                 )
 
-                try {
-                    for (file in targets) {
-                        Log.d(TAG, "手動アップロード開始 ${file.name}")
-                        val driveId =
-                            gdriveUploader.upload(
-                                sourceWorker = WorkManagerTag.Manual,
-                                pendingFile = file,
+                for (file in targets) {
+                    Log.d(TAG, "手動アップロード開始 ${file.name}")
+                    val result =
+                        gdriveUploader.upload(
+                            sourceWorker = WorkManagerTag.Manual,
+                            pendingFile = file,
+                        )
+
+                    result.fold(
+                        ifLeft = { error ->
+                            Log.e(TAG, "アップロード中断: ${error.message}")
+                            omoideMemoryRepository.clearReadyFiles()
+                            return@withContext Result.failure()
+                        },
+                        ifRight = { driveId ->
+                            omoideMemoryRepository.markAsDone(
+                                id = file.id,
+                                driveFileId = driveId,
                             )
 
-                        omoideMemoryRepository.markAsDone(
-                            id = file.id,
-                            driveFileId = driveId,
-                        )
+                            successCount++
+                            Log.i(TAG, "$successCount / $totalCount アップロード試行完了")
 
-                        successCount++
-                        Log.i(TAG, "$successCount / $totalCount アップロード試行完了")
-
-                        setProgress(
-                            workDataOf(
-                                "PROGRESS_CURRENT" to successCount,
-                                "PROGRESS_TOTAL" to totalCount,
-                            ),
-                        )
-                    }
-                    Result.success()
-                } catch (e: Exception) {
-                    Log.e(TAG, "例外が発生", e)
-                    Result.retry()
+                            setProgress(
+                                workDataOf(
+                                    "PROGRESS_CURRENT" to successCount,
+                                    "PROGRESS_TOTAL" to totalCount,
+                                ),
+                            )
+                        },
+                    )
                 }
+                Result.success()
             }
         }
     }

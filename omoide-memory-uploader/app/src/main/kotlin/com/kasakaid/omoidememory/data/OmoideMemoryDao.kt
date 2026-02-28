@@ -45,4 +45,7 @@ interface OmoideMemoryDao {
         id: Long,
         driveFileId: String,
     )
+
+    @Query("DELETE FROM uploaded_memories WHERE state = 'READY'")
+    suspend fun deleteReadyFiles()
 }

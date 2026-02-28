@@ -5,10 +5,12 @@ package com.kasakaid.omoidememory.worker
  */
 sealed interface WorkManagerTag {
     val value: String
-    data object Manual: WorkManagerTag {
-        override val value: String = GdriveUploadWorker.TAG
+
+    data object Manual : WorkManagerTag {
+        override val value: String = "manual_upload"
     }
-    data object Auto: WorkManagerTag {
-        override val value: String = AutoGDriveUploadWorker.TAG
+
+    data object Auto : WorkManagerTag {
+        override val value: String = "AutoUploadWork"
     }
 }

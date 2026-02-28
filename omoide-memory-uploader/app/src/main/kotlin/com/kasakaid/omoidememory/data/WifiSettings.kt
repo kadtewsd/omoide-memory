@@ -12,6 +12,8 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -129,4 +131,14 @@ class WifiRepository
             val capabilities = cm.getNetworkCapabilities(cm.activeNetwork)
             return capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
         }
+
+        /**
+         * 現在の Wi-Fi 接続状況を一回だけ取得します。
+         * [observeWifiSSID] を再利用することで、API 31+ で必要な FLAG_INCLUDE_LOCATION_INFO が正しく反映された
+         * 結果を取得できることを保証します。
+         */
+        suspend fun snapshotSsid(): WifiSetting =
+            observeWifiSSID()
+                .filter { it !is WifiSetting.Loading && it !is WifiSetting.Idle }
+                .first()
     }

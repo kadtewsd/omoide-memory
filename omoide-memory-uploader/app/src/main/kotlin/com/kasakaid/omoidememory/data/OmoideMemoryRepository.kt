@@ -185,4 +185,6 @@ class OmoideMemoryRepository
             id: Long,
             driveFileId: String,
         ) = omoideMemoryDao.markAsDone(id, driveFileId)
+
+        suspend fun clearReadyFiles() = omoideMemoryDao.deleteReadyFiles()
     }
