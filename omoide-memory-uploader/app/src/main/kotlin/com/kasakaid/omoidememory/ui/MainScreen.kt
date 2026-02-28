@@ -148,9 +148,18 @@ fun MainScreen(
         // 基準日設定
         UploadedBaseLineRoute()
 
+        val uploadCondition =
+            remember(isGranted, isGoogleSignIn, wifiStatus.isValid) {
+                UploadRequiredCondition(
+                    isPermissionGranted = isGranted,
+                    isGoogleSignIn = isGoogleSignIn,
+                    isWifiValid = wifiStatus.isValid,
+                )
+            }
+
         // Status & Trigger
         UploadStatusRoute(
-            canUpload = isGranted && isGoogleSignIn && wifiStatus.isValid,
+            condition = uploadCondition,
             onNavigateToContentSelection = onNavigateToSelection,
         )
     }
