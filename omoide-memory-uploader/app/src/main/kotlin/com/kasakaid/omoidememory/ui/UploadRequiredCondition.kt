@@ -1,5 +1,7 @@
 package com.kasakaid.omoidememory.ui
 
+import arrow.core.fold
+
 /**
  * アップロードに必要な条件をまとめたデータクラス。
  * [isPermissionGranted] ストレージなどの権限が許可されているか
@@ -21,11 +23,17 @@ data class UploadRequiredCondition(
      */
     fun getErrorMessage(): String? {
         if (canUpload) return null
-        val errors = mutableListOf<String>()
-        if (!isWifiValid) errors.add("Wi-Fi")
-        if (!isPermissionGranted) errors.add("権限")
-        if (!isGoogleSignIn) errors.add("アカウント設定")
-
-        return if (errors.isEmpty()) null else "${errors.joinToString("・")}が完了していません"
+        // mapOf だと、true/false であと勝ちでキーができるので注意! Pair にするべき
+        return listOf(
+            isPermissionGranted to "権限",
+            isGoogleSignIn to "アカウント設定",
+            isWifiValid to "Wi-Fi",
+        ).filterNot {
+            it.first
+        }.map {
+            it.second
+        }.let { errors ->
+            if (errors.isEmpty()) null else "${errors.joinToString("・")}が完了していません"
+        }
     }
 }

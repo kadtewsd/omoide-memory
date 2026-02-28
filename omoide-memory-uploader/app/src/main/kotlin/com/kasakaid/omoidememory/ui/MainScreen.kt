@@ -34,9 +34,10 @@ fun MainScreen(
     viewModel: MainViewModel = hiltViewModel(),
     onNavigateToSelection: () -> Unit,
 ) {
-    val wifiStatus by viewModel.wifiStatus.collectAsState()
     val uploadCondition by viewModel.uploadCondition.collectAsState()
 
+    val context = LocalContext.current
+    val wifiPermissions = arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
     // 🚀 初回起動時のみ現在の状態を確認して ViewModel に教える
     LaunchedEffect(Unit) {
         val initialPermission =
