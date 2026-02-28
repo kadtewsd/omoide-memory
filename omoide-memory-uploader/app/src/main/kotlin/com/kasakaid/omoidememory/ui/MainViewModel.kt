@@ -54,6 +54,9 @@ class MainViewModel
         // 権限状態を管理する Flow
         private val hasPermission = MutableStateFlow(false)
 
+        // Google サインイン状態
+        private val isGoogleSignIn = MutableStateFlow(false)
+
         @OptIn(ExperimentalCoroutinesApi::class)
         private val wifiState: StateFlow<WifiSetting> =
             hasPermission
@@ -113,6 +116,37 @@ class MainViewModel
         fun updatePermissionStatus(isGranted: Boolean) {
             hasPermission.value = isGranted
         }
+
+        fun updateGoogleSignInStatus(isSynced: Boolean) {
+            isGoogleSignIn.value = isSynced
+        }
+
+        /**
+         * アップロードに必要なすべての条件を統合した Flow。
+         * UI はこれひとつを監視するだけで、ボタンの有効化やエラーメッセージの表示を
+         * リアクティブに行うことができます。
+         */
+        val uploadCondition: StateFlow<UploadRequiredCondition> =
+            combine(
+                hasPermission,
+                isGoogleSignIn,
+                wifiStatus,
+            ) { permission, signIn, wifi ->
+                UploadRequiredCondition(
+                    isPermissionGranted = permission,
+                    isGoogleSignIn = signIn,
+                    isWifiValid = wifi.isValid,
+                )
+            }.stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.Eagerly,
+                initialValue =
+                    UploadRequiredCondition(
+                        isPermissionGranted = hasPermission.value,
+                        isGoogleSignIn = isGoogleSignIn.value,
+                        isWifiValid = wifiStatus.value.isValid,
+                    ),
+            )
 
         fun changeWifiSsid(ssid: String) {
             omoideUploadPrefsRepository.saveSecureWifiSsid(ssid)

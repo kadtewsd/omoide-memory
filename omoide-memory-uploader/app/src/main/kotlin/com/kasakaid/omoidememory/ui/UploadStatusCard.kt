@@ -119,7 +119,7 @@ class UploadStatusViewModel
 @Composable
 fun UploadStatusRoute(
     viewModel: UploadStatusViewModel = hiltViewModel(),
-    canUpload: Boolean, // 権限状態を引数で受け取る
+    condition: UploadRequiredCondition, // 権限状態などをまとめたオブジェクト
     // 手動アップロードを選択した際の画面遷移先
     onNavigateToContentSelection: () -> Unit,
 ) {
@@ -127,15 +127,15 @@ fun UploadStatusRoute(
     val uploadedCount by viewModel.uploadedCount.collectAsState()
     val uploadProgress by viewModel.uploadProgress.collectAsState()
 
-    // パーミッション、サインイン状態が変わるたびに、ViewModel の「中の人」に報告する
-    LaunchedEffect(canUpload) {
-        viewModel.updateCanUpload(canUpload)
+    // パーミッション、サインイン、Wifi状態が変わるたびに、ViewModel の「中の人」に報告する
+    LaunchedEffect(condition.canUpload) {
+        viewModel.updateCanUpload(condition.canUpload)
     }
 
     UploadStatusCard(
         pendingFilesCount = pendingFilesCount,
         uploadedCount = uploadedCount,
-        canUpload = canUpload,
+        condition = condition,
         onUploadClick = {
             viewModel.triggerManualUpload()
         },
@@ -148,7 +148,7 @@ fun UploadStatusRoute(
 fun UploadStatusCard(
     pendingFilesCount: Int,
     uploadedCount: Int,
-    canUpload: Boolean, // 権限状態を引数で受け取る
+    condition: UploadRequiredCondition, // 状態を引数で受け取る
     onUploadClick: () -> Unit, // ボタンクリック時のアクション
     onNavigateToContentSelection: () -> Unit,
     progress: Pair<Int, Int>?,
@@ -173,7 +173,7 @@ fun UploadStatusCard(
                 OutlinedButton( // 種類を変えて「全アップロード」と差別化しても良い
                     onClick = onNavigateToContentSelection,
                     modifier = Modifier.weight(1f),
-                    enabled = canUpload,
+                    enabled = condition.canUpload,
                     contentPadding = PaddingValues(vertical = 12.dp),
                 ) {
                     Text("選択してUP", textAlign = TextAlign.Center)
@@ -183,7 +183,7 @@ fun UploadStatusCard(
                 Button(
                     onClick = onUploadClick,
                     modifier = Modifier.weight(1f),
-                    enabled = canUpload,
+                    enabled = condition.canUpload,
                     contentPadding = PaddingValues(vertical = 12.dp),
                 ) {
                     Text("すべてUP", textAlign = TextAlign.Center)
@@ -208,9 +208,9 @@ fun UploadStatusCard(
                 }
             }
 
-            if (!canUpload) {
+            condition.getErrorMessage()?.let { message ->
                 Text(
-                    text = "権限またはサインインが必要です",
+                    text = message,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.padding(top = 8.dp),
