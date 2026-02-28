@@ -34,33 +34,26 @@ fun MainScreen(
     viewModel: MainViewModel = hiltViewModel(),
     onNavigateToSelection: () -> Unit,
 ) {
-    val isAutoUploadEnabled by viewModel.isAutoUploadEnabled.collectAsState()
-    // 親で「現在、権限があるか」という事実を覚えておく
-    // ViewModel で持つべき場合:
-    // 「権限の有無によって、DBの値を書き換える」「権限の状態をログとしてサーバーに送る」など、UIの外側でもその情報が必要な場合。
-    // remember でいい場合:
-    // 「権限が取れたら下のボタンを活性化する」といった、その画面内での表示の切り替えにしか使わない場合。
-    val context = LocalContext.current
-    // 軽く remember で画面描画時の時だけ覚えておく。回転させると忘れるがまぁよいでしょう。
-    val wifiPermissions = arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
-    var isGranted by remember {
-        mutableStateOf(
+    val wifiStatus by viewModel.wifiStatus.collectAsState()
+    val uploadCondition by viewModel.uploadCondition.collectAsState()
+
+    // 🚀 初回起動時のみ現在の状態を確認して ViewModel に教える
+    LaunchedEffect(Unit) {
+        val initialPermission =
             isWifiPermissionGranted(
                 GrantPermissionState.checkInitialPermission(
                     context = context,
                     checkTargetPermissions = wifiPermissions,
                 ),
-            ),
-        )
+            )
+        viewModel.updatePermissionStatus(initialPermission)
+
+        val initialSignIn =
+            GoogleSignInState.checkGoogleSignInStatus(context) is GoogleSignInState.Synced
+        viewModel.updateGoogleSignInStatus(initialSignIn)
     }
 
-    var isGoogleSignIn by remember {
-        mutableStateOf(
-            GoogleSignInState.checkGoogleSignInStatus(context) is GoogleSignInState.Synced,
-        )
-    }
-
-    val scrollState = rememberScrollState() //
+    val scrollState = rememberScrollState()
 
     val isUploading = viewModel.isUploading.collectAsState().value
     val progress = viewModel.progress.collectAsState().value
@@ -72,9 +65,7 @@ fun MainScreen(
         mutableStateOf(false)
     }
 
-    LaunchedEffect(isGranted) {
-        viewModel.updatePermissionStatus(isGranted)
-    }
+    val isAutoUploadEnabled by viewModel.isAutoUploadEnabled.collectAsState()
 
     LaunchedEffect(isUploading) {
         /**
@@ -104,24 +95,25 @@ fun MainScreen(
         // Android の権限コンポーネント
         GrantPermissionRoute(onPermissionChanged = {
             // 最低限 Wifi が入っているかのチェックを、State Hoisting でチェック!
-            isGranted =
+            val current =
                 isWifiPermissionGranted(
                     GrantPermissionState.checkInitialPermission(
                         context = context,
                         checkTargetPermissions = wifiPermissions,
                     ),
                 )
+            viewModel.updatePermissionStatus(current)
         })
         // Google のサインインの状態
         GoogleAuthStateRoute(onSignInSuccess = {
-            isGoogleSignIn = it
+            viewModel.updateGoogleSignInStatus(it)
         })
         // Wi-Fi Configuration Section
         WifiSettingsCard(
             wifiSetting = wifiStatus.setting,
             fixedSecureSsid = wifiStatus.fixedSsid,
             onFixSecureSsid = { viewModel.changeWifiSsid(it) },
-            isPermissionGranted = isGranted,
+            isPermissionGranted = uploadCondition.isPermissionGranted,
         )
 
         // Auto Upload Toggle
@@ -147,15 +139,6 @@ fun MainScreen(
 
         // 基準日設定
         UploadedBaseLineRoute()
-
-        val uploadCondition =
-            remember(isGranted, isGoogleSignIn, wifiStatus.isValid) {
-                UploadRequiredCondition(
-                    isPermissionGranted = isGranted,
-                    isGoogleSignIn = isGoogleSignIn,
-                    isWifiValid = wifiStatus.isValid,
-                )
-            }
 
         // Status & Trigger
         UploadStatusRoute(
