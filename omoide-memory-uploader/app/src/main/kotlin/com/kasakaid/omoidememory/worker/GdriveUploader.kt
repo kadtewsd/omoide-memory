@@ -10,7 +10,8 @@ import arrow.core.right
 import com.kasakaid.omoidememory.data.OmoideMemory
 import com.kasakaid.omoidememory.data.OmoideMemoryRepository
 import com.kasakaid.omoidememory.data.OmoideUploadPrefsRepository
-import com.kasakaid.omoidememory.extension.NetworkCapabilitiesExtension.ssid
+import com.kasakaid.omoidememory.data.WifiRepository
+import com.kasakaid.omoidememory.data.WifiSetting
 import com.kasakaid.omoidememory.network.GoogleDriveService
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -23,6 +24,7 @@ class GdriveUploader
     constructor(
         @ApplicationContext private val context: Context,
         private val omoideUploadPrefsRepository: OmoideUploadPrefsRepository,
+        private val wifiRepository: WifiRepository,
         private val omoideMemoryRepository: OmoideMemoryRepository,
         private val driveService: GoogleDriveService,
     ) {
@@ -39,24 +41,31 @@ class GdriveUploader
             sourceWorker: WorkManagerTag,
         ): Either<WorkerExecutionError, String> {
             val tag = "${sourceWorker.value} -> $TAG"
-            val cm = context.getSystemService(ConnectivityManager::class.java)
-            val caps = cm.getNetworkCapabilities(cm.activeNetwork)
 
-            if (caps?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) != true) {
-                return WorkerExecutionError.WifiNotConnected.left()
-            }
+            val wifiSetting = wifiRepository.snapshotSsid()
 
             val registeredSecureSsid = omoideUploadPrefsRepository.getSecureWifiSsid()
-
             if (registeredSecureSsid.isNullOrEmpty()) {
                 Log.w(tag, "SSID が構成されていません")
                 return WorkerExecutionError.SsidNotConfigured.left()
             }
 
-            val currentSsid = caps?.ssid(context)
-            if (currentSsid == null || currentSsid != registeredSecureSsid) {
-                Log.w(tag, "SSID が一致しません: $currentSsid != $registeredSecureSsid")
-                return WorkerExecutionError.SsidMismatch(currentSsid, registeredSecureSsid).left()
+            when (wifiSetting) {
+                is WifiSetting.Found -> {
+                    if (wifiSetting.ssid != registeredSecureSsid) {
+                        Log.w(tag, "SSID が一致しません: ${wifiSetting.ssid} != $registeredSecureSsid")
+                        return WorkerExecutionError.SsidMismatch(wifiSetting.ssid, registeredSecureSsid).left()
+                    }
+                }
+
+                WifiSetting.NotConnected -> {
+                    return WorkerExecutionError.WifiNotConnected.left()
+                }
+
+                else -> {
+                    Log.w(tag, "Wi-Fi 状態を確定できませんでした: ${wifiSetting.message}")
+                    return WorkerExecutionError.WifiNotConnected.left()
+                }
             }
 
             // 4. Upload Files

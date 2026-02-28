@@ -63,6 +63,7 @@ class GdriveUploadWorker
                     result.fold(
                         ifLeft = { error ->
                             Log.e(TAG, "アップロード中断: ${error.message}")
+                            omoideMemoryRepository.clearReadyFiles()
                             return@withContext Result.failure()
                         },
                         ifRight = { driveId ->

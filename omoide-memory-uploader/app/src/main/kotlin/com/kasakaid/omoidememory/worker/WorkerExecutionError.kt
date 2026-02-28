@@ -14,7 +14,7 @@ sealed interface WorkerExecutionError {
         override val message: String = "SSID is not configured"
     }
 
-    data class SsidMismatch(
+    class SsidMismatch(
         val current: String?,
         val expected: String,
     ) : WorkerExecutionError {
@@ -25,7 +25,7 @@ sealed interface WorkerExecutionError {
         override val message: String,
     ) : WorkerExecutionError
 
-    data class AuthError(
+    class AuthError(
         override val message: String,
     ) : WorkerExecutionError
 }
