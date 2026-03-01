@@ -53,15 +53,10 @@ object FileOrganizeService {
                 Files.createDirectories(targetDir)
             }
 
-            var targetFile = targetDir.resolve(fileName)
-            var counter = 1
-
-            // ファイルが既に存在する場合は連番を付与
-            while (Files.exists(targetFile)) {
-                targetFile = targetDir.resolve(FileStructure.of(fileName).withCounter(counter++))
-            }
-
-            targetFile
+            // 個人利用において、ファイル重複時に連番を付与するロジックは無駄に複雑さを生み、
+            // また処理が失敗した際のリトライも難しくなるため、既存ファイルがある場合は
+            // 強制的に上書きする（moveToTarget で REPLACE_EXISTING を使用）。
+            targetDir.resolve(fileName)
         }
 
     /**
