@@ -50,9 +50,15 @@ class DownloadFileBackUpService(
                 if (exists) {
                     return FileIOFinish
                         .Skip(
-                            reason = "ファイルは既に存在するためスキップします: ${googleFile.name}",
+                            reason = "ファイルは既に存在するためスキップし、ドライブ上から削除します: ${googleFile.name}",
                             filePath = Path.of(googleFile.name),
                         ).right()
+                        .also {
+                            driveService.delete(
+                                fileId = googleFile.id,
+                                refreshToken = refreshToken,
+                            )
+                        }
                 }
             }
 
