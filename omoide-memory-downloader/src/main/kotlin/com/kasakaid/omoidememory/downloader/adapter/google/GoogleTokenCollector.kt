@@ -3,11 +3,7 @@ package com.kasakaid.omoidememory.downloader.adapter.google
 import com.google.auth.http.HttpCredentialsAdapter
 import com.google.auth.oauth2.UserCredentials
 import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 import java.net.UnknownHostException
-import java.nio.file.Path
-import kotlin.io.path.readText
 import kotlin.system.exitProcess
 
 private val logger = KotlinLogging.logger {}
@@ -22,28 +18,24 @@ object GoogleTokenCollector {
         java.security.Security.setProperty("networkaddress.cache.negative.ttl", "0")
     }
 
-    @Serializable
-    data class GoogleCredential(
-        val client_id: String,
-        val client_secret: String,
-        val refresh_token: String,
-    )
-
     val allCredentials: List<UserCredentials> =
         run {
-            val credentialsPath =
-                System.getenv("USER_CREDENTIALS_PATH")
-                    ?: throw IllegalArgumentException("環境変数 USER_CREDENTIALS_PATH が設定されていません。")
+            val clientId =
+                System.getenv("GDRIVE_CLIENT_ID")
+                    ?: throw IllegalArgumentException("環境変数 GDRIVE_CLIENT_ID が設定されていません。")
+            val clientSecret =
+                System.getenv("GDRIVE_CLIENT_SECRET")
+                    ?: throw IllegalArgumentException("環境変数 GDRIVE_CLIENT_SECRET が設定されていません。")
+            val refreshTokens =
+                System.getenv("GDRIVE_REFRESH_TOKENS")
+                    ?: throw IllegalArgumentException("環境変数 GDRIVE_REFRESH_TOKENS が設定されていません。")
 
-            val jsonText = Path.of(credentialsPath).readText()
-            val credentials = Json.decodeFromString<List<GoogleCredential>>(jsonText)
-
-            credentials.map { cred ->
+            refreshTokens.split(",").map { token ->
                 UserCredentials
                     .newBuilder()
-                    .setClientId(cred.client_id)
-                    .setClientSecret(cred.client_secret)
-                    .setRefreshToken(cred.refresh_token)
+                    .setClientId(clientId)
+                    .setClientSecret(clientSecret)
+                    .setRefreshToken(token.trim())
                     .build()
             }
         }

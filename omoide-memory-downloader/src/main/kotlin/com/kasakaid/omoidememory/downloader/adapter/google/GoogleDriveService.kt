@@ -23,6 +23,7 @@ import kotlinx.coroutines.withContext
 import org.springframework.core.env.Environment
 import org.springframework.stereotype.Component
 import org.springframework.stereotype.Service
+import java.io.IOException
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
@@ -38,33 +39,31 @@ class GoogleDriveService(
 ) : DriveService {
     private val logger = KotlinLogging.logger {}
 
-    private var currentCredentials: UserCredentials? = null
-
-    fun useCredentials(credentials: UserCredentials) {
-        currentCredentials = credentials
-    }
-
-    private val driveService: Drive get() {
-        val creds = currentCredentials ?: throw IllegalStateException("Credentials must be set before using driveService")
-        return Drive
-            .Builder(
-                GoogleNetHttpTransport.newTrustedTransport(),
-                GsonFactory.getDefaultInstance(),
-                GoogleTokenCollector.asHttpCredentialsAdapter(creds),
-            ).setApplicationName("OmoideMemoryDownloader")
-            .build()
+    private val driveServices: List<Pair<UserCredentials, Drive>> by lazy {
+        GoogleTokenCollector.allCredentials.map { creds ->
+            creds to
+                Drive
+                    .Builder(
+                        GoogleNetHttpTransport.newTrustedTransport(),
+                        GsonFactory.getDefaultInstance(),
+                        GoogleTokenCollector.asHttpCredentialsAdapter(creds),
+                    ).setApplicationName("OmoideMemoryDownloader")
+                    .build()
+        }
     }
 
     /**
      * リフレッシュトークンを使ってアクセストークンを新しく生成します。
      */
-    private suspend fun <T> executeWithSafeRefresh(block: suspend () -> T): T =
+    private suspend fun <T> executeWithSafeRefresh(
+        creds: UserCredentials,
+        block: suspend () -> T,
+    ): T =
         try {
             block()
         } catch (e: GoogleJsonResponseException) {
             if (e.statusCode == 401) {
                 logger.warn { "401 Unauthorized detected. Refreshing token manually and retrying..." }
-                val creds = currentCredentials ?: throw IllegalStateException("Credentials must be set")
                 GoogleTokenCollector.refreshIfNeeded(creds)
                 block()
             } else {
@@ -79,38 +78,40 @@ class GoogleDriveService(
      */
     override suspend fun listFiles(): List<File> {
         val googleFiles = mutableMapOf<String, File>()
-        var pageToken: String? = null
 
-        // Fields to fetch: include imageMediaMetadata, videoMediaMetadata for OmoideMemory population
-        val fields =
-            "nextPageToken, files(id, name, mimeType, createdTime, size, imageMediaMetadata, videoMediaMetadata)"
+        driveServices.forEach { (creds, drive) ->
+            var pageToken: String? = null
+            // Fields to fetch: include imageMediaMetadata, videoMediaMetadata for OmoideMemory population
+            val fields =
+                "nextPageToken, files(id, name, mimeType, createdTime, size, imageMediaMetadata, videoMediaMetadata)"
 
-        do {
-            val result =
-                executeWithSafeRefresh {
-                    driveService
-                        .files()
-                        .list()
-                        .setQ(
-                            """
-                            'root' in parents
-                            and trashed = false
-                            and mimeType != 'application/vnd.google-apps.folder'
-                            """.trimIndent(),
-                        ).setFields(fields)
-                        .setPageToken(pageToken)
-                        .execute()
+            do {
+                val result =
+                    executeWithSafeRefresh(creds) {
+                        drive
+                            .files()
+                            .list()
+                            .setQ(
+                                """
+                                'root' in parents
+                                and trashed = false
+                                and mimeType != 'application/vnd.google-apps.folder'
+                                """.trimIndent(),
+                            ).setFields(fields)
+                            .setPageToken(pageToken)
+                            .execute()
+                    }
+
+                result.files?.forEach { file ->
+                    logger.debug { "Processing file: ${file.name} (${file.mimeType})" }
+                    if (!googleFiles.containsKey(file.name)) {
+                        googleFiles[file.name] = file
+                    }
                 }
 
-            result.files?.forEach { file ->
-                logger.debug { "Processing file: ${file.name} (${file.mimeType})" }
-                if (!googleFiles.containsKey(file.name)) {
-                    googleFiles[file.name] = file
-                }
-            }
-
-            pageToken = result.nextPageToken
-        } while (pageToken != null)
+                pageToken = result.nextPageToken
+            } while (pageToken != null)
+        }
 
         logger.info { "Found ${googleFiles.size} unique files in Google Drive compatible with OmoideMemory" }
         return googleFiles.values.toList()
@@ -159,15 +160,29 @@ class GoogleDriveService(
                     Files
                         .newOutputStream(tempPath, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)
                         .use { outputStream ->
-                            executeWithSafeRefresh {
-                                driveService
-                                    .files()
-                                    .get(googleFile.id)
-                                    .executeMediaAndDownloadTo(outputStream)
+                            // 全アカウントから該当ファイルを持つものを探してダウンロード。
+                            // 404 の場合はスキップし、最初に見つかったもので実行する。
+                            val success =
+                                driveServices.any { (creds, drive) ->
+                                    try {
+                                        executeWithSafeRefresh(creds) {
+                                            drive
+                                                .files()
+                                                .get(googleFile.id)
+                                                .executeMediaAndDownloadTo(outputStream)
+                                        }
+                                        true
+                                    } catch (e: GoogleJsonResponseException) {
+                                        if (e.statusCode == 404) false else throw e
+                                    }
+                                }
+                            if (!success) {
+                                logger.error { "どの登録アカウントからもファイルが見つかりませんでした: ${googleFile.name}" }
+                                DriveService.WriteError(tempPath).left()
+                            } else {
+                                Unit.right()
                             }
-                            // executeMediaAndDownloadTo は内部でループして書き込むため、
-                            // ここに到達した時点でディスクへの書き出しは完了しています
-                        }.right()
+                        }
                 }.bind()
 
                 logger.debug { "${googleFile.name}をローカル ${tempPath.name} にダウンロードしてメタデータを抽出" }
@@ -235,34 +250,48 @@ class GoogleDriveService(
         withContext(Dispatchers.IO) {
             Either
                 .catch {
-                    executeWithSafeRefresh {
-                        val fileInfo =
-                            driveService
-                                .files()
-                                .get(fileId)
-                                .setFields("name, parents")
-                                .execute()
-                        val fileName = fileInfo.name
-                        val parents = fileInfo.parents
+                    var moved = false
+                    driveServices.forEach { (creds, drive) ->
+                        if (moved) return@forEach
+                        try {
+                            executeWithSafeRefresh(creds) {
+                                val fileInfo =
+                                    drive
+                                        .files()
+                                        .get(fileId)
+                                        .setFields("name, parents")
+                                        .execute()
+                                val fileName = fileInfo.name
+                                val parents = fileInfo.parents
 
-                        if (fileName != null && parents != null && parents.isNotEmpty()) {
-                            val parentId = parents[0]
-                            val q = "name = '${fileName.replace("'", "\\'")}' and '$parentId' in parents and trashed = false"
-                            val filesToDelete =
-                                driveService
-                                    .files()
-                                    .list()
-                                    .setQ(q)
-                                    .setFields("files(id)")
-                                    .execute()
-                            filesToDelete.files?.forEach { f ->
-                                driveService.files().update(f.id, File().setTrashed(true)).execute()
-                                logger.info { "同名ファイルをゴミ箱へ移動しました: $fileName (ID: ${f.id})" }
+                                if (fileName != null && parents != null && parents.isNotEmpty()) {
+                                    val parentId = parents[0]
+                                    val q = "name = '${fileName.replace("'", "\\'")}' and '$parentId' in parents and trashed = false"
+                                    val filesToDelete =
+                                        drive
+                                            .files()
+                                            .list()
+                                            .setQ(q)
+                                            .setFields("files(id)")
+                                            .execute()
+                                    filesToDelete.files?.forEach { f ->
+                                        drive.files().update(f.id, File().setTrashed(true)).execute()
+                                        logger.info { "同名ファイルをゴミ箱へ移動しました: $fileName (ID: ${f.id})" }
+                                    }
+                                } else {
+                                    drive.files().update(fileId, File().setTrashed(true)).execute()
+                                }
                             }
-                        } else {
-                            driveService.files().update(fileId, File().setTrashed(true)).execute()
+                            moved = true
+                        } catch (e: GoogleJsonResponseException) {
+                            if (e.statusCode == 404) {
+                                // Ignore and try next account
+                            } else {
+                                throw e
+                            }
                         }
                     }
+                    if (!moved) logger.warn { "File $fileId not found in any account during trash operation." }
                     Unit
                 }.mapLeft { e ->
                     logger.error { "ゴミ箱移動失敗: ${OneLineLogFormatter.format(e)}" }

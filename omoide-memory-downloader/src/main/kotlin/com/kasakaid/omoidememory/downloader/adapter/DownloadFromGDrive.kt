@@ -53,35 +53,32 @@ class DownloadFromGDrive(
 
             logger.info { "Google Drive からのダウンロード処理を開始します (対象アカウント数: ${GoogleTokenCollector.allCredentials.size})" }
 
-            GoogleTokenCollector.allCredentials.forEachIndexed { index, credentials ->
-                logger.info { "アカウント (${index + 1}/${GoogleTokenCollector.allCredentials.size}) の処理を開始します" }
-                (driveService as? GoogleDriveService)?.useCredentials(credentials)
+            // 1. Google Driveから対象フォルダ配下の全ファイルを取得 (全アカウントから)
+            val googleDriveFilesInfo: List<File> = driveService.listFiles()
+            logger.info { "合計 ${googleDriveFilesInfo.size} 件のファイルが見つかりました。" }
 
-                // 1. Google Driveから対象フォルダ配下の全ファイルを取得
-                val googleDriveFilesInfo: List<File> = driveService.listFiles()
-                // Google API のレートに引っ掛かるなどの可能性があるので 10 程度にする
-                googleDriveFilesInfo.mapWithCoroutine(Semaphore(10)) { googleFile ->
-                    try {
-                        transactionalOperator.executeAndAwait {
-                            kotlinx.coroutines.withContext(MDCContext(mapOf("requestId" to "${googleFile.name}:${googleFile.id}"))) {
-                                downloadFileBackUpService
-                                    .execute(
-                                        googleFile = googleFile,
-                                        omoideBackupPath = Path.of(destination),
-                                        gdriveFolderId = familyId, // familyId として流用
-                                    ).onRight {
-                                        PostProcess.onSuccess(it)
-                                    }.onLeft {
-                                        throw RollbackException(it)
-                                    }
-                            }
+            // Google API のレートに引っ掛かるなどの可能性があるので 10 程度にする
+            googleDriveFilesInfo.mapWithCoroutine(Semaphore(10)) { googleFile ->
+                try {
+                    transactionalOperator.executeAndAwait {
+                        kotlinx.coroutines.withContext(MDCContext(mapOf("requestId" to "${googleFile.name}:${googleFile.id}"))) {
+                            downloadFileBackUpService
+                                .execute(
+                                    googleFile = googleFile,
+                                    omoideBackupPath = Path.of(destination),
+                                    familyId = familyId,
+                                ).onRight {
+                                    PostProcess.onSuccess(it)
+                                }.onLeft {
+                                    throw RollbackException(it)
+                                }
                         }
-                    } catch (e: RollbackException) {
-                        val error = e.leftValue
-                        when (error) {
-                            is DriveService.WriteError -> PostProcess.onFailure(error)
-                            else -> PostProcess.onUnmanaged(e)
-                        }
+                    }
+                } catch (e: RollbackException) {
+                    val error = e.leftValue
+                    when (error) {
+                        is DriveService.WriteError -> PostProcess.onFailure(error)
+                        else -> PostProcess.onUnmanaged(e)
                     }
                 }
             }
