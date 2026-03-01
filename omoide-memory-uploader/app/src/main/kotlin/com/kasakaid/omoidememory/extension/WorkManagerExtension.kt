@@ -26,7 +26,7 @@ object WorkManagerExtension {
         val constraints =
             Constraints
                 .Builder()
-                .setRequiredNetworkType(NetworkType.UNMETERED)
+                .setRequiredNetworkType(NetworkType.CONNECTED) // 🚀 手動の場合はとにかく動かして、Wi-Fi 未接続なら Uploader 側でエラーを出す
                 .setRequiresBatteryNotLow(true)
                 .build()
 
@@ -36,14 +36,14 @@ object WorkManagerExtension {
                 .setConstraints(constraints)
                 .build()
         val tag = "FileSelectionRoute"
-        Log.d(tag, "手動アップロードをキューに入れました")
+        Log.d(tag, "手動アップロードをキューに入れました (REPLACE)")
 
         // enqueueUniqueWork + REPLACE は 「名前（Unique Name）」を指定することで、ひとつの管理枠を作ります。
         // 唯一性の保証: 同じ名前のジョブがすでにキューにある場合、WorkManager が介入します。
         // KEEP の魔法: 前のリクエストが完了していない場合は何もしない
         enqueueUniqueWork(
             "manual_upload",
-            ExistingWorkPolicy.KEEP,
+            ExistingWorkPolicy.REPLACE,
             uploadRequest,
         )
     }
