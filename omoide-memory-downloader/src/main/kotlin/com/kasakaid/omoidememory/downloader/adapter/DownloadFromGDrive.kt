@@ -51,7 +51,7 @@ class DownloadFromGDrive(
                 throw IllegalArgumentException("絶対パスを指定してください。")
             }
 
-            logger.info { "Google Drive からのダウンロード処理を開始します (対象アカウント数: ${GoogleTokenCollector.allCredentials.size})" }
+            logger.info { "Google Drive からのダウンロード処理を開始します (対象アカウント数: ${GoogleTokenCollector.refreshTokens.size})" }
 
             // 1. Google Driveから対象フォルダ配下の全ファイルを取得 (全アカウントから)
             val accountsFilesMap = driveService.listFiles()

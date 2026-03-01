@@ -28,6 +28,7 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
+import java.sql.Ref
 import kotlin.io.path.name
 
 /**
@@ -39,24 +40,26 @@ class GoogleDriveService(
 ) : DriveService {
     private val logger = KotlinLogging.logger {}
 
-    private val driveServices: List<Pair<UserCredentials, Drive>> by lazy {
-        GoogleTokenCollector.allCredentials.map { creds ->
-            creds to
-                Drive
-                    .Builder(
-                        GoogleNetHttpTransport.newTrustedTransport(),
-                        GsonFactory.getDefaultInstance(),
-                        GoogleTokenCollector.asHttpCredentialsAdapter(creds),
-                    ).setApplicationName("OmoideMemoryDownloader")
-                    .build()
+    private val driveServices: Map<RefreshToken, Drive> by lazy {
+        GoogleTokenCollector.refreshTokens.associateWith { token ->
+            val creds = GoogleTokenCollector.createUserCredentials(token)
+            Drive
+                .Builder(
+                    GoogleNetHttpTransport.newTrustedTransport(),
+                    GsonFactory.getDefaultInstance(),
+                    GoogleTokenCollector.asHttpCredentialsAdapter(creds),
+                ).setApplicationName("OmoideMemoryDownloader")
+                .build()
         }
     }
+
+    private fun Map<RefreshToken, Drive>.of(refreshToken: RefreshToken): Drive? = this[refreshToken]
 
     /**
      * リフレッシュトークンを使ってアクセストークンを新しく生成します。
      */
     private suspend fun <T> executeWithSafeRefresh(
-        creds: UserCredentials,
+        refreshToken: RefreshToken,
         block: suspend () -> T,
     ): T =
         try {
@@ -64,6 +67,7 @@ class GoogleDriveService(
         } catch (e: GoogleJsonResponseException) {
             if (e.statusCode == 401) {
                 logger.warn { "401 Unauthorized detected. Refreshing token manually and retrying..." }
+                val creds = GoogleTokenCollector.createUserCredentials(refreshToken)
                 GoogleTokenCollector.refreshIfNeeded(creds)
                 block()
             } else {
@@ -76,11 +80,11 @@ class GoogleDriveService(
      * やりたいこととしてはそこまで厳密に違うものとして扱いたいわけではなく、
      * 同じファイル名であれば同じものとして扱うで十分、そのため、重複は落とす。
      */
-    override suspend fun listFiles(): Map<String, List<File>> {
-        val resultFilesMap = mutableMapOf<String, List<File>>()
+    override suspend fun listFiles(): Map<RefreshToken, List<File>> {
+        val resultFilesMap = mutableMapOf<RefreshToken, List<File>>()
 
-        driveServices.forEach { (creds, drive) ->
-            val googleFiles = mutableMapOf<String, File>()
+        driveServices.forEach { (refreshToken, drive) ->
+            val googleFiles = mutableMapOf<RefreshToken, File>()
             var pageToken: String? = null
             // Fields to fetch: include imageMediaMetadata, videoMediaMetadata for OmoideMemory population
             val fields =
@@ -88,7 +92,7 @@ class GoogleDriveService(
 
             do {
                 val result =
-                    executeWithSafeRefresh(creds) {
+                    executeWithSafeRefresh(refreshToken) {
                         drive
                             .files()
                             .list()
@@ -113,11 +117,11 @@ class GoogleDriveService(
                 pageToken = result.nextPageToken
             } while (pageToken != null)
             logger.info {
-                "Account (${creds.refreshToken.take(
+                "Account (${refreshToken.take(
                     8,
                 )}...): Found ${googleFiles.size} unique files in Google Drive compatible with OmoideMemory"
             }
-            resultFilesMap[creds.refreshToken] = googleFiles.values.toList()
+            resultFilesMap[refreshToken] = googleFiles.values.toList()
         }
 
         logger.info { "Found files in ${resultFilesMap.size} accounts." }
@@ -168,11 +172,11 @@ class GoogleDriveService(
                     Files
                         .newOutputStream(tempPath, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)
                         .use { outputStream ->
-                            val (creds, drive) =
-                                driveServices.firstOrNull { it.first.refreshToken == refreshToken }
+                            val drive =
+                                driveServices.of(refreshToken)
                                     ?: throw IllegalArgumentException("指定された refreshToken のドライブサービスが見つかりませんでした。")
 
-                            executeWithSafeRefresh(creds) {
+                            executeWithSafeRefresh(refreshToken) {
                                 drive
                                     .files()
                                     .get(googleFile.id)
@@ -245,16 +249,16 @@ class GoogleDriveService(
 
     override suspend fun moveToTrash(
         fileId: String,
-        refreshToken: String,
+        refreshToken: RefreshToken,
     ): Either<Throwable, Unit> =
         withContext(Dispatchers.IO) {
             Either
                 .catch {
-                    val (creds, drive) =
-                        driveServices.firstOrNull { it.first.refreshToken == refreshToken }
+                    val drive =
+                        driveServices.of(refreshToken)
                             ?: throw IllegalArgumentException("指定された refreshToken のドライブサービスが見つかりませんでした。")
 
-                    executeWithSafeRefresh(creds) {
+                    executeWithSafeRefresh(refreshToken) {
                         val fileInfo =
                             drive
                                 .files()
@@ -291,16 +295,16 @@ class GoogleDriveService(
 
     override suspend fun delete(
         fileId: String,
-        refreshToken: String,
+        refreshToken: RefreshToken,
     ): Either<Throwable, Unit> =
         withContext(Dispatchers.IO) {
             Either
                 .catch {
-                    val (creds, drive) =
-                        driveServices.firstOrNull { it.first.refreshToken == refreshToken }
+                    val drive =
+                        driveServices.of(refreshToken)
                             ?: throw IllegalArgumentException("指定された refreshToken のドライブサービスが見つかりませんでした。")
 
-                    executeWithSafeRefresh(creds) {
+                    executeWithSafeRefresh(refreshToken) {
                         drive.files().delete(fileId).execute()
                         logger.info { "ファイルを物理削除しました: $fileId" }
                     }
