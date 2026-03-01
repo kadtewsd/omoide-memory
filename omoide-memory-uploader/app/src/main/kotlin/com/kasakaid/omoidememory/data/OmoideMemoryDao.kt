@@ -25,10 +25,10 @@ interface OmoideMemoryDao {
     @Query(
         """
         SELECT * FROM uploaded_memories
-        WHERE state = 'READY'
+        WHERE state = :state
     """,
     )
-    suspend fun findReadyForUpload(): List<OmoideMemory>
+    suspend fun findReadyForUpload(state: UploadState = UploadState.READY): List<OmoideMemory>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertUploadedFiles(omoideMemories: List<OmoideMemory>)
@@ -46,6 +46,6 @@ interface OmoideMemoryDao {
         driveFileId: String,
     )
 
-    @Query("DELETE FROM uploaded_memories WHERE state = 'READY'")
-    suspend fun deleteReadyFiles()
+    @Query("DELETE FROM uploaded_memories WHERE state = :state")
+    suspend fun deleteReadyFiles(state: UploadState = UploadState.READY)
 }
