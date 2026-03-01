@@ -8,37 +8,40 @@ import kotlin.system.exitProcess
 
 private val logger = KotlinLogging.logger {}
 
+typealias RefreshToken = String
+
 /**
  * Google のトークンを取得するためのコンポーネント
  * 複数の認証情報を JSON から読み込む
  */
 object GoogleTokenCollector {
+    private val clientId =
+        System.getenv("GDRIVE_CLIENT_ID")
+            ?: throw IllegalArgumentException("環境変数 GDRIVE_CLIENT_ID が設定されていません。")
+    private val clientSecret =
+        System.getenv("GDRIVE_CLIENT_SECRET")
+            ?: throw IllegalArgumentException("環境変数 GDRIVE_CLIENT_SECRET が設定されていません。")
+
     init {
         // DNSの名前解決失敗（Negative Cache）を長時間保持しないように設定
         java.security.Security.setProperty("networkaddress.cache.negative.ttl", "0")
     }
 
-    val allCredentials: List<UserCredentials> =
+    val refreshTokens: List<RefreshToken> =
         run {
-            val clientId =
-                System.getenv("GDRIVE_CLIENT_ID")
-                    ?: throw IllegalArgumentException("環境変数 GDRIVE_CLIENT_ID が設定されていません。")
-            val clientSecret =
-                System.getenv("GDRIVE_CLIENT_SECRET")
-                    ?: throw IllegalArgumentException("環境変数 GDRIVE_CLIENT_SECRET が設定されていません。")
-            val refreshTokens =
+            val tokens =
                 System.getenv("GDRIVE_REFRESH_TOKENS")
                     ?: throw IllegalArgumentException("環境変数 GDRIVE_REFRESH_TOKENS が設定されていません。")
-
-            refreshTokens.split(",").map { token ->
-                UserCredentials
-                    .newBuilder()
-                    .setClientId(clientId)
-                    .setClientSecret(clientSecret)
-                    .setRefreshToken(token.trim())
-                    .build()
-            }
+            tokens.split(",").map { it.trim() }
         }
+
+    fun createUserCredentials(token: RefreshToken): UserCredentials =
+        UserCredentials
+            .newBuilder()
+            .setClientId(clientId)
+            .setClientSecret(clientSecret)
+            .setRefreshToken(token)
+            .build()
 
     fun refreshIfNeeded(userCredentials: UserCredentials) {
         try {
