@@ -81,14 +81,14 @@ class DownloadFileBackUpService(
                     DriveService.WriteError(omoideMemory.localPath)
                 }.map { successResult ->
                     driveService
-                        .moveToTrash(googleFile.id, refreshToken)
+                        .delete(googleFile.id, refreshToken)
                         .fold(
                             ifRight = {
-                                logger.info { "ゴミ箱移動完了: ${googleFile.name} (ID: ${googleFile.id})" }
+                                logger.info { "Google Drive からの物理削除完了: ${googleFile.name} (ID: ${googleFile.id})" }
                                 successResult
                             },
                             ifLeft = {
-                                logger.error { "ゴミ箱移動失敗（ファイルは残ります）: ${googleFile.name} | Reason: ${it.message}" }
+                                logger.error { "Google Drive からの物理削除失敗（ファイルは残ります）: ${googleFile.name} | Reason: ${it.message}" }
                                 logger.error { OneLineLogFormatter.format(it) }
                                 return DriveService.WriteError(omoideMemory.localPath).left()
                             },

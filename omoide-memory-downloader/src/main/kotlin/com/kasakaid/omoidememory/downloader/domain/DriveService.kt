@@ -50,4 +50,16 @@ interface DriveService {
         fileId: String,
         refreshToken: String,
     ): Either<Throwable, Unit>
+
+    /**
+     * 指定ファイルをGoogle Driveから物理的に削除（ゴミ箱を経由しない完全削除）
+     *
+     * @param fileId Google Drive ファイルID
+     * @param refreshToken 処理対象アカウントの refreshToken
+     * @return 成功時は Unit、失敗時は Throwable を Either 型で返す
+     */
+    suspend fun delete(
+        fileId: String,
+        refreshToken: String,
+    ): Either<Throwable, Unit>
 }
