@@ -6,7 +6,7 @@
 
 ## 概要
 
-このアプリケーションは、Google Driveの指定フォルダに保存された写真・動画を自動的にローカルPCにダウンロードし、撮影日時に基づいて整理して保存します。保存完了後、Google Drive上のファイルは自動削除されます。
+このアプリケーションは、Google Drive のルート直下に保存された写真・動画を自動的にローカル PC にダウンロードし、撮影日時に基づいて整理して保存します。保存完了後、Google Drive 上のファイルは自動削除（ゴミ箱へ移動）されます。
 
 家庭内での写真・動画のバックアップを目的とした、無人実行可能なバッチアプリケーションです。
 
@@ -38,9 +38,10 @@ OAuth 同意画面の「アプリを公開」はリフレッシュトークン�
 
 ## 主な機能
 
-### 1. Google Driveからのファイル取得
-- 指定したフォルダ配下の全ファイルを自動取得
-- サービスアカウントによる無人認証（ブラウザ認証不要）
+指定したフォルダ配下の全ファイルを自動取得
+- Google Drive の **ルート直下** にある全ファイルを自動取得
+- 複数アカウントの同時監視に対応
+- OAuth リフレッシュトークンによる無人認証
 
 ### 2. 自動ファイル整理
 撮影日時に基づいて以下の構造で自動配置します。
@@ -121,116 +122,50 @@ cd omoide-memory-migration
 
 これで必要なテーブル（`synced_omoide_photo`, `synced_omoide_video`など）が作成されます。
 
-# 3. Google Drive 認証設定（OAuth リフレッシュトークン方式）
+# 3. Google Drive 認証設定
 
-## 3-1. リフレッシュトークンを使用する理由
+本アプリは OAuth リフレッシュトークンを使用して、複数の Google Drive アカウントから同時にファイルをダウンロードします。
 
-当初、無人実行に適した**サービスアカウント**を使用していました。しかし、2025年4月15日以降に作成されたサービスアカウントは「マイドライブ」へのアクセスが制限されており、**ファイルの削除操作ができない**ことが判明しました。
+## 3-1. 認証情報 JSON ファイルの作成 (USER_CREDENTIALS_PATH)
 
-そこで代替として、対象アカウントの**OAuth リフレッシュトークン**を使用する方式に切り替えました。リフレッシュトークンは revoke しない限り無期限で有効であり、対象アカウントのすべての権限でドライブを操作できるため、ファイルの削除を含むバックアップ処理を無人で実行できます。
+環境変数 `USER_CREDENTIALS_PATH` に、監視対象となるすべてのアカウントの認証情報を記述した JSON ファイルのパスを指定します。
 
-> ⚠️ OAuth アプリが**テストモード**の場合、リフレッシュトークンは7日で失効します。無人運用には後述のアプリ公開が必須です。
+1. 以下の形式で JSON ファイルを作成します（**Git で管理しない安全な場所に保存してください**）。
+
+```json
+[
+  {
+    "client_id": "YOUR_CLIENT_ID_1",
+    "client_secret": "YOUR_CLIENT_SECRET_1",
+    "refresh_token": "YOUR_REFRESH_TOKEN_1"
+  },
+  {
+    "client_id": "YOUR_CLIENT_ID_2",
+    "client_secret": "YOUR_CLIENT_SECRET_2",
+    "refresh_token": "YOUR_REFRESH_TOKEN_2"
+  }
+]
+```
+
+2. ファイルのフルパスを環境変数 `USER_CREDENTIALS_PATH` に設定します。
+
+## 3-2. ファミリー ID の設定 (OMOIDE_FAMILY_ID)
+
+複数のアカウントから取得したコンテンツをデータベース内で一元管理するために「ファミリー ID」を使用します。
+
+1. 任意の識別子（例: `my-home-server`）を環境変数 `OMOIDE_FAMILY_ID` に設定してください。
+    - この ID は、データベースの `family_id` カラムに保存され、家族やグループ単位でのデータ管理に使用されます。
 
 ---
 
-## 3-2. リフレッシュトークン取得手順
+## 3-3. セキュリティに関する重要な注意事項
 
-### ① Google Cloud Console でプロジェクト・API を準備する
+`USER_CREDENTIALS_PATH` で指定する JSON ファイルには、各アカウントの Google Drive に対する強力な操作権限（閲覧・ダウンロード・削除）が含まれています。
 
-1. [Google Cloud Console](https://console.cloud.google.com/) にアクセス
-
-2. **新しいプロジェクトを作成**（既存プロジェクトがあればスキップ）
-   - プロジェクト名: 例 `omoide-memory`
-
-3. **Google Drive API を有効化**
-   - 「API とサービス」→「ライブラリ」→「Google Drive API」を検索して有効化
-
-### ② OAuth 同意画面を設定する
-
-1. 「API とサービス」→「OAuth 同意画面」を開く
-2. ユーザーの種類: **外部** を選択して「作成」
-3. 必須項目を入力
-   - アプリ名: 例 `omoide-memory`
-   - ユーザーサポートメール: 自分のメールアドレス
-   - デベロッパーの連絡先: 自分のメールアドレス
-4. 「スコープ」の設定で以下を追加
-   - `https://www.googleapis.com/auth/drive`
-5. 「テストユーザー」に自分の Google アカウントを追加
-
-### ③ アプリを公開する
-
-テストモードのままではリフレッシュトークンが7日で失効します。以下の手順で公開モードに移行してください。
-
-> 「公開」と言っても一般に公開されるわけではありません。`drive` スコープのみであれば Google の審査なしに公開できます（未確認アプリの警告は出ますが動作に問題はありません）。
-
-1. 「OAuth 同意画面」→「アプリを公開」ボタンをクリック
-2. 確認ダイアログで「確認」
-
-### ④ OAuth クライアント ID を作成する
-
-1. 「API とサービス」→「認証情報」→「認証情報を作成」→「OAuth クライアント ID」
-2. アプリケーションの種類: **デスクトップアプリ**
-3. 名前: 例 `omoide-desktop-client`
-4. 作成後、`client_id` と `client_secret` をメモ
-
-### ⑤ リフレッシュトークンを取得する（初回のみ）
-
-ブラウザで以下の URL にアクセスして認可コードを取得します（`CLIENT_ID` は実際の値に置き換えてください）。
-
-```
-https://accounts.google.com/o/oauth2/v2/auth?client_id=CLIENT_ID&redirect_uri=urn:ietf:wg:oauth:2.0:oob&response_type=code&scope=https://www.googleapis.com/auth/drive&access_type=offline&prompt=consent
-```
-
-1. 自分のアカウントでログインして権限を許可
-2. 表示された**認可コード**をコピー
-3. 以下のコマンドでリフレッシュトークンを取得（`CLIENT_ID` / `CLIENT_SECRET` / 認可コードは実際の値に置き換えてください）
-
-```bash
-curl -X POST https://oauth2.googleapis.com/token \
-  -d client_id=CLIENT_ID \
-  -d client_secret=CLIENT_SECRET \
-  -d code=取得した認可コード \
-  -d redirect_uri=urn:ietf:wg:oauth:2.0:oob \
-  -d grant_type=authorization_code
-```
-
-4. レスポンス中の `"refresh_token"` の値をメモする
-   - **再表示されないため必ず控えておくこと**
-   - この値は次の手順でシステムプロパティに設定する
-
-### ⑥ フォルダ ID を取得する
-
-1. Google Drive で対象フォルダを開く
-2. URL の末尾がフォルダ ID
-    - 例: `https://drive.google.com/drive/folders/1a2b3c4d5e6f7g8h9i0j` → ID は `1a2b3c4d5e6f7g8h9i0j`
+- **Git に絶対コミットしない**: `.gitignore` に指定するか、プロジェクトディレクトリ外に保存してください。
+- **漏洩時の対応**: [Google Cloud Console](https://console.cloud.google.com/) から該当の OAuth クライアント ID を即座に削除または無効化してください。
 
 ---
-
-## 3-3. アプリを公開してリフレッシュトークンを永続化する
-
-OAuth アプリが**テストモード**のままだと、リフレッシュトークンは **7日後に失効**します。無人バックアップを継続稼働させるには、アプリを**本番モード（公開済み）**に移行する必要があります。
-
-> 「公開」と言っても一般に公開されるわけではありません。スコープが `drive` のみであれば、Googleの審査なしに公開できます（未確認アプリの警告は出ますが動作に問題はありません）。
-
-### 公開手順
-
-1. [Google Cloud Console](https://console.cloud.google.com/) →「API とサービス」→「OAuth 同意画面」を開く
-2. 「アプリを公開」ボタンをクリック
-3. 確認ダイアログで「確認」
-
-公開後は、同じ手順（3-2 ④）でリフレッシュトークンを再取得してください。このトークンは有効期限なしで使用できます（ただし、明示的にアクセスを取り消した場合を除く）。
-
-## 3-4. セキュリティに関する重要な注意事項
-
-`GDRIVE_CLIENT_SECRET` と `GDRIVE_REFRESH_TOKEN` が漏洩した場合、**第三者があなたの Google Drive に対してファイルの閲覧・ダウンロード・削除を含むあらゆる操作を実行できます。**
-
-以下を必ず守ってください。
-
-- **bat ファイルや設定ファイルを Git にコミットしない**
-  `.gitignore` に bat ファイルのパスを追加し、絶対にリポジトリに含めないこと。
-
-- **漏洩した場合は即座に無効化する**
-  [Google Cloud Console](https://console.cloud.google.com/) →「API とサービス」→「認証情報」から OAuth クライアントを削除することで、該当トークンは即時失効します。
 
 ---
 
@@ -242,10 +177,8 @@ OAuth アプリが**テストモード**のままだと、リフレッシュト�
 |-------------------------------------|---------|----------------------------------------|---------------------------------|---|
 | `spring.profiles.active`            | システム    | 全コマンド                                  | Spring Boot プロファイル。デフォルトは debug | `local` |
 | `runnerName`                        | システム    | 全コマンド                                  | 実行するコマンド名                       | `download-from-gdrive` |
-| `GDRIVE_CLIENT_ID`                  | 環境      | download-from-gdrive                   | OAuth クライアント ID                 | `123456789-abcdef.apps.googleusercontent.com` |
-| `GDRIVE_CLIENT_SECRET`              | 環境      | download-from-gdrive                   | OAuth クライアントシークレット              | `GOCSPX-xxxxxxxxxx` |
-| `GDRIVE_REFRESH_TOKEN`              | 環境      | download-from-gdrive                   | ⑤で取得したリフレッシュトークン                | `1//0gxxxxxxxx` |
-| `GDRIVE_FOLDER_ID`                  | 環境      | download-from-gdrive                   | ダウンロード対象の Google Drive フォルダ ID  | `1a2b3c4d5e6f7g8h9i0j` |
+| `USER_CREDENTIALS_PATH`             | 環境      | download-from-gdrive                   | 認証情報 JSON ファイルのフルパス                | `C:\secrets\gdrive_creds.json` |
+| `OMOIDE_FAMILY_ID`                  | 環境      | download-from-gdrive                   | ファミリー識別子 (DBのグループ化に使用)     | `my-home-01` |
 | `OMOIDE_BACKUP_DIRECTORY`           | 環境      | download-from-gdrive / ImportFromLocal | バックアップ先ディレクトリ                   | `G:\my-memory` |
 | `OMOIDE_COMMENT_FILE_PATH`          | 環境      | comment-import                         | インポートするコメントファイルのパス              | `C:\Users\user\comments.csv` |
 | `EXTERNAL_STORAGE_BACKUP_DIRECTORY` | 環境      | backup-to-local                       | バックアップ先ディレクトリ                   | `G:\my-memory` |
@@ -301,10 +234,8 @@ java -Dspring.profiles.active=local -DrunnerName=download-from-gdrive -jar C:\pa
 
 "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] 実行終了" | Out-File -FilePath $logFile -Encoding utf8 -Append
 
-$env:GDRIVE_CLIENT_ID      = "YOUR_CLIENT_ID"
-$env:GDRIVE_CLIENT_SECRET  = "YOUR_CLIENT_SECRET"
-$env:GDRIVE_REFRESH_TOKEN  = "YOUR_REFRESH_TOKEN"
-$env:GDRIVE_FOLDER_ID      = "1a2b3c4d5e6f7g8h9i0j"
+$env:USER_CREDENTIALS_PATH = "C:\secrets\gdrive_creds.json"
+$env:OMOIDE_FAMILY_ID       = "my-home-01"
 $env:OMOIDE_BACKUP_DIRECTORY = "H:\YOUR_DIRECTORY"
 
 java -Dspring.profiles.active=local -DrunnerName=download-from-gdrive -jar C:\path\to\omoide-memory-downloader.jar
@@ -352,11 +283,9 @@ java -Dspring.profiles.active=local -DrunnerName=backup-to-local -jar C:\path\to
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding             = [System.Text.Encoding]::UTF8
 
-$env:GDRIVE_CLIENT_ID        = "YOUR_CLIENT_ID"
-$env:GDRIVE_CLIENT_SECRET    = "YOUR_CLIENT_SECRET"
-$env:GDRIVE_REFRESH_TOKEN    = "YOUR_REFRESH_TOKEN"
-$env:GDRIVE_FOLDER_ID        = "1a2b3c4d5e6f7g8h9i0j"
-$env:OMOIDE_BACKUP_DIRECTORY = "H:\YOUR_DIRECTORY"
+$env:USER_CREDENTIALS_PATH    = "C:\secrets\gdrive_creds.json"
+$env:OMOIDE_FAMILY_ID         = "my-home-01"
+$env:OMOIDE_BACKUP_DIRECTORY  = "H:\YOUR_DIRECTORY"
 
 $logFile = "C:\logs\omoide-downloader.log"
 $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"

@@ -14,7 +14,7 @@ interface DriveService {
      * 実装は Google や OneDrive などいずれかのドライブのアクセスになります。
      * まずはメタデータを取得します。
      */
-    suspend fun listFiles(gdriveFolderId: String): List<File>
+    suspend fun listFiles(): List<File>
 
     /**
      * 取得されたファイルのメタデータから実体を取得してメモリをローカル PC のストレージに書き込みます。

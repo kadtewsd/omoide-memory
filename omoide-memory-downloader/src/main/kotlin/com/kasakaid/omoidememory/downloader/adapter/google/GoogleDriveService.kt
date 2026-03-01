@@ -38,14 +38,22 @@ class GoogleDriveService(
 ) : DriveService {
     private val logger = KotlinLogging.logger {}
 
-    private val driveService: Drive get() =
-        Drive
+    private var currentCredentials: UserCredentials? = null
+
+    fun useCredentials(credentials: UserCredentials) {
+        currentCredentials = credentials
+    }
+
+    private val driveService: Drive get() {
+        val creds = currentCredentials ?: throw IllegalStateException("Credentials must be set before using driveService")
+        return Drive
             .Builder(
                 GoogleNetHttpTransport.newTrustedTransport(),
                 GsonFactory.getDefaultInstance(),
-                GoogleTokenCollector.asHttpCredentialsAdapter(),
+                GoogleTokenCollector.asHttpCredentialsAdapter(creds),
             ).setApplicationName("OmoideMemoryDownloader")
             .build()
+    }
 
     /**
      * リフレッシュトークンを使ってアクセストークンを新しく生成します。
@@ -56,7 +64,8 @@ class GoogleDriveService(
         } catch (e: GoogleJsonResponseException) {
             if (e.statusCode == 401) {
                 logger.warn { "401 Unauthorized detected. Refreshing token manually and retrying..." }
-                GoogleTokenCollector.refreshIfNeeded()
+                val creds = currentCredentials ?: throw IllegalStateException("Credentials must be set")
+                GoogleTokenCollector.refreshIfNeeded(creds)
                 block()
             } else {
                 throw e
@@ -68,7 +77,7 @@ class GoogleDriveService(
      * やりたいこととしてはそこまで厳密に違うものとして扱いたいわけではなく、
      * 同じファイル名であれば同じものとして扱うで十分、そのため、重複は落とす。
      */
-    override suspend fun listFiles(gdriveFolderId: String): List<File> {
+    override suspend fun listFiles(): List<File> {
         val googleFiles = mutableMapOf<String, File>()
         var pageToken: String? = null
 
@@ -84,9 +93,9 @@ class GoogleDriveService(
                         .list()
                         .setQ(
                             """
-                            trashed = false
+                            'root' in parents
+                            and trashed = false
                             and mimeType != 'application/vnd.google-apps.folder'
-                            and '$gdriveFolderId' in parents
                             """.trimIndent(),
                         ).setFields(fields)
                         .setPageToken(pageToken)

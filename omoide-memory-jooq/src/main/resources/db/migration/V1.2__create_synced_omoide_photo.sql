@@ -29,7 +29,7 @@ CREATE TABLE omoide_memory.synced_omoide_photo (
 );
 
 COMMENT ON TABLE  omoide_memory.synced_omoide_photo IS '同期済みおもいで写真';
-COMMENT ON COLUMN omoide_memory.commenter.family_id IS '家族ID。GDRIVE_FOLDER_ID にはいっているドライブのIDがはいる';
+COMMENT ON COLUMN omoide_memory.commenter.family_id IS '家族ID。OMOIDE_FAMILY_ID にはいっているドライブのIDがはいる';
 COMMENT ON COLUMN omoide_memory.synced_omoide_photo.id IS 'サロゲートキー';
 COMMENT ON COLUMN omoide_memory.synced_omoide_photo.file_name IS 'ファイル名（ユニーク）';
 COMMENT ON COLUMN omoide_memory.synced_omoide_photo.server_path IS 'サーバー上のパス';

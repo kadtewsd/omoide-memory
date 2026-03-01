@@ -53,9 +53,6 @@ class GoogleDriveService
                 name = omoide.name
                 mimeType = omoide.mimeType
 
-                // 2. 保存先（ビルド時に指定したフォルダID）
-                parents = listOf(com.kasakaid.omoidememory.BuildConfig.OMOIDE_FOLDER_ID)
-
                 // 3. 撮影日時をセット (Drive上での「作成日」として扱われる)
                 // omoide.dateTaken はミリ秒(Long)を想定
                 createdTime = omoide.dateTaken?.let { DateTime(it) }

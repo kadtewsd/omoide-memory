@@ -3,14 +3,18 @@ package com.kasakaid.omoidememory.downloader.adapter.google
 import com.google.auth.http.HttpCredentialsAdapter
 import com.google.auth.oauth2.UserCredentials
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import java.net.UnknownHostException
+import java.nio.file.Path
+import kotlin.io.path.readText
 import kotlin.system.exitProcess
 
 private val logger = KotlinLogging.logger {}
 
 /**
  * Google のトークンを取得するためのコンポーネント
- * このコンポーネントを介して Google へアクセスする
+ * 複数の認証情報を JSON から読み込む
  */
 object GoogleTokenCollector {
     init {
@@ -18,28 +22,33 @@ object GoogleTokenCollector {
         java.security.Security.setProperty("networkaddress.cache.negative.ttl", "0")
     }
 
-    private val userCredentials: UserCredentials =
+    @Serializable
+    data class GoogleCredential(
+        val client_id: String,
+        val client_secret: String,
+        val refresh_token: String,
+    )
+
+    val allCredentials: List<UserCredentials> =
         run {
+            val credentialsPath =
+                System.getenv("USER_CREDENTIALS_PATH")
+                    ?: throw IllegalArgumentException("環境変数 USER_CREDENTIALS_PATH が設定されていません。")
 
-            val clientId =
-                System.getenv("GDRIVE_CLIENT_ID")
-                    ?: throw IllegalArgumentException("環境変数 GDRIVE_CLIENT_ID が設定されていません。")
-            val clientSecret =
-                System.getenv("GDRIVE_CLIENT_SECRET")
-                    ?: throw IllegalArgumentException("環境変数 GDRIVE_CLIENT_SECRET が設定されていません。")
-            val refreshToken =
-                System.getenv("GDRIVE_REFRESH_TOKEN")
-                    ?: throw IllegalArgumentException("環境変数 GDRIVE_REFRESH_TOKEN が設定されていません。")
+            val jsonText = Path.of(credentialsPath).readText()
+            val credentials = Json.decodeFromString<List<GoogleCredential>>(jsonText)
 
-            UserCredentials
-                .newBuilder()
-                .setClientId(clientId)
-                .setClientSecret(clientSecret)
-                .setRefreshToken(refreshToken)
-                .build()
+            credentials.map { cred ->
+                UserCredentials
+                    .newBuilder()
+                    .setClientId(cred.client_id)
+                    .setClientSecret(cred.client_secret)
+                    .setRefreshToken(cred.refresh_token)
+                    .build()
+            }
         }
 
-    fun refreshIfNeeded() {
+    fun refreshIfNeeded(userCredentials: UserCredentials) {
         try {
             userCredentials.refresh()
         } catch (e: UnknownHostException) {
@@ -52,5 +61,5 @@ object GoogleTokenCollector {
         }
     }
 
-    fun asHttpCredentialsAdapter(): HttpCredentialsAdapter = HttpCredentialsAdapter(userCredentials)
+    fun asHttpCredentialsAdapter(userCredentials: UserCredentials): HttpCredentialsAdapter = HttpCredentialsAdapter(userCredentials)
 }
