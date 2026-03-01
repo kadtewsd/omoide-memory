@@ -288,4 +288,26 @@ class GoogleDriveService(
                     e
                 }
         }
+
+    override suspend fun delete(
+        fileId: String,
+        refreshToken: String,
+    ): Either<Throwable, Unit> =
+        withContext(Dispatchers.IO) {
+            Either
+                .catch {
+                    val (creds, drive) =
+                        driveServices.firstOrNull { it.first.refreshToken == refreshToken }
+                            ?: throw IllegalArgumentException("指定された refreshToken のドライブサービスが見つかりませんでした。")
+
+                    executeWithSafeRefresh(creds) {
+                        drive.files().delete(fileId).execute()
+                        logger.info { "ファイルを物理削除しました: $fileId" }
+                    }
+                    Unit
+                }.mapLeft { e ->
+                    logger.error { "物理削除失敗: ${OneLineLogFormatter.format(e)}" }
+                    e
+                }
+        }
 }
