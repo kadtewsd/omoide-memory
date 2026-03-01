@@ -10,7 +10,7 @@ private val logger = KotlinLogging.logger {}
 
 /**
  * Google のトークンを取得するためのコンポーネント
- * このコンポーネントを介して Google へアクセスする
+ * 複数の認証情報を JSON から読み込む
  */
 object GoogleTokenCollector {
     init {
@@ -18,28 +18,29 @@ object GoogleTokenCollector {
         java.security.Security.setProperty("networkaddress.cache.negative.ttl", "0")
     }
 
-    private val userCredentials: UserCredentials =
+    val allCredentials: List<UserCredentials> =
         run {
-
             val clientId =
                 System.getenv("GDRIVE_CLIENT_ID")
                     ?: throw IllegalArgumentException("環境変数 GDRIVE_CLIENT_ID が設定されていません。")
             val clientSecret =
                 System.getenv("GDRIVE_CLIENT_SECRET")
                     ?: throw IllegalArgumentException("環境変数 GDRIVE_CLIENT_SECRET が設定されていません。")
-            val refreshToken =
-                System.getenv("GDRIVE_REFRESH_TOKEN")
-                    ?: throw IllegalArgumentException("環境変数 GDRIVE_REFRESH_TOKEN が設定されていません。")
+            val refreshTokens =
+                System.getenv("GDRIVE_REFRESH_TOKENS")
+                    ?: throw IllegalArgumentException("環境変数 GDRIVE_REFRESH_TOKENS が設定されていません。")
 
-            UserCredentials
-                .newBuilder()
-                .setClientId(clientId)
-                .setClientSecret(clientSecret)
-                .setRefreshToken(refreshToken)
-                .build()
+            refreshTokens.split(",").map { token ->
+                UserCredentials
+                    .newBuilder()
+                    .setClientId(clientId)
+                    .setClientSecret(clientSecret)
+                    .setRefreshToken(token.trim())
+                    .build()
+            }
         }
 
-    fun refreshIfNeeded() {
+    fun refreshIfNeeded(userCredentials: UserCredentials) {
         try {
             userCredentials.refresh()
         } catch (e: UnknownHostException) {
@@ -52,5 +53,5 @@ object GoogleTokenCollector {
         }
     }
 
-    fun asHttpCredentialsAdapter(): HttpCredentialsAdapter = HttpCredentialsAdapter(userCredentials)
+    fun asHttpCredentialsAdapter(userCredentials: UserCredentials): HttpCredentialsAdapter = HttpCredentialsAdapter(userCredentials)
 }

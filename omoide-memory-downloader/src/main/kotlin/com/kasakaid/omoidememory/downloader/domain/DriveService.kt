@@ -13,8 +13,9 @@ interface DriveService {
      * ドライブからファイルを持ってきます。
      * 実装は Google や OneDrive などいずれかのドライブのアクセスになります。
      * まずはメタデータを取得します。
+     * 戻り値は refreshToken をキー、そのアカウントのファイルリストを値とした Map です。
      */
-    suspend fun listFiles(gdriveFolderId: String): List<File>
+    suspend fun listFiles(): Map<String, List<File>>
 
     /**
      * 取得されたファイルのメタデータから実体を取得してメモリをローカル PC のストレージに書き込みます。
@@ -33,6 +34,7 @@ interface DriveService {
         omoideBackupPath: Path,
         mediaType: MediaType,
         familyId: String,
+        refreshToken: String,
     ): Either<WriteError, OmoideMemory>
 
     /**
@@ -41,7 +43,11 @@ interface DriveService {
      * delete() は使用禁止（DB保存失敗時に完全消去されるため）
      *
      * @param fileId Google Drive ファイルID
+     * @param refreshToken 処理対象アカウントの refreshToken
      * @return 成功時は Unit、失敗時は Throwable を Either 型で返す
      */
-    suspend fun moveToTrash(fileId: String): Either<Throwable, Unit>
+    suspend fun moveToTrash(
+        fileId: String,
+        refreshToken: String,
+    ): Either<Throwable, Unit>
 }
