@@ -7,8 +7,11 @@ import com.drew.metadata.exif.GpsDirectory
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Instant
+import java.time.LocalDateTime
 import java.time.OffsetDateTime
 import java.time.ZoneId
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 
 object MediaMetadataFactory {
     fun createVideo(localFile: LocalFile): VideoMetadata {
@@ -29,8 +32,15 @@ object MediaMetadataFactory {
 
         val captured =
             exifSubIFD
-                ?.getDate(ExifSubIFDDirectory.TAG_DATETIME_ORIGINAL)
-                ?.toInstant()
+                ?.getString(ExifSubIFDDirectory.TAG_DATETIME_ORIGINAL)
+                ?.let { raw ->
+                    // "2026:02:28 23:10:52" 形式をLocalDateTimeとして直接パース
+                    LocalDateTime.parse(raw, DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ss"))
+                }?.let { localDateTime ->
+                    OffsetDateTime.of(localDateTime, ZoneOffset.ofHours(9)) // JST固定
+                    // または ZoneId.systemDefault() を使う場合:
+                    // localDateTime.atZone(ZoneId.systemDefault()).toOffsetDateTime()
+                }?.toInstant()
                 ?.let { OffsetDateTime.ofInstant(it, ZoneId.systemDefault()) }
 
         return PhotoMetadata(
