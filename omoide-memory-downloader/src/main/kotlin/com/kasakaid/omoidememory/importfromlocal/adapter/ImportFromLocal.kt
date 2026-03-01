@@ -35,8 +35,8 @@ class ImportFromLocal(
                     ?: throw IllegalArgumentException("環境変数 OMOIDE_BACKUP_DIRECTORY が設定されていません")
 
             val familyId =
-                environment.getProperty("GDRIVE_FOLDER_ID")
-                    ?: throw IllegalArgumentException("環境変数 GDRIVE_FOLDER_ID が設定されていません")
+                environment.getProperty("OMOIDE_FAMILY_ID")
+                    ?: throw IllegalArgumentException("環境変数 OMOIDE_FAMILY_ID が設定されていません")
             logger.info { "対象ディレクトリ: $sourceDir" }
 
             // ディレクトリ配下の全ファイルを取得

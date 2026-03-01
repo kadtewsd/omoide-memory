@@ -27,10 +27,11 @@ class DownloadFileBackUpService(
     suspend fun execute(
         googleFile: File,
         omoideBackupPath: Path,
-        gdriveFolderId: String,
+        familyId: String,
+        refreshToken: String,
     ): Either<DriveService.WriteError, FileIOFinish> =
         either {
-            logger.info { "取得対象ファイル: ${googleFile.name}" }
+            logger.info { "取得対象ファイル: ${googleFile.name} (Account: ${refreshToken.take(8)}...)" }
 
             // Check if already exists in DB to skip
             val type =
@@ -61,7 +62,8 @@ class DownloadFileBackUpService(
                         googleFile = googleFile,
                         omoideBackupPath = omoideBackupPath,
                         mediaType = type,
-                        familyId = gdriveFolderId,
+                        familyId = familyId,
+                        refreshToken = refreshToken,
                     ).bind()
 
             // 6. DBに保存
@@ -79,7 +81,7 @@ class DownloadFileBackUpService(
                     DriveService.WriteError(omoideMemory.localPath)
                 }.map { successResult ->
                     driveService
-                        .moveToTrash(googleFile.id)
+                        .moveToTrash(googleFile.id, refreshToken)
                         .fold(
                             ifRight = {
                                 logger.info { "ゴミ箱移動完了: ${googleFile.name} (ID: ${googleFile.id})" }
