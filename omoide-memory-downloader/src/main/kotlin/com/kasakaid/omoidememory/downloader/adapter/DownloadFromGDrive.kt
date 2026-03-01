@@ -54,31 +54,36 @@ class DownloadFromGDrive(
             logger.info { "Google Drive からのダウンロード処理を開始します (対象アカウント数: ${GoogleTokenCollector.allCredentials.size})" }
 
             // 1. Google Driveから対象フォルダ配下の全ファイルを取得 (全アカウントから)
-            val googleDriveFilesInfo: List<File> = driveService.listFiles()
-            logger.info { "合計 ${googleDriveFilesInfo.size} 件のファイルが見つかりました。" }
+            val accountsFilesMap = driveService.listFiles()
+            logger.info { "合計 ${accountsFilesMap.values.sumOf { it.size }} 件のファイルが見つかりました。" }
 
-            // Google API のレートに引っ掛かるなどの可能性があるので 10 程度にする
-            googleDriveFilesInfo.mapWithCoroutine(Semaphore(10)) { googleFile ->
-                try {
-                    transactionalOperator.executeAndAwait {
-                        kotlinx.coroutines.withContext(MDCContext(mapOf("requestId" to "${googleFile.name}:${googleFile.id}"))) {
-                            downloadFileBackUpService
-                                .execute(
-                                    googleFile = googleFile,
-                                    omoideBackupPath = Path.of(destination),
-                                    familyId = familyId,
-                                ).onRight {
-                                    PostProcess.onSuccess(it)
-                                }.onLeft {
-                                    throw RollbackException(it)
-                                }
+            accountsFilesMap.forEach { (refreshToken, googleDriveFilesInfo) ->
+                logger.info { "アカウント (${refreshToken.take(8)}...) の ${googleDriveFilesInfo.size} 件のファイルを処理します" }
+
+                // Google API のレートに引っ掛かるなどの可能性があるので 10 程度にする
+                googleDriveFilesInfo.mapWithCoroutine(Semaphore(10)) { googleFile ->
+                    try {
+                        transactionalOperator.executeAndAwait {
+                            kotlinx.coroutines.withContext(MDCContext(mapOf("requestId" to "${googleFile.name}:${googleFile.id}"))) {
+                                downloadFileBackUpService
+                                    .execute(
+                                        googleFile = googleFile,
+                                        omoideBackupPath = Path.of(destination),
+                                        familyId = familyId,
+                                        refreshToken = refreshToken,
+                                    ).onRight {
+                                        PostProcess.onSuccess(it)
+                                    }.onLeft {
+                                        throw RollbackException(it)
+                                    }
+                            }
                         }
-                    }
-                } catch (e: RollbackException) {
-                    val error = e.leftValue
-                    when (error) {
-                        is DriveService.WriteError -> PostProcess.onFailure(error)
-                        else -> PostProcess.onUnmanaged(e)
+                    } catch (e: RollbackException) {
+                        val error = e.leftValue
+                        when (error) {
+                            is DriveService.WriteError -> PostProcess.onFailure(error)
+                            else -> PostProcess.onUnmanaged(e)
+                        }
                     }
                 }
             }

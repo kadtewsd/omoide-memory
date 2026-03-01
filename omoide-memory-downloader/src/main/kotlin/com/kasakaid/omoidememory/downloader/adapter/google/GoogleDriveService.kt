@@ -76,10 +76,11 @@ class GoogleDriveService(
      * やりたいこととしてはそこまで厳密に違うものとして扱いたいわけではなく、
      * 同じファイル名であれば同じものとして扱うで十分、そのため、重複は落とす。
      */
-    override suspend fun listFiles(): List<File> {
-        val googleFiles = mutableMapOf<String, File>()
+    override suspend fun listFiles(): Map<String, List<File>> {
+        val resultFilesMap = mutableMapOf<String, List<File>>()
 
         driveServices.forEach { (creds, drive) ->
+            val googleFiles = mutableMapOf<String, File>()
             var pageToken: String? = null
             // Fields to fetch: include imageMediaMetadata, videoMediaMetadata for OmoideMemory population
             val fields =
@@ -111,10 +112,16 @@ class GoogleDriveService(
 
                 pageToken = result.nextPageToken
             } while (pageToken != null)
+            logger.info {
+                "Account (${creds.refreshToken.take(
+                    8,
+                )}...): Found ${googleFiles.size} unique files in Google Drive compatible with OmoideMemory"
+            }
+            resultFilesMap[creds.refreshToken] = googleFiles.values.toList()
         }
 
-        logger.info { "Found ${googleFiles.size} unique files in Google Drive compatible with OmoideMemory" }
-        return googleFiles.values.toList()
+        logger.info { "Found files in ${resultFilesMap.size} accounts." }
+        return resultFilesMap
     }
 
     suspend fun <T> tryIo(
@@ -147,6 +154,7 @@ class GoogleDriveService(
         omoideBackupPath: Path,
         mediaType: MediaType,
         familyId: String,
+        refreshToken: String,
     ): Either<DriveService.WriteError, OmoideMemory> =
         withContext(Dispatchers.IO) {
             either {
@@ -160,28 +168,17 @@ class GoogleDriveService(
                     Files
                         .newOutputStream(tempPath, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)
                         .use { outputStream ->
-                            // 全アカウントから該当ファイルを持つものを探してダウンロード。
-                            // 404 の場合はスキップし、最初に見つかったもので実行する。
-                            val success =
-                                driveServices.any { (creds, drive) ->
-                                    try {
-                                        executeWithSafeRefresh(creds) {
-                                            drive
-                                                .files()
-                                                .get(googleFile.id)
-                                                .executeMediaAndDownloadTo(outputStream)
-                                        }
-                                        true
-                                    } catch (e: GoogleJsonResponseException) {
-                                        if (e.statusCode == 404) false else throw e
-                                    }
-                                }
-                            if (!success) {
-                                logger.error { "どの登録アカウントからもファイルが見つかりませんでした: ${googleFile.name}" }
-                                DriveService.WriteError(tempPath).left()
-                            } else {
-                                Unit.right()
+                            val (creds, drive) =
+                                driveServices.firstOrNull { it.first.refreshToken == refreshToken }
+                                    ?: throw IllegalArgumentException("指定された refreshToken のドライブサービスが見つかりませんでした。")
+
+                            executeWithSafeRefresh(creds) {
+                                drive
+                                    .files()
+                                    .get(googleFile.id)
+                                    .executeMediaAndDownloadTo(outputStream)
                             }
+                            Unit.right()
                         }
                 }.bind()
 
@@ -246,52 +243,45 @@ class GoogleDriveService(
             }
         }
 
-    override suspend fun moveToTrash(fileId: String): Either<Throwable, Unit> =
+    override suspend fun moveToTrash(
+        fileId: String,
+        refreshToken: String,
+    ): Either<Throwable, Unit> =
         withContext(Dispatchers.IO) {
             Either
                 .catch {
-                    var moved = false
-                    driveServices.forEach { (creds, drive) ->
-                        if (moved) return@forEach
-                        try {
-                            executeWithSafeRefresh(creds) {
-                                val fileInfo =
-                                    drive
-                                        .files()
-                                        .get(fileId)
-                                        .setFields("name, parents")
-                                        .execute()
-                                val fileName = fileInfo.name
-                                val parents = fileInfo.parents
+                    val (creds, drive) =
+                        driveServices.firstOrNull { it.first.refreshToken == refreshToken }
+                            ?: throw IllegalArgumentException("指定された refreshToken のドライブサービスが見つかりませんでした。")
 
-                                if (fileName != null && parents != null && parents.isNotEmpty()) {
-                                    val parentId = parents[0]
-                                    val q = "name = '${fileName.replace("'", "\\'")}' and '$parentId' in parents and trashed = false"
-                                    val filesToDelete =
-                                        drive
-                                            .files()
-                                            .list()
-                                            .setQ(q)
-                                            .setFields("files(id)")
-                                            .execute()
-                                    filesToDelete.files?.forEach { f ->
-                                        drive.files().update(f.id, File().setTrashed(true)).execute()
-                                        logger.info { "同名ファイルをゴミ箱へ移動しました: $fileName (ID: ${f.id})" }
-                                    }
-                                } else {
-                                    drive.files().update(fileId, File().setTrashed(true)).execute()
-                                }
+                    executeWithSafeRefresh(creds) {
+                        val fileInfo =
+                            drive
+                                .files()
+                                .get(fileId)
+                                .setFields("name, parents")
+                                .execute()
+                        val fileName = fileInfo.name
+                        val parents = fileInfo.parents
+
+                        if (fileName != null && parents != null && parents.isNotEmpty()) {
+                            val parentId = parents[0]
+                            val q = "name = '${fileName.replace("'", "\\'")}' and '$parentId' in parents and trashed = false"
+                            val filesToDelete =
+                                drive
+                                    .files()
+                                    .list()
+                                    .setQ(q)
+                                    .setFields("files(id)")
+                                    .execute()
+                            filesToDelete.files?.forEach { f ->
+                                drive.files().update(f.id, File().setTrashed(true)).execute()
+                                logger.info { "同名ファイルをゴミ箱へ移動しました: $fileName (ID: ${f.id})" }
                             }
-                            moved = true
-                        } catch (e: GoogleJsonResponseException) {
-                            if (e.statusCode == 404) {
-                                // Ignore and try next account
-                            } else {
-                                throw e
-                            }
+                        } else {
+                            drive.files().update(fileId, File().setTrashed(true)).execute()
                         }
                     }
-                    if (!moved) logger.warn { "File $fileId not found in any account during trash operation." }
                     Unit
                 }.mapLeft { e ->
                     logger.error { "ゴミ箱移動失敗: ${OneLineLogFormatter.format(e)}" }
