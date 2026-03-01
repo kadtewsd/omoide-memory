@@ -39,18 +39,22 @@ class GoogleDriveService(
 ) : DriveService {
     private val logger = KotlinLogging.logger {}
 
-    private val driveServices: List<Pair<UserCredentials, Drive>> by lazy {
-        GoogleTokenCollector.allCredentials.map { creds ->
-            creds to
-                Drive
-                    .Builder(
-                        GoogleNetHttpTransport.newTrustedTransport(),
-                        GsonFactory.getDefaultInstance(),
-                        GoogleTokenCollector.asHttpCredentialsAdapter(creds),
-                    ).setApplicationName("OmoideMemoryDownloader")
-                    .build()
+    private val driveServices: Map<String, Pair<UserCredentials, Drive>> by lazy {
+        GoogleTokenCollector.allCredentials.associate { creds ->
+            creds.refreshToken to (
+                creds to
+                    Drive
+                        .Builder(
+                            GoogleNetHttpTransport.newTrustedTransport(),
+                            GsonFactory.getDefaultInstance(),
+                            GoogleTokenCollector.asHttpCredentialsAdapter(creds),
+                        ).setApplicationName("OmoideMemoryDownloader")
+                        .build()
+            )
         }
     }
+
+    private fun Map<String, Pair<UserCredentials, Drive>>.of(refreshToken: String): Pair<UserCredentials, Drive>? = this[refreshToken]
 
     /**
      * リフレッシュトークンを使ってアクセストークンを新しく生成します。
@@ -79,7 +83,7 @@ class GoogleDriveService(
     override suspend fun listFiles(): Map<String, List<File>> {
         val resultFilesMap = mutableMapOf<String, List<File>>()
 
-        driveServices.forEach { (creds, drive) ->
+        driveServices.values.forEach { (creds, drive) ->
             val googleFiles = mutableMapOf<String, File>()
             var pageToken: String? = null
             // Fields to fetch: include imageMediaMetadata, videoMediaMetadata for OmoideMemory population
@@ -169,7 +173,7 @@ class GoogleDriveService(
                         .newOutputStream(tempPath, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)
                         .use { outputStream ->
                             val (creds, drive) =
-                                driveServices.firstOrNull { it.first.refreshToken == refreshToken }
+                                driveServices.of(refreshToken)
                                     ?: throw IllegalArgumentException("指定された refreshToken のドライブサービスが見つかりませんでした。")
 
                             executeWithSafeRefresh(creds) {
@@ -251,7 +255,7 @@ class GoogleDriveService(
             Either
                 .catch {
                     val (creds, drive) =
-                        driveServices.firstOrNull { it.first.refreshToken == refreshToken }
+                        driveServices.of(refreshToken)
                             ?: throw IllegalArgumentException("指定された refreshToken のドライブサービスが見つかりませんでした。")
 
                     executeWithSafeRefresh(creds) {
@@ -297,7 +301,7 @@ class GoogleDriveService(
             Either
                 .catch {
                     val (creds, drive) =
-                        driveServices.firstOrNull { it.first.refreshToken == refreshToken }
+                        driveServices.of(refreshToken)
                             ?: throw IllegalArgumentException("指定された refreshToken のドライブサービスが見つかりませんでした。")
 
                     executeWithSafeRefresh(creds) {
