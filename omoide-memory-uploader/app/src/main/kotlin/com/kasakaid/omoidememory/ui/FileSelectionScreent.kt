@@ -50,6 +50,8 @@ import coil.decode.ImageDecoderDecoder
 import coil.decode.VideoFrameDecoder
 import coil.request.ImageRequest
 import coil.request.videoFrameMillis
+import com.kasakaid.omoidememory.data.ExcludeOmoide
+import com.kasakaid.omoidememory.data.ExcludeOmoideRepository
 import com.kasakaid.omoidememory.data.OmoideMemory
 import com.kasakaid.omoidememory.data.OmoideMemoryRepository
 import com.kasakaid.omoidememory.data.UploadState
@@ -59,11 +61,13 @@ import com.kasakaid.omoidememory.extension.WorkManagerExtension.enqueueWManualUp
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeProgressByManual
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeUploadingStateByManualTag
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.scan
 import kotlinx.coroutines.flow.stateIn
@@ -71,12 +75,21 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 import kotlin.collections.set
 
+enum class SelectionMode(
+    val label: String,
+) {
+    TARGET("アップロード対象"),
+    EXCLUDED("アップロード除外"),
+    DONE("アップロード済み"),
+}
+
 @HiltViewModel
 class FileSelectionViewModel
     @Inject
     constructor(
         private val localFileRepository: OmoideMemoryRepository,
-        private val application: Application,
+        private val excludeOmoideRepository: ExcludeOmoideRepository,
+        application: Application,
     ) : ViewModel() {
         /**
          * 下記の挙動であるため、画面上に「なにも表示されない」時間がない。scan を使うことで UX を向上 (改善の余地はある)
@@ -89,18 +102,53 @@ class FileSelectionViewModel
          * メリット: 画面（LazyColumnなど）に、ファイルが一つずつ「ポポポッ」と追加されていくような、視覚的に面白い動きになります。
          * デメリット: * 100件ある場合、UI は 100 回更新されます。また、途中の「未完成のリスト」を UI が受け取ることになります。
          */
-        private val pendingFiles: StateFlow<List<OmoideMemory>> =
-            localFileRepository
-                .getPotentialPendingFiles()
-                .onEach { file ->
-                    // 🚀 データが流れてきたタイミングで、まだ選択状態が空なら全選択にする
-                    selectedIds[file.id] = _onOff.value.isChecked
-                }.scan(emptyList<OmoideMemory>()) { acc, value -> acc + value } // リストに成長させる
-                .stateIn(
-                    scope = viewModelScope,
-                    started = SharingStarted.WhileSubscribed(5000),
-                    initialValue = emptyList(),
-                )
+        private val _selectionMode = MutableStateFlow(SelectionMode.TARGET)
+        val selectionMode: StateFlow<SelectionMode> = _selectionMode.asStateFlow()
+
+        fun setSelectionMode(mode: SelectionMode) {
+            _selectionMode.value = mode
+            selectedIds.clear()
+        }
+
+        /**
+         * [監視対象]
+         * 1. 表示モード (selectionMode): ラジオボタンの切り替え
+         * 2. DBの全レコード件数 (getAllUploadedIdsAsFlow): 除外(exclude)や復活(revive)による件数変化
+         *
+         * [振る舞い]
+         * 上記いずれかに変化があれば、flatMapLatest によって表示対象の Flow を最新のものに差し替える。
+         * 特に除外(exclude)や「復活」操作などで DB の件数が変わった際、この combine が発火することで
+         * TARGET モードの getPotentialPendingFiles() が再スキャンを開始し、画面がリアクティブに更新される。
+         */
+        @OptIn(ExperimentalCoroutinesApi::class)
+        val pendingFiles: StateFlow<List<OmoideMemory>> =
+            combine(selectionMode, localFileRepository.getAllUploadedIdsAsFlow()) { mode, _ ->
+                mode
+            }.flatMapLatest { mode ->
+                when (mode) {
+                    SelectionMode.TARGET -> {
+                        localFileRepository
+                            .getPotentialPendingFiles()
+                            .onEach { file ->
+                                if (selectedIds[file.id] == null) {
+                                    selectedIds[file.id] = _onOff.value.isChecked
+                                }
+                            }.scan(emptyList()) { acc, value -> acc + value }
+                    }
+
+                    SelectionMode.EXCLUDED -> {
+                        localFileRepository.findByAsFlow(UploadState.EXCLUDED)
+                    }
+
+                    SelectionMode.DONE -> {
+                        localFileRepository.findByAsFlow(UploadState.DONE)
+                    }
+                }
+            }.stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5000),
+                initialValue = emptyList(),
+            )
 
         // 選択されたハッシュを管理する Set
         val selectedIds = mutableStateMapOf<Long, Boolean>()
@@ -147,24 +195,18 @@ class FileSelectionViewModel
 
         fun markAsRemoved(ids: List<Long>) {
             viewModelScope.launch {
-                val targets = visibleFiles.value.filter { it.id in ids }.map { it.exclude() }
+                val targets = pendingFiles.value.filter { it.id in ids }.map { it.exclude() }
                 if (targets.isNotEmpty()) {
                     localFileRepository.save(targets)
-                    removedIds.value += ids
                 }
             }
         }
 
-        private val removedIds = MutableStateFlow<Set<Long>>(emptySet())
-        val visibleFiles: StateFlow<List<OmoideMemory>> =
-            pendingFiles
-                .combine(removedIds) { list, removed ->
-                    list.filter { it.id !in removed }
-                }.stateIn(
-                    scope = viewModelScope,
-                    started = SharingStarted.WhileSubscribed(5000),
-                    initialValue = emptyList(),
-                )
+        fun revive(ids: List<Long>) {
+            viewModelScope.launch {
+                excludeOmoideRepository.revive(ids)
+            }
+        }
     }
 
 @Composable
@@ -172,7 +214,7 @@ fun FileSelectionRoute(
     viewModel: FileSelectionViewModel = hiltViewModel(),
     toMainScreen: () -> Unit,
 ) {
-    val pendingFiles by viewModel.visibleFiles.collectAsState()
+    val pendingFiles by viewModel.pendingFiles.collectAsState()
     val onOff by viewModel.onOff.collectAsState()
     val isUploading by viewModel.isUploading.collectAsState()
     val progress by viewModel.progress.collectAsState()
@@ -196,6 +238,10 @@ fun FileSelectionRoute(
     FileSelectionScreen(
         selectedIds = viewModel.selectedIds,
         pendingFiles = pendingFiles,
+        selectionMode = viewModel.selectionMode.collectAsState().value,
+        onSelectionModeChanged = { mode ->
+            viewModel.setSelectionMode(mode)
+        },
         onContentFixed = { ids ->
             // 🚀 ここで Worker をキック
             viewModel.startManualUpload(ids)
@@ -213,6 +259,9 @@ fun FileSelectionRoute(
         onRemove = { ids ->
             viewModel.markAsRemoved(ids)
         },
+        onRevive = { ids ->
+            viewModel.revive(ids)
+        },
     )
 }
 
@@ -220,6 +269,8 @@ fun FileSelectionRoute(
 fun FileSelectionScreen(
     selectedIds: Map<Long, Boolean>,
     pendingFiles: List<OmoideMemory>,
+    selectionMode: SelectionMode,
+    onSelectionModeChanged: (SelectionMode) -> Unit,
     onContentFixed: (fileIds: List<Long>) -> Unit,
     onToggle: (hash: Long) -> Unit,
     toMainScreen: () -> Unit,
@@ -228,6 +279,7 @@ fun FileSelectionScreen(
     isUploading: Boolean,
     progress: Pair<Int, Int>?,
     onRemove: (ids: List<Long>) -> Unit,
+    onRevive: (ids: List<Long>) -> Unit,
 ) {
     Scaffold(
         topBar = { AppBarWithBackIcon(toMainScreen) },
@@ -236,36 +288,66 @@ fun FileSelectionScreen(
             val totalSize = selectedFiles.totalSize()
             val isOverLimit = selectedFiles.isOverLimit()
             Column(
-                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                if (selectedFiles.isNotEmpty()) {
-                    Button(
-                        onClick = {
-                            onRemove(selectedFiles.map { it.id })
-                        },
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                        enabled = !isUploading,
-                    ) {
-                        Text("すべてアップロード除外")
+                when (selectionMode) {
+                    SelectionMode.TARGET -> {
+                        if (selectedFiles.isNotEmpty()) {
+                            Button(
+                                onClick = {
+                                    onRemove(selectedFiles.map { it.id })
+                                },
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .padding(bottom = 8.dp),
+                                enabled = !isUploading,
+                            ) {
+                                Text("すべてアップロード除外")
+                            }
+                        }
+                        if (isOverLimit) {
+                            Text(
+                                text = "10GB を超えるアップロードはできません",
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(bottom = 8.dp),
+                            )
+                        } else {
+                            Text("アップロード対象のファイル (${selectedFiles.size} 件)")
+                        }
                     }
-                }
-                if (isOverLimit) {
-                    Text(
-                        text = "10GB を超えるアップロードはできません",
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(bottom = 8.dp),
-                    )
+
+                    SelectionMode.EXCLUDED, SelectionMode.DONE -> {}
                 }
                 Button(
                     onClick = {
-                        onContentFixed(selectedFiles.map { it.id })
+                        when (selectionMode) {
+                            SelectionMode.TARGET -> {
+                                onContentFixed(selectedFiles.map { it.id })
+                            }
+
+                            SelectionMode.EXCLUDED -> {
+                                onRevive(selectedFiles.map { it.id })
+                            }
+
+                            SelectionMode.DONE -> {}
+                        }
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = !isUploading && selectedFiles.isNotEmpty() && !isOverLimit,
+                    enabled =
+                        !isUploading && selectedFiles.isNotEmpty() && (selectionMode != SelectionMode.TARGET || !isOverLimit) &&
+                            selectionMode != SelectionMode.DONE,
                 ) {
-                    Text("${selectedFiles.size} 件 (${formatSize(totalSize)}) をアップロード")
+                    when (selectionMode) {
+                        SelectionMode.TARGET -> Text("${selectedFiles.size} 件 (${formatSize(totalSize)}) をアップロード")
+                        SelectionMode.EXCLUDED -> Text("${selectedFiles.size} 件 をアップロード待ちに復活")
+                        SelectionMode.DONE -> Text("${selectedFiles.size} 件 受付不可")
+                    }
                 }
             }
         },
@@ -277,6 +359,32 @@ fun FileSelectionScreen(
                     .fillMaxSize()
                     .padding(innerPadding),
         ) {
+            // ラジオボタンの追加
+            androidx.compose.foundation.layout.Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween,
+            ) {
+                SelectionMode.entries.forEach { mode ->
+                    androidx.compose.foundation.layout.Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        androidx.compose.material3.RadioButton(
+                            selected = selectionMode == mode,
+                            onClick = { onSelectionModeChanged(mode) },
+                        )
+                        Text(
+                            text = mode.label,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.clickable { onSelectionModeChanged(mode) },
+                        )
+                    }
+                }
+            }
+
             MySwitch(
                 onOff = onOff,
                 onSwitchChanged,

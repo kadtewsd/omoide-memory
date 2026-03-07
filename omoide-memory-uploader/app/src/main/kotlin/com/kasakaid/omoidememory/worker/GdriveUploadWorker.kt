@@ -9,6 +9,7 @@ import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.kasakaid.omoidememory.data.OmoideMemory
 import com.kasakaid.omoidememory.data.OmoideMemoryRepository
+import com.kasakaid.omoidememory.data.UploadState
 import com.kasakaid.omoidememory.worker.WorkerHelper.createForegroundInfo
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -49,7 +50,7 @@ class GdriveUploadWorker
             setForeground(appContext.createForegroundInfo("ManualUpload"))
             return withContext(Dispatchers.IO) {
                 // READY のものを DB から取得
-                val targets = omoideMemoryRepository.findReadyForUpload()
+                val targets = omoideMemoryRepository.findBy(UploadState.READY)
 
                 if (targets.isEmpty()) {
                     Log.d(TAG, "アップロード対象がありません")

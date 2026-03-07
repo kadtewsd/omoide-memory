@@ -51,3 +51,7 @@ enum class UploadState {
     FAILED, // 失敗（任意）
     EXCLUDED, // 除外
 }
+
+class ExcludeOmoide(
+    val id: Long,
+)

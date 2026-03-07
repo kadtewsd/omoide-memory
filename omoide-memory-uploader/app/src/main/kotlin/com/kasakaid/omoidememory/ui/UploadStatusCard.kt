@@ -94,7 +94,7 @@ class UploadStatusViewModel
         // UI State
         val uploadedCount: StateFlow<Int> =
             omoideMemoryRepository
-                .getUploadedCount()
+                .getUploadedCount(listOf(com.kasakaid.omoidememory.data.UploadState.DONE))
                 .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
         fun triggerManualUpload() {
