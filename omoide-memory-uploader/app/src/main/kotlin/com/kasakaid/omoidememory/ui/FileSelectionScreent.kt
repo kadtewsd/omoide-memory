@@ -207,6 +207,13 @@ class FileSelectionViewModel
                 excludeOmoideRepository.revive(ids)
             }
         }
+
+        fun deletePhysically(ids: List<Long>) {
+            viewModelScope.launch {
+                localFileRepository.deletePhysically(ids)
+                selectedIds.clear() // 削除後は選択解除
+            }
+        }
     }
 
 @Composable
@@ -262,6 +269,9 @@ fun FileSelectionRoute(
         onRevive = { ids ->
             viewModel.revive(ids)
         },
+        onDeletePhysically = { ids ->
+            viewModel.deletePhysically(ids)
+        },
     )
 }
 
@@ -280,6 +290,7 @@ fun FileSelectionScreen(
     progress: Pair<Int, Int>?,
     onRemove: (ids: List<Long>) -> Unit,
     onRevive: (ids: List<Long>) -> Unit,
+    onDeletePhysically: (ids: List<Long>) -> Unit,
 ) {
     Scaffold(
         topBar = { AppBarWithBackIcon(toMainScreen) },
@@ -344,13 +355,37 @@ fun FileSelectionScreen(
                         }
                     }
 
-                    // 除外ボタン (TARGETモード時のみ有効)
+                    // 右側のボタン (TARGET: 一括除外 / EXCLUDED: 物理削除)
                     Button(
-                        onClick = { onRemove(selectedFiles.map { it.id }) },
+                        onClick = {
+                            when (selectionMode) {
+                                SelectionMode.TARGET -> {
+                                    onRemove(selectedFiles.map { it.id })
+                                }
+
+                                SelectionMode.EXCLUDED -> {
+                                    onDeletePhysically(selectedFiles.map { it.id })
+                                }
+
+                                SelectionMode.DONE -> {}
+                            }
+                        },
                         modifier = Modifier.weight(1f),
-                        enabled = !isUploading && selectedFiles.isNotEmpty() && selectionMode == SelectionMode.TARGET,
+                        enabled =
+                            !isUploading && selectedFiles.isNotEmpty() &&
+                                (selectionMode == SelectionMode.TARGET || selectionMode == SelectionMode.EXCLUDED),
                     ) {
-                        Text("一括除外")
+                        when (selectionMode) {
+                            SelectionMode.TARGET -> {
+                                Text("一括除外")
+                            }
+
+                            SelectionMode.EXCLUDED -> {
+                                Text("物理削除")
+                            }
+
+                            else -> {}
+                        }
                     }
                 }
             }

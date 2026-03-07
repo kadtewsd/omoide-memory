@@ -1,5 +1,6 @@
 package com.kasakaid.omoidememory.data
 
+import android.content.ContentUris
 import android.content.Context
 import android.database.Cursor
 import android.provider.MediaStore
@@ -20,6 +21,7 @@ import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.withContext
 import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -189,6 +191,24 @@ class OmoideMemoryRepository
         suspend fun delete(ids: List<Long>) {
             if (ids.isEmpty()) return
             omoideMemoryDao.delete(ids)
+        }
+
+        /**
+         * 物理的にファイルを削除し、DB の履歴も削除する
+         */
+        suspend fun deletePhysically(ids: List<Long>) {
+            if (ids.isEmpty()) return
+            withContext(Dispatchers.IO) {
+                ids.forEach { id ->
+                    val uri = ContentUris.withAppendedId(FolderUri.content, id)
+                    try {
+                        context.contentResolver.delete(uri, null, null)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "ファイルの物理削除に失敗: $id", e)
+                    }
+                }
+                omoideMemoryDao.delete(ids)
+            }
         }
 
         suspend fun findBy(state: UploadState): List<OmoideMemory> = omoideMemoryDao.findBy(state)
