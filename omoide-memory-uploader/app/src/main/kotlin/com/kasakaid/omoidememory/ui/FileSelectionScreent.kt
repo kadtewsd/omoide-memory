@@ -3,8 +3,9 @@ package com.kasakaid.omoidememory.ui
 import android.app.Application
 import android.content.Context
 import android.os.Build
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -63,6 +64,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.scan
 import kotlinx.coroutines.flow.stateIn
@@ -88,7 +90,7 @@ class FileSelectionViewModel
          * メリット: 画面（LazyColumnなど）に、ファイルが一つずつ「ポポポッ」と追加されていくような、視覚的に面白い動きになります。
          * デメリット: * 100件ある場合、UI は 100 回更新されます。また、途中の「未完成のリスト」を UI が受け取ることになります。
          */
-        val pendingFiles: StateFlow<List<OmoideMemory>> =
+        private val pendingFiles: StateFlow<List<OmoideMemory>> =
             localFileRepository
                 .getPotentialPendingFiles()
                 .onEach { file ->
@@ -143,6 +145,27 @@ class FileSelectionViewModel
                 workManager.enqueueWManualUpload()
             }
         }
+
+        fun markAsRemoved(id: Long) {
+            viewModelScope.launch {
+                val target = visibleFiles.value.find { it.id == id }
+                if (target != null) {
+                    localFileRepository.markAsRemove(target)
+                    removedIds.value += id
+                }
+            }
+        }
+
+        private val removedIds = MutableStateFlow<Set<Long>>(emptySet())
+        val visibleFiles: StateFlow<List<OmoideMemory>> =
+            pendingFiles
+                .combine(removedIds) { list, removed ->
+                    list.filter { it.id !in removed }
+                }.stateIn(
+                    scope = viewModelScope,
+                    started = SharingStarted.WhileSubscribed(5000),
+                    initialValue = emptyList(),
+                )
     }
 
 @Composable
@@ -150,7 +173,7 @@ fun FileSelectionRoute(
     viewModel: FileSelectionViewModel = hiltViewModel(),
     toMainScreen: () -> Unit,
 ) {
-    val pendingFiles by viewModel.pendingFiles.collectAsState()
+    val pendingFiles by viewModel.visibleFiles.collectAsState()
     val onOff by viewModel.onOff.collectAsState()
     val isUploading by viewModel.isUploading.collectAsState()
     val progress by viewModel.progress.collectAsState()
@@ -188,6 +211,9 @@ fun FileSelectionRoute(
         },
         isUploading = isUploading,
         progress = progress,
+        onRemove = { id ->
+            viewModel.markAsRemoved(id)
+        },
     )
 }
 
@@ -202,6 +228,7 @@ fun FileSelectionScreen(
     onSwitchChanged: (OnOff) -> Unit,
     isUploading: Boolean,
     progress: Pair<Int, Int>?,
+    onRemove: (id: Long) -> Unit,
 ) {
     Scaffold(
         topBar = { AppBarWithBackIcon(toMainScreen) },
@@ -264,6 +291,7 @@ fun FileSelectionScreen(
                         item = item,
                         isSelected = selectedIds[item.id] ?: false,
                         onToggle = { onToggle(item.id) },
+                        onRemove = { onRemove(item.id) },
                     )
                 }
             }
@@ -292,11 +320,13 @@ fun Context.imageLoader(): ImageLoader {
         }.build()
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun FileItemCard(
     item: OmoideMemory,
     isSelected: Boolean,
     onToggle: () -> Unit,
+    onRemove: () -> Unit,
 ) {
     // 選択状態に応じた色の定義
     val borderColor = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
@@ -310,7 +340,10 @@ fun FileItemCard(
                 .aspectRatio(1f) // Box自体を正方形に
                 .border(borderStroke, borderColor, RoundedCornerShape(8.dp)) // 枠線を追加
                 .clip(RoundedCornerShape(8.dp))
-                .clickable { onToggle() }, // clip の後に clickable を書くのがコツ
+                .combinedClickable(
+                    onClick = { onToggle() },
+                    onLongClick = { onRemove() },
+                ), // clip の後に clickable を書くのがコツ
     ) {
         AsyncImage(
             model =

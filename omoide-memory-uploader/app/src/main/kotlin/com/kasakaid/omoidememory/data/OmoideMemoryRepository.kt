@@ -44,9 +44,10 @@ class OmoideMemoryRepository
             flow {
                 // MediaStore から名前・サイズ・パスを取得
                 // Room から「アップロード済みメタデータ一覧」を取得して、名前・サイズで簡易フィルタ
-                // 1. 最初の一回だけ DB から全ハッシュをロードして Set にする
+                // すでに DB に存在する ID（アップロード済、除外済含む）をすべて取得して Set にする
                 val uploadedNameSet = omoideMemoryDao.getAllUploadedIds().toSet()
                 getPendingFiles { file ->
+                    // DB に存在しないもの（未アップロードかつ未除外）のみを抽出
                     file.takeIf { !uploadedNameSet.contains(it.id) }.toOption()
                 }.let {
                     emitAll(it)
@@ -185,6 +186,12 @@ class OmoideMemoryRepository
             id: Long,
             driveFileId: String,
         ) = omoideMemoryDao.markAsDone(id, driveFileId)
+
+        suspend fun markAsRemove(id: Long) = omoideMemoryDao.markAsExcluded(id)
+
+        suspend fun markAsRemove(entity: OmoideMemory) {
+            omoideMemoryDao.insertUploadedFile(entity.apply { state = UploadState.EXCLUDED })
+        }
 
         suspend fun clearReadyFiles() = omoideMemoryDao.deleteReadyFiles()
     }

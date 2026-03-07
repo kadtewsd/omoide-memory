@@ -46,6 +46,15 @@ interface OmoideMemoryDao {
         driveFileId: String,
     )
 
+    @Query(
+        """
+        UPDATE uploaded_memories
+        SET state = 'EXCLUDED'
+        WHERE id = :id
+    """,
+    )
+    suspend fun markAsExcluded(id: Long)
+
     @Query("DELETE FROM uploaded_memories WHERE state = :state")
     suspend fun deleteReadyFiles(state: UploadState = UploadState.READY)
 }

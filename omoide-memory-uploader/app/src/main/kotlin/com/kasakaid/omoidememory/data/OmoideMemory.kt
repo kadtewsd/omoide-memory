@@ -38,4 +38,5 @@ enum class UploadState {
     UPLOADING, // 実行中（任意）
     DONE, // 完了
     FAILED, // 失敗（任意）
+    EXCLUDED, // 除外
 }
