@@ -24,16 +24,16 @@ class OmoideMemory(
     @androidx.room.ColumnInfo(defaultValue = "DONE")
     var state: UploadState = UploadState.DONE,
 ) {
-    fun done(driveFileId: String): OmoideMemory {
-        this.state = UploadState.DONE
-        this.driveFileId = driveFileId
-        return this
-    }
+    fun done(driveFileId: String): OmoideMemory =
+        apply {
+            this.state = UploadState.DONE
+            this.driveFileId = driveFileId
+        }
 
-    fun exclude(): OmoideMemory {
-        this.state = UploadState.EXCLUDED
-        return this
-    }
+    fun exclude(): OmoideMemory =
+        apply {
+            this.state = UploadState.EXCLUDED
+        }
 
     companion object {
         const val UPLOAD_LIMIT_BYTES = 10 * 1024 * 1024 * 1024L
