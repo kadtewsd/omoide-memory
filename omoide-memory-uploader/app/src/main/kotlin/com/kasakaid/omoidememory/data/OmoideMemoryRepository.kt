@@ -174,24 +174,15 @@ class OmoideMemoryRepository
          */
         fun getUploadedCount(): Flow<Int> = omoideMemoryDao.getUploadedCount()
 
-        suspend fun markAsUploaded(entity: OmoideMemory) {
-            omoideMemoryDao.insertUploadedFile(entity)
+        suspend fun save(entities: List<OmoideMemory>) {
+            if (entities.isEmpty()) return
+            omoideMemoryDao.insertUploadedFiles(entities)
+        }
+
+        suspend fun delete(ids: List<Long>) {
+            if (ids.isEmpty()) return
+            omoideMemoryDao.delete(ids)
         }
 
         suspend fun findReadyForUpload(): List<OmoideMemory> = omoideMemoryDao.findReadyForUpload()
-
-        suspend fun markAsReady(entities: List<OmoideMemory>) = omoideMemoryDao.insertUploadedFiles(entities)
-
-        suspend fun markAsDone(
-            id: Long,
-            driveFileId: String,
-        ) = omoideMemoryDao.markAsDone(id, driveFileId)
-
-        suspend fun markAsRemove(id: Long) = omoideMemoryDao.markAsExcluded(id)
-
-        suspend fun markAsRemove(entity: OmoideMemory) {
-            omoideMemoryDao.insertUploadedFile(entity.apply { state = UploadState.EXCLUDED })
-        }
-
-        suspend fun clearReadyFiles() = omoideMemoryDao.deleteReadyFiles()
     }

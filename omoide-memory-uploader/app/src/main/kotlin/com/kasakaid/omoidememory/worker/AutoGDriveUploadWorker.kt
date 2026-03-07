@@ -49,6 +49,7 @@ class AutoGDriveUploadWorker
                     var currentCount = 0
 
                     var shouldStop = false
+                    val succeededFiles = mutableListOf<OmoideMemory>()
                     localFileRepository
                         .getPotentialPendingFiles()
                         .takeWhile { !shouldStop }
@@ -71,17 +72,16 @@ class AutoGDriveUploadWorker
                                     shouldStop = true
                                 },
                                 ifRight = { driveId ->
-                                    localFileRepository.markAsUploaded(
-                                        omoideMemory.apply {
-                                            driveFileId = driveId
-                                            state = UploadState.DONE
-                                        },
-                                    )
-                                    uploadedSizes.add(omoideMemory.fileSize)
+                                    succeededFiles.add(omoideMemory.done(driveId))
+                                    uploadedSizes.add(omoideMemory.fileSize ?: 0L)
                                     uploadResult.add(Result.success())
                                 },
                             )
                         }
+
+                    if (succeededFiles.isNotEmpty()) {
+                        localFileRepository.save(succeededFiles)
+                    }
                     if (uploadResult.isNotEmpty() && uploadResult.all { it is Result.Success }) {
                         Result.success()
                     } else if (uploadResult.isEmpty()) {

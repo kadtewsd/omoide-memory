@@ -3,9 +3,8 @@ package com.kasakaid.omoidememory.ui
 import android.app.Application
 import android.content.Context
 import android.os.Build
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.border
-import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -141,17 +140,17 @@ class FileSelectionViewModel
                         .map {
                             it.apply { state = UploadState.READY }
                         }
-                localFileRepository.markAsReady(targets)
+                localFileRepository.save(targets)
                 workManager.enqueueWManualUpload()
             }
         }
 
-        fun markAsRemoved(id: Long) {
+        fun markAsRemoved(ids: List<Long>) {
             viewModelScope.launch {
-                val target = visibleFiles.value.find { it.id == id }
-                if (target != null) {
-                    localFileRepository.markAsRemove(target)
-                    removedIds.value += id
+                val targets = visibleFiles.value.filter { it.id in ids }.map { it.exclude() }
+                if (targets.isNotEmpty()) {
+                    localFileRepository.save(targets)
+                    removedIds.value += ids
                 }
             }
         }
@@ -211,8 +210,8 @@ fun FileSelectionRoute(
         },
         isUploading = isUploading,
         progress = progress,
-        onRemove = { id ->
-            viewModel.markAsRemoved(id)
+        onRemove = { ids ->
+            viewModel.markAsRemoved(ids)
         },
     )
 }
@@ -228,7 +227,7 @@ fun FileSelectionScreen(
     onSwitchChanged: (OnOff) -> Unit,
     isUploading: Boolean,
     progress: Pair<Int, Int>?,
-    onRemove: (id: Long) -> Unit,
+    onRemove: (ids: List<Long>) -> Unit,
 ) {
     Scaffold(
         topBar = { AppBarWithBackIcon(toMainScreen) },
@@ -240,6 +239,17 @@ fun FileSelectionScreen(
                 modifier = Modifier.fillMaxWidth().padding(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
+                if (selectedFiles.isNotEmpty()) {
+                    Button(
+                        onClick = {
+                            onRemove(selectedFiles.map { it.id })
+                        },
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                        enabled = !isUploading,
+                    ) {
+                        Text("すべてアップロード除外")
+                    }
+                }
                 if (isOverLimit) {
                     Text(
                         text = "10GB を超えるアップロードはできません",
@@ -291,7 +301,6 @@ fun FileSelectionScreen(
                         item = item,
                         isSelected = selectedIds[item.id] ?: false,
                         onToggle = { onToggle(item.id) },
-                        onRemove = { onRemove(item.id) },
                     )
                 }
             }
@@ -320,13 +329,11 @@ fun Context.imageLoader(): ImageLoader {
         }.build()
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun FileItemCard(
     item: OmoideMemory,
     isSelected: Boolean,
     onToggle: () -> Unit,
-    onRemove: () -> Unit,
 ) {
     // 選択状態に応じた色の定義
     val borderColor = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
@@ -340,10 +347,7 @@ fun FileItemCard(
                 .aspectRatio(1f) // Box自体を正方形に
                 .border(borderStroke, borderColor, RoundedCornerShape(8.dp)) // 枠線を追加
                 .clip(RoundedCornerShape(8.dp))
-                .combinedClickable(
-                    onClick = { onToggle() },
-                    onLongClick = { onRemove() },
-                ), // clip の後に clickable を書くのがコツ
+                .clickable { onToggle() }, // clip の後に clickable を書くのがコツ
     ) {
         AsyncImage(
             model =

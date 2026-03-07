@@ -1,6 +1,7 @@
 package com.kasakaid.omoidememory.data
 
 import androidx.room.Dao
+import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
@@ -19,9 +20,6 @@ interface OmoideMemoryDao {
     @Query("SELECT id FROM uploaded_memories")
     fun getAllUploadedIdsAsFlow(): Flow<Long>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertUploadedFile(omoideMemory: OmoideMemory)
-
     @Query(
         """
         SELECT * FROM uploaded_memories
@@ -33,28 +31,6 @@ interface OmoideMemoryDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertUploadedFiles(omoideMemories: List<OmoideMemory>)
 
-    @Query(
-        """
-        UPDATE uploaded_memories
-        SET state = 'DONE',
-            driveFileId = :driveFileId
-        WHERE id = :id
-    """,
-    )
-    suspend fun markAsDone(
-        id: Long,
-        driveFileId: String,
-    )
-
-    @Query(
-        """
-        UPDATE uploaded_memories
-        SET state = 'EXCLUDED'
-        WHERE id = :id
-    """,
-    )
-    suspend fun markAsExcluded(id: Long)
-
-    @Query("DELETE FROM uploaded_memories WHERE state = :state")
-    suspend fun deleteReadyFiles(state: UploadState = UploadState.READY)
+    @Query("DELETE FROM uploaded_memories WHERE id IN (:ids)")
+    suspend fun delete(ids: List<Long>)
 }
