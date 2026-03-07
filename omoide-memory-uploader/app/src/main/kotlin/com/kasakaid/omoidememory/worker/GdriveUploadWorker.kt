@@ -4,8 +4,10 @@ import android.content.Context
 import android.util.Log
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
+import androidx.work.WorkManager.UpdateResult
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import com.kasakaid.omoidememory.data.OmoideMemory
 import com.kasakaid.omoidememory.data.OmoideMemoryRepository
 import com.kasakaid.omoidememory.worker.WorkerHelper.createForegroundInfo
 import dagger.assisted.Assisted
@@ -29,6 +31,20 @@ class GdriveUploadWorker
             const val TAG = "ManualUploadWorker"
         }
 
+        sealed interface OmoideUploadResult {
+            class Success private constructor(
+                val omoideMemory: OmoideMemory,
+            ) : OmoideUploadResult {
+                constructor(omoideMemory: OmoideMemory, driveId: String) : this(
+                    omoideMemory = omoideMemory.done(driveId),
+                )
+            }
+
+            class Fail(
+                val omoideMemoryId: Long,
+            ) : OmoideUploadResult
+        }
+
         override suspend fun doWork(): Result {
             setForeground(appContext.createForegroundInfo("ManualUpload"))
             return withContext(Dispatchers.IO) {
@@ -45,45 +61,41 @@ class GdriveUploadWorker
                 var successCount = 0
 
                 // 🚀 最初に 0 件目の進捗を出すことで、UI の「準備中」を早く終わらせる
-                setProgress(
-                    workDataOf(
-                        "PROGRESS_CURRENT" to 0,
-                        "PROGRESS_TOTAL" to totalCount,
-                    ),
-                )
-
-                for (file in targets) {
-                    Log.d(TAG, "手動アップロード開始 ${file.name}")
-                    val result =
-                        gdriveUploader.upload(
-                            sourceWorker = WorkManagerTag.Manual,
-                            pendingFile = file,
+                targets
+                    .mapIndexed { index, omoideMemory ->
+                        setProgress(
+                            workDataOf(
+                                "PROGRESS_CURRENT" to index,
+                                "PROGRESS_TOTAL" to totalCount,
+                            ),
                         )
-
-                    result.fold(
-                        ifLeft = { error ->
-                            Log.e(TAG, "アップロード中断: ${error.message}")
-                            omoideMemoryRepository.clearReadyFiles()
-                            return@withContext Result.failure()
-                        },
-                        ifRight = { driveId ->
-                            omoideMemoryRepository.markAsDone(
-                                id = file.id,
-                                driveFileId = driveId,
+                        Log.d(TAG, "手動アップロード開始 ${omoideMemory.name}")
+                        gdriveUploader
+                            .upload(
+                                sourceWorker = WorkManagerTag.Manual,
+                                pendingFile = omoideMemory,
+                            ).fold(
+                                ifLeft = { error ->
+                                    OmoideUploadResult.Fail(omoideMemory.id).also {
+                                        Log.e(TAG, "アップロード失敗: ${error.message}")
+                                    }
+                                },
+                                ifRight = { driveFieldId ->
+                                    OmoideUploadResult.Success(omoideMemory = omoideMemory, driveId = driveFieldId).also {
+                                        successCount++
+                                        Log.i(TAG, "$successCount / $totalCount アップロード試行完了")
+                                    }
+                                },
                             )
-
-                            successCount++
-                            Log.i(TAG, "$successCount / $totalCount アップロード試行完了")
-
-                            setProgress(
-                                workDataOf(
-                                    "PROGRESS_CURRENT" to successCount,
-                                    "PROGRESS_TOTAL" to totalCount,
-                                ),
-                            )
-                        },
-                    )
-                }
+                    }.let { results: List<OmoideUploadResult> ->
+                        omoideMemoryRepository.save(results.filterIsInstance<OmoideUploadResult.Success>().map { it.omoideMemory })
+                        results.filterIsInstance<OmoideUploadResult.Fail>().let {
+                            if (it.isNotEmpty()) {
+                                Log.e(TAG, "${it.size} 件のアップロードに失敗しました。失敗分の Ready を解除")
+                                omoideMemoryRepository.delete(it.map { it.omoideMemoryId })
+                            }
+                        }
+                    }
                 Result.success()
             }
         }

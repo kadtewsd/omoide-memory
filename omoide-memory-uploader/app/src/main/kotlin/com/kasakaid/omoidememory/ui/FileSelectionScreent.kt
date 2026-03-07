@@ -63,6 +63,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.scan
 import kotlinx.coroutines.flow.stateIn
@@ -88,7 +89,7 @@ class FileSelectionViewModel
          * メリット: 画面（LazyColumnなど）に、ファイルが一つずつ「ポポポッ」と追加されていくような、視覚的に面白い動きになります。
          * デメリット: * 100件ある場合、UI は 100 回更新されます。また、途中の「未完成のリスト」を UI が受け取ることになります。
          */
-        val pendingFiles: StateFlow<List<OmoideMemory>> =
+        private val pendingFiles: StateFlow<List<OmoideMemory>> =
             localFileRepository
                 .getPotentialPendingFiles()
                 .onEach { file ->
@@ -139,10 +140,31 @@ class FileSelectionViewModel
                         .map {
                             it.apply { state = UploadState.READY }
                         }
-                localFileRepository.markAsReady(targets)
+                localFileRepository.save(targets)
                 workManager.enqueueWManualUpload()
             }
         }
+
+        fun markAsRemoved(ids: List<Long>) {
+            viewModelScope.launch {
+                val targets = visibleFiles.value.filter { it.id in ids }.map { it.exclude() }
+                if (targets.isNotEmpty()) {
+                    localFileRepository.save(targets)
+                    removedIds.value += ids
+                }
+            }
+        }
+
+        private val removedIds = MutableStateFlow<Set<Long>>(emptySet())
+        val visibleFiles: StateFlow<List<OmoideMemory>> =
+            pendingFiles
+                .combine(removedIds) { list, removed ->
+                    list.filter { it.id !in removed }
+                }.stateIn(
+                    scope = viewModelScope,
+                    started = SharingStarted.WhileSubscribed(5000),
+                    initialValue = emptyList(),
+                )
     }
 
 @Composable
@@ -150,7 +172,7 @@ fun FileSelectionRoute(
     viewModel: FileSelectionViewModel = hiltViewModel(),
     toMainScreen: () -> Unit,
 ) {
-    val pendingFiles by viewModel.pendingFiles.collectAsState()
+    val pendingFiles by viewModel.visibleFiles.collectAsState()
     val onOff by viewModel.onOff.collectAsState()
     val isUploading by viewModel.isUploading.collectAsState()
     val progress by viewModel.progress.collectAsState()
@@ -188,6 +210,9 @@ fun FileSelectionRoute(
         },
         isUploading = isUploading,
         progress = progress,
+        onRemove = { ids ->
+            viewModel.markAsRemoved(ids)
+        },
     )
 }
 
@@ -202,6 +227,7 @@ fun FileSelectionScreen(
     onSwitchChanged: (OnOff) -> Unit,
     isUploading: Boolean,
     progress: Pair<Int, Int>?,
+    onRemove: (ids: List<Long>) -> Unit,
 ) {
     Scaffold(
         topBar = { AppBarWithBackIcon(toMainScreen) },
@@ -213,6 +239,17 @@ fun FileSelectionScreen(
                 modifier = Modifier.fillMaxWidth().padding(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
+                if (selectedFiles.isNotEmpty()) {
+                    Button(
+                        onClick = {
+                            onRemove(selectedFiles.map { it.id })
+                        },
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                        enabled = !isUploading,
+                    ) {
+                        Text("すべてアップロード除外")
+                    }
+                }
                 if (isOverLimit) {
                     Text(
                         text = "10GB を超えるアップロードはできません",

@@ -44,9 +44,10 @@ class OmoideMemoryRepository
             flow {
                 // MediaStore から名前・サイズ・パスを取得
                 // Room から「アップロード済みメタデータ一覧」を取得して、名前・サイズで簡易フィルタ
-                // 1. 最初の一回だけ DB から全ハッシュをロードして Set にする
+                // すでに DB に存在する ID（アップロード済、除外済含む）をすべて取得して Set にする
                 val uploadedNameSet = omoideMemoryDao.getAllUploadedIds().toSet()
                 getPendingFiles { file ->
+                    // DB に存在しないもの（未アップロードかつ未除外）のみを抽出
                     file.takeIf { !uploadedNameSet.contains(it.id) }.toOption()
                 }.let {
                     emitAll(it)
@@ -173,18 +174,15 @@ class OmoideMemoryRepository
          */
         fun getUploadedCount(): Flow<Int> = omoideMemoryDao.getUploadedCount()
 
-        suspend fun markAsUploaded(entity: OmoideMemory) {
-            omoideMemoryDao.insertUploadedFile(entity)
+        suspend fun save(entities: List<OmoideMemory>) {
+            if (entities.isEmpty()) return
+            omoideMemoryDao.insertUploadedFiles(entities)
+        }
+
+        suspend fun delete(ids: List<Long>) {
+            if (ids.isEmpty()) return
+            omoideMemoryDao.delete(ids)
         }
 
         suspend fun findReadyForUpload(): List<OmoideMemory> = omoideMemoryDao.findReadyForUpload()
-
-        suspend fun markAsReady(entities: List<OmoideMemory>) = omoideMemoryDao.insertUploadedFiles(entities)
-
-        suspend fun markAsDone(
-            id: Long,
-            driveFileId: String,
-        ) = omoideMemoryDao.markAsDone(id, driveFileId)
-
-        suspend fun clearReadyFiles() = omoideMemoryDao.deleteReadyFiles()
     }
