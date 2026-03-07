@@ -76,7 +76,7 @@ class UploadStatusViewModel
             combine(
                 canUpload, // 現場からの報告（Flow）
                 omoideUploadPrefsRepository.getUploadBaseLineInstant(), // リポジトリの蛇口（Flow）
-                // 🚀 DBの「アップロード済みハッシュ」の変更を監視するFlowを追加！これにより MainScreen で一括アップロードが完了して永続化されたら再描画してくれる。
+                // 🚀 DBのの変更を監視するFlowを追加！これにより MainScreen で一括アップロードが完了して永続化されたら再描画してくれる。
                 omoideMemoryDao.getAllUploadedIdsAsFlow(),
             ) { granted, _, _ ->
                 // 許可と基準日のペアを届ける

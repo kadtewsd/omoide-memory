@@ -9,14 +9,13 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface OmoideMemoryDao {
-    @Query("SELECT count(*) FROM uploaded_memories")
+    @Query("SELECT count(*) FROM uploaded_memories WHERE state = 'DONE'")
     fun getUploadedCount(): Flow<Int>
 
     // ファイル名のリスト（Set）だけを取得する（メモリ節約のためハッシュのみ）
     @Query("SELECT id FROM uploaded_memories")
     suspend fun getAllUploadedIds(): List<Long>
 
-    // ファイル名のリスト（Set）だけを取得する（メモリ節約のためハッシュのみ）
     @Query("SELECT id FROM uploaded_memories")
     fun getAllUploadedIdsAsFlow(): Flow<Long>
 
