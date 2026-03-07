@@ -294,59 +294,63 @@ fun FileSelectionScreen(
                         .padding(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                when (selectionMode) {
-                    SelectionMode.TARGET -> {
-                        if (selectedFiles.isNotEmpty()) {
-                            Button(
-                                onClick = {
-                                    onRemove(selectedFiles.map { it.id })
-                                },
-                                modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .padding(bottom = 8.dp),
-                                enabled = !isUploading,
-                            ) {
-                                Text("すべてアップロード除外")
+                // 情報テキストの表示
+                if (selectionMode == SelectionMode.TARGET && isOverLimit) {
+                    Text(
+                        text = "10GB を超えるアップロードはできません",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    )
+                } else if (selectionMode != SelectionMode.DONE) {
+                    Text(
+                        text = "選択中: ${selectedFiles.size} 件 (${formatSize(totalSize)})",
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    )
+                }
+
+                androidx.compose.foundation.layout.Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement =
+                        androidx.compose.foundation.layout.Arrangement
+                            .spacedBy(8.dp),
+                ) {
+                    // アクションボタン (送信 / 復活)
+                    Button(
+                        onClick = {
+                            when (selectionMode) {
+                                SelectionMode.TARGET -> {
+                                    onContentFixed(selectedFiles.map { it.id })
+                                }
+
+                                SelectionMode.EXCLUDED -> {
+                                    onRevive(selectedFiles.map { it.id })
+                                }
+
+                                SelectionMode.DONE -> {}
                             }
-                        }
-                        if (isOverLimit) {
-                            Text(
-                                text = "10GB を超えるアップロードはできません",
-                                color = MaterialTheme.colorScheme.error,
-                                style = MaterialTheme.typography.bodySmall,
-                                modifier = Modifier.padding(bottom = 8.dp),
-                            )
-                        } else {
-                            Text("対象ファイル: ${selectedFiles.size} 件")
+                        },
+                        modifier = Modifier.weight(1f),
+                        enabled =
+                            !isUploading && selectedFiles.isNotEmpty() &&
+                                (selectionMode != SelectionMode.TARGET || !isOverLimit) &&
+                                selectionMode != SelectionMode.DONE,
+                    ) {
+                        when (selectionMode) {
+                            SelectionMode.TARGET -> Text("送信")
+                            SelectionMode.EXCLUDED -> Text("復活")
+                            SelectionMode.DONE -> Text("完了")
                         }
                     }
 
-                    SelectionMode.EXCLUDED, SelectionMode.DONE -> {}
-                }
-                Button(
-                    onClick = {
-                        when (selectionMode) {
-                            SelectionMode.TARGET -> {
-                                onContentFixed(selectedFiles.map { it.id })
-                            }
-
-                            SelectionMode.EXCLUDED -> {
-                                onRevive(selectedFiles.map { it.id })
-                            }
-
-                            SelectionMode.DONE -> {}
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled =
-                        !isUploading && selectedFiles.isNotEmpty() && (selectionMode != SelectionMode.TARGET || !isOverLimit) &&
-                            selectionMode != SelectionMode.DONE,
-                ) {
-                    when (selectionMode) {
-                        SelectionMode.TARGET -> Text("${selectedFiles.size} 件 (${formatSize(totalSize)}) 送信")
-                        SelectionMode.EXCLUDED -> Text("${selectedFiles.size} 件 復活")
-                        SelectionMode.DONE -> Text("${selectedFiles.size} 件 受付不可")
+                    // 除外ボタン (TARGETモード時のみ有効)
+                    Button(
+                        onClick = { onRemove(selectedFiles.map { it.id }) },
+                        modifier = Modifier.weight(1f),
+                        enabled = !isUploading && selectedFiles.isNotEmpty() && selectionMode == SelectionMode.TARGET,
+                    ) {
+                        Text("一括除外")
                     }
                 }
             }
