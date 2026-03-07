@@ -19,15 +19,12 @@ class OmoideMemory(
     // 回転情報
     val orientation: Int?,
     // Roomが再生成時にもセットできるようにコンストラクタに含める
-    // Google Drive File ID。アップロードが完了するまで NULL をいれておく。。。別の LocalFileWithHash のようなオブジェクトを作ると不自然のため
-    var driveFileId: String? = null,
     @androidx.room.ColumnInfo(defaultValue = "DONE")
     var state: UploadState = UploadState.DONE,
 ) {
-    fun done(driveFileId: String): OmoideMemory =
+    fun done(): OmoideMemory =
         apply {
             this.state = UploadState.DONE
-            this.driveFileId = driveFileId
         }
 
     fun exclude(): OmoideMemory =

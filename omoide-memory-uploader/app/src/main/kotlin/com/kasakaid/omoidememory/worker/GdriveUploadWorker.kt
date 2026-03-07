@@ -36,9 +36,9 @@ class GdriveUploadWorker
             class Success private constructor(
                 val omoideMemory: OmoideMemory,
             ) : OmoideUploadResult {
-                constructor(omoideMemory: OmoideMemory, driveId: String) : this(
-                    omoideMemory = omoideMemory.done(driveId),
-                )
+                companion object {
+                    operator fun invoke(omoideMemory: OmoideMemory) = Success(omoideMemory.done())
+                }
             }
 
             class Fail(
@@ -81,15 +81,15 @@ class GdriveUploadWorker
                                         Log.e(TAG, "アップロード失敗: ${error.message}")
                                     }
                                 },
-                                ifRight = { driveFieldId ->
-                                    OmoideUploadResult.Success(omoideMemory = omoideMemory, driveId = driveFieldId).also {
+                                ifRight = { _ ->
+                                    OmoideUploadResult.Success(omoideMemory = omoideMemory).also {
                                         successCount++
                                         Log.i(TAG, "$successCount / $totalCount アップロード試行完了")
                                     }
                                 },
                             )
                     }.let { results: List<OmoideUploadResult> ->
-                        omoideMemoryRepository.save(results.filterIsInstance<OmoideUploadResult.Success>().map { it.omoideMemory })
+                        omoideMemoryRepository.update(results.filterIsInstance<OmoideUploadResult.Success>().map { it.omoideMemory })
                         results.filterIsInstance<OmoideUploadResult.Fail>().let {
                             if (it.isNotEmpty()) {
                                 Log.e(TAG, "${it.size} 件のアップロードに失敗しました。失敗分の Ready を解除")

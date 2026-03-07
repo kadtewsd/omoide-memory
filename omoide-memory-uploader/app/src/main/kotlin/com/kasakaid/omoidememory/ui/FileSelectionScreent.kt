@@ -78,9 +78,9 @@ import kotlin.collections.set
 enum class SelectionMode(
     val label: String,
 ) {
-    TARGET("アップロード対象"),
-    EXCLUDED("アップロード除外"),
-    DONE("アップロード済み"),
+    TARGET("待ち"),
+    EXCLUDED("除外"),
+    DONE("完了"),
 }
 
 @HiltViewModel
@@ -188,7 +188,7 @@ class FileSelectionViewModel
                         .map {
                             it.apply { state = UploadState.READY }
                         }
-                localFileRepository.save(targets)
+                localFileRepository.add(targets)
                 workManager.enqueueWManualUpload()
             }
         }
@@ -197,7 +197,7 @@ class FileSelectionViewModel
             viewModelScope.launch {
                 val targets = pendingFiles.value.filter { it.id in ids }.map { it.exclude() }
                 if (targets.isNotEmpty()) {
-                    localFileRepository.save(targets)
+                    localFileRepository.add(targets)
                 }
             }
         }
@@ -318,7 +318,7 @@ fun FileSelectionScreen(
                                 modifier = Modifier.padding(bottom = 8.dp),
                             )
                         } else {
-                            Text("アップロード対象のファイル (${selectedFiles.size} 件)")
+                            Text("対象ファイル: ${selectedFiles.size} 件")
                         }
                     }
 
@@ -344,8 +344,8 @@ fun FileSelectionScreen(
                             selectionMode != SelectionMode.DONE,
                 ) {
                     when (selectionMode) {
-                        SelectionMode.TARGET -> Text("${selectedFiles.size} 件 (${formatSize(totalSize)}) をアップロード")
-                        SelectionMode.EXCLUDED -> Text("${selectedFiles.size} 件 をアップロード待ちに復活")
+                        SelectionMode.TARGET -> Text("${selectedFiles.size} 件 (${formatSize(totalSize)}) 送信")
+                        SelectionMode.EXCLUDED -> Text("${selectedFiles.size} 件 復活")
                         SelectionMode.DONE -> Text("${selectedFiles.size} 件 受付不可")
                     }
                 }
@@ -366,8 +366,16 @@ fun FileSelectionScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween,
+                horizontalArrangement =
+                    androidx.compose.foundation.layout.Arrangement
+                        .spacedBy(4.dp),
             ) {
+                Text(
+                    text = "アップロード状態:",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                    modifier = Modifier.padding(end = 4.dp),
+                )
                 SelectionMode.entries.forEach { mode ->
                     androidx.compose.foundation.layout.Row(
                         verticalAlignment = Alignment.CenterVertically,

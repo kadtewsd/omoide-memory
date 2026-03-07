@@ -33,9 +33,9 @@ interface OmoideMemoryDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertUploadedFiles(omoideMemories: List<OmoideMemory>)
 
-    @Query("UPDATE uploaded_memories SET state = :state WHERE id = :id")
+    @Query("UPDATE uploaded_memories SET state = :state WHERE id IN (:ids)")
     suspend fun update(
-        id: Long,
+        ids: List<Long>,
         state: UploadState,
     )
 
