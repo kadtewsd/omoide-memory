@@ -172,11 +172,18 @@ class OmoideMemoryRepository
         /**
          * すでにアップロードされたコンテンツの数を取得
          */
-        fun getUploadedCount(): Flow<Int> = omoideMemoryDao.getUploadedCount()
+        fun getUploadedCount(states: List<UploadState>): Flow<Int> = omoideMemoryDao.getUploadedCount(states)
 
-        suspend fun save(entities: List<OmoideMemory>) {
+        suspend fun add(entities: List<OmoideMemory>) {
             if (entities.isEmpty()) return
             omoideMemoryDao.insertUploadedFiles(entities)
+        }
+
+        suspend fun update(entities: List<OmoideMemory>) {
+            if (entities.isEmpty()) return
+            entities.groupBy { it.state }.forEach { (state, list) ->
+                omoideMemoryDao.update(list.map { it.id }, state)
+            }
         }
 
         suspend fun delete(ids: List<Long>) {
@@ -184,5 +191,9 @@ class OmoideMemoryRepository
             omoideMemoryDao.delete(ids)
         }
 
-        suspend fun findReadyForUpload(): List<OmoideMemory> = omoideMemoryDao.findReadyForUpload()
+        suspend fun findBy(state: UploadState): List<OmoideMemory> = omoideMemoryDao.findBy(state)
+
+        fun findByAsFlow(state: UploadState): Flow<List<OmoideMemory>> = omoideMemoryDao.findByAsFlow(state)
+
+        fun getAllUploadedIdsAsFlow(): Flow<Long> = omoideMemoryDao.getAllUploadedIdsAsFlow()
     }

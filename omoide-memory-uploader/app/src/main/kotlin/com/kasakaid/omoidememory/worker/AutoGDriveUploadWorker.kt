@@ -71,8 +71,8 @@ class AutoGDriveUploadWorker
                                     uploadResult.add(Result.failure())
                                     shouldStop = true
                                 },
-                                ifRight = { driveId ->
-                                    succeededFiles.add(omoideMemory.done(driveId))
+                                ifRight = { _ ->
+                                    succeededFiles.add(omoideMemory.done())
                                     uploadedSizes.add(omoideMemory.fileSize ?: 0L)
                                     uploadResult.add(Result.success())
                                 },
@@ -80,7 +80,7 @@ class AutoGDriveUploadWorker
                         }
 
                     if (succeededFiles.isNotEmpty()) {
-                        localFileRepository.save(succeededFiles)
+                        localFileRepository.add(succeededFiles)
                     }
                     if (uploadResult.isNotEmpty() && uploadResult.all { it is Result.Success }) {
                         Result.success()

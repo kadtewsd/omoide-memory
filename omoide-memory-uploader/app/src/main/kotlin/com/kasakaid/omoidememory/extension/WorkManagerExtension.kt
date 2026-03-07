@@ -40,7 +40,7 @@ object WorkManagerExtension {
 
         // enqueueUniqueWork + REPLACE は 「名前（Unique Name）」を指定することで、ひとつの管理枠を作ります。
         // 唯一性の保証: 同じ名前のジョブがすでにキューにある場合、WorkManager が介入します。
-        // KEEP の魔法: 前のリクエストが完了していない場合は何もしない
+        // REPLACE の魔法: 前のリクエストが完了していない場合はアボートしてあと勝ち。
         enqueueUniqueWork(
             "manual_upload",
             ExistingWorkPolicy.REPLACE,

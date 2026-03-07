@@ -94,7 +94,7 @@ class UploadStatusViewModel
         // UI State
         val uploadedCount: StateFlow<Int> =
             omoideMemoryRepository
-                .getUploadedCount()
+                .getUploadedCount(listOf(com.kasakaid.omoidememory.data.UploadState.DONE))
                 .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
         fun triggerManualUpload() {
@@ -102,7 +102,6 @@ class UploadStatusViewModel
                 /**
                  * まとめて取得したい時は、last でも first でもなくて、toList。R2DBC の Flux を取り出す時と同じ。
                  */
-                val files = omoideMemoryRepository.getPotentialPendingFiles().toList()
                 workManager.enqueueWManualUpload()
             }
         }
