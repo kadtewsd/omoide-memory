@@ -1,5 +1,6 @@
 package com.kasakaid.omoidememory.data
 
+import android.app.PendingIntent
 import android.content.ContentUris
 import android.content.Context
 import android.database.Cursor
@@ -194,20 +195,39 @@ class OmoideMemoryRepository
         }
 
         /**
-         * 物理的にファイルを削除し、DB の履歴も削除する
+         * 物理的にファイルを削除するための準備を行う。
+         * 各ファイルの MIME タイプに応じて適切なメディア URI (Images/Video) を使用する。
          */
-        suspend fun deletePhysically(ids: List<Long>) {
-            if (ids.isEmpty()) return
-            withContext(Dispatchers.IO) {
-                ids.forEach { id ->
-                    val uri = ContentUris.withAppendedId(FolderUri.content, id)
-                    try {
-                        context.contentResolver.delete(uri, null, null)
-                    } catch (e: Exception) {
-                        Log.e(TAG, "ファイルの物理削除に失敗: $id", e)
+        suspend fun deletePhysically(items: List<OmoideMemory>): PendingIntent? {
+            if (items.isEmpty()) return null
+            return withContext(Dispatchers.IO) {
+                val resolver = context.contentResolver
+                val uris =
+                    items.map { item ->
+                        val baseUri =
+                            if (item.mimeType!!.startsWith("video")) {
+                                MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+                            } else {
+                                MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+                            }
+                        ContentUris.withAppendedId(baseUri, item.id)
                     }
+
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                    // API 30+: 一括削除の確認ダイアログ
+                    return@withContext MediaStore.createDeleteRequest(resolver, uris)
+                } else {
+                    // それ以前: 1件ずつ削除を試行
+                    uris.forEach { uri ->
+                        try {
+                            resolver.delete(uri, null, null)
+                        } catch (e: Exception) {
+                            Log.e(TAG, "ファイルの物理削除に失敗: $uri", e)
+                        }
+                    }
+                    omoideMemoryDao.delete(items.map { it.id })
+                    return@withContext null
                 }
-                omoideMemoryDao.delete(ids)
             }
         }
 

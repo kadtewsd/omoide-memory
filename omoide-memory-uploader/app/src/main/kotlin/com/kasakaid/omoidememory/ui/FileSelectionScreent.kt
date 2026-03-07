@@ -62,9 +62,12 @@ import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeProgressB
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeUploadingStateByManualTag
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
@@ -109,6 +112,13 @@ class FileSelectionViewModel
             _selectionMode.value = mode
             selectedIds.clear()
         }
+
+        // 削除確認ダイアログ（OS側）を起動するためのイベント
+        private val _deleteRequestEvent = MutableSharedFlow<android.app.PendingIntent>()
+        val deleteRequestEvent: SharedFlow<android.app.PendingIntent> = _deleteRequestEvent.asSharedFlow()
+
+        // 許可が得られた後に DB を消すための保持用
+        private var pendingDeleteEntities: List<OmoideMemory> = emptyList()
 
         /**
          * [監視対象]
@@ -208,10 +218,28 @@ class FileSelectionViewModel
             }
         }
 
-        fun deletePhysically(ids: List<Long>) {
+        fun deletePhysically(items: List<OmoideMemory>) {
             viewModelScope.launch {
-                localFileRepository.deletePhysically(ids)
-                selectedIds.clear() // 削除後は選択解除
+                val pendingIntent = localFileRepository.deletePhysically(items)
+                if (pendingIntent != null) {
+                    // OS の確認ダイアログが必要
+                    pendingDeleteEntities = items
+                    _deleteRequestEvent.emit(pendingIntent)
+                } else {
+                    // 直接消せた（または古いOS）
+                    selectedIds.clear()
+                }
+            }
+        }
+
+        /**
+         * OS ダイアログで「許可」された後に呼ばれる
+         */
+        fun deleteAfterPermission() {
+            viewModelScope.launch {
+                localFileRepository.delete(pendingDeleteEntities.map { it.id })
+                pendingDeleteEntities = emptyList()
+                selectedIds.clear()
             }
         }
     }
@@ -227,6 +255,28 @@ fun FileSelectionRoute(
     val progress by viewModel.progress.collectAsState()
     var hasStartedUploading by remember {
         mutableStateOf(false)
+    }
+
+    val launcher =
+        androidx.activity.compose.rememberLauncherForActivityResult(
+            contract =
+                androidx.activity.result.contract.ActivityResultContracts
+                    .StartIntentSenderForResult(),
+        ) { result ->
+            if (result.resultCode == android.app.Activity.RESULT_OK) {
+                // ユーザーが削除を許可した
+                viewModel.deleteAfterPermission()
+            }
+        }
+
+    LaunchedEffect(Unit) {
+        viewModel.deleteRequestEvent.collect { pendingIntent ->
+            launcher.launch(
+                androidx.activity.result.IntentSenderRequest
+                    .Builder(pendingIntent.intentSender)
+                    .build(),
+            )
+        }
     }
 
     LaunchedEffect(isUploading) {
@@ -269,8 +319,8 @@ fun FileSelectionRoute(
         onRevive = { ids ->
             viewModel.revive(ids)
         },
-        onDeletePhysically = { ids ->
-            viewModel.deletePhysically(ids)
+        onDeletePhysically = { items ->
+            viewModel.deletePhysically(items)
         },
     )
 }
@@ -290,7 +340,7 @@ fun FileSelectionScreen(
     progress: Pair<Int, Int>?,
     onRemove: (ids: List<Long>) -> Unit,
     onRevive: (ids: List<Long>) -> Unit,
-    onDeletePhysically: (ids: List<Long>) -> Unit,
+    onDeletePhysically: (items: List<OmoideMemory>) -> Unit,
 ) {
     Scaffold(
         topBar = { AppBarWithBackIcon(toMainScreen) },
@@ -364,7 +414,7 @@ fun FileSelectionScreen(
                                 }
 
                                 SelectionMode.EXCLUDED -> {
-                                    onDeletePhysically(selectedFiles.map { it.id })
+                                    onDeletePhysically(selectedFiles)
                                 }
 
                                 SelectionMode.DONE -> {}
