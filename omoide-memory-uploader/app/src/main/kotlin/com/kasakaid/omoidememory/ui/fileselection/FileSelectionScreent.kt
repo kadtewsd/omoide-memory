@@ -1,10 +1,12 @@
-package com.kasakaid.omoidememory.ui
+package com.kasakaid.omoidememory.ui.fileselection
 
 import android.app.Application
 import android.content.Context
 import android.os.Build
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -18,8 +20,12 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -39,6 +45,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -50,7 +58,6 @@ import coil.decode.ImageDecoderDecoder
 import coil.decode.VideoFrameDecoder
 import coil.request.ImageRequest
 import coil.request.videoFrameMillis
-import com.kasakaid.omoidememory.data.ExcludeOmoide
 import com.kasakaid.omoidememory.data.ExcludeOmoideRepository
 import com.kasakaid.omoidememory.data.OmoideMemory
 import com.kasakaid.omoidememory.data.OmoideMemoryRepository
@@ -60,6 +67,10 @@ import com.kasakaid.omoidememory.data.totalSize
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.enqueueWManualUpload
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeProgressByManual
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeUploadingStateByManualTag
+import com.kasakaid.omoidememory.ui.AppBarWithBackIcon
+import com.kasakaid.omoidememory.ui.MySwitch
+import com.kasakaid.omoidememory.ui.OnOff
+import com.kasakaid.omoidememory.ui.UploadIndicator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -342,6 +353,15 @@ fun FileSelectionScreen(
     onRevive: (ids: List<Long>) -> Unit,
     onDeletePhysically: (items: List<OmoideMemory>) -> Unit,
 ) {
+    var previewingItem by remember { mutableStateOf<OmoideMemory?>(null) }
+
+    previewingItem?.let { item ->
+        VideoPreviewDialog(
+            item = item,
+            onDismissRequest = { previewingItem = null },
+        )
+    }
+
     Scaffold(
         topBar = { AppBarWithBackIcon(toMainScreen) },
         bottomBar = {
@@ -506,6 +526,7 @@ fun FileSelectionScreen(
                         item = item,
                         isSelected = selectedIds[item.id] ?: false,
                         onToggle = { onToggle(item.id) },
+                        onPreview = { previewingItem = item },
                     )
                 }
             }
@@ -534,53 +555,6 @@ fun Context.imageLoader(): ImageLoader {
         }.build()
 }
 
-@Composable
-fun FileItemCard(
-    item: OmoideMemory,
-    isSelected: Boolean,
-    onToggle: () -> Unit,
-) {
-    // 選択状態に応じた色の定義
-    val borderColor = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
-    val borderStroke = if (isSelected) 3.dp else 0.dp
-
-    // Box で AsyncImage と CheckBox を重ねる
-    Box(
-        modifier =
-            Modifier
-                .padding(4.dp)
-                .aspectRatio(1f) // Box自体を正方形に
-                .border(borderStroke, borderColor, RoundedCornerShape(8.dp)) // 枠線を追加
-                .clip(RoundedCornerShape(8.dp))
-                .clickable { onToggle() }, // clip の後に clickable を書くのがコツ
-    ) {
-        AsyncImage(
-            model =
-                ImageRequest
-                    .Builder(LocalContext.current)
-                    .data(item.filePath)
-                    .videoFrameMillis(1000) // 🚀 1秒目のフレームを指定 (画像の場合は関係ないようよしなに Coil がやってくれる)
-                    .crossfade(true) // じわっと表示させる（非同期感が出る）
-                    .build(),
-            imageLoader = LocalContext.current.imageLoader(),
-            contentDescription = null,
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .alpha(if (isSelected) 1f else 0.8f),
-            // 選択時に少し強めに暗くする
-            contentScale = ContentScale.Crop,
-        )
-
-        // チェックボックスも Material3 らしい配置に
-        Checkbox(
-            checked = isSelected,
-            onCheckedChange = { onToggle() },
-            // チェックボックスはトップに吸い寄せられてコンテンツの上側に描画
-            modifier = Modifier.align(Alignment.TopEnd),
-        )
-    }
-}
 
 /**
  * バイト数を見やすく表示
