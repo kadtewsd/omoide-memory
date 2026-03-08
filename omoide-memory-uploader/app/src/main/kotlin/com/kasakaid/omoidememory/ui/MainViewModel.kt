@@ -85,6 +85,10 @@ class MainViewModel
                         delay(5000)
                         emit(Unit)
                     }
+                    /**
+                     * onStart { emit(Unit) } の存在: 5秒おきの ticker 自体は delay(5000) から始まりますが、末尾に .onStart { emit(Unit) } をつけたことで、Flow が再起動した瞬間に最初の1発目の信号が即座に emit されます。
+                     * flatMapLatest による再取得: この「1発目の信号」が combine を通り flatMapLatest に届くと、wifiRepository.observeWifiSSID() が新たに呼び出されます。これにより、OSから最新の Wi-Fi 状況が即座に通知されます。
+                     */
                 }.onStart { emit(Unit) },
             ) { granted, _, _ -> granted }
                 .flatMapLatest { granted ->
@@ -98,7 +102,17 @@ class MainViewModel
                     }
                 }.stateIn(
                     scope = viewModelScope,
-                    started = SharingStarted.Eagerly,
+                    /**
+                     * MainViewModel は MainScreen  がナビゲーションのバックスタックに積まれている間（別の画面に遷移している間など）は、メモリ上に残り続け、ViewModelScope もキャンセルされません。
+                     * Eagerly から WhileSubscribed への変更:
+                     * Eagerly のままだと、ユーザーが別画面に移動したり、アプリをホーム画面に隠したりしている間も、5秒おきのループと OS のネットワーク監視が走り続けてしまいます。
+                     * SharingStarted.WhileSubscribed(5000) に変更することで、「UIがこの値を必要としなくなってから5秒後」にフローを停止させることができます。
+                     * 5000 (5秒) のバッファを置く理由は、画面の回転（Configuration Change）時に一瞬購読が途切れても、監視をリセットさせないためです。
+                     * ユーザー体験への影響:
+                     * 画面に戻ってきた瞬間（購読再開時）、フローは即座に再稼働します。
+                     * StateFlow は直近の値をキャッシュしているため、再稼働後に新しい値が取得されるまでの間も、前回の正しい状態が即座に UI に表示されます。これにより「一瞬未接続に見える」といったフリッカー（ちらつき）を回避しつつ、最新の Wi-Fi 状況を（ON_RESUME のトリガーと合わせて）取得できます。
+                     */
+                    started = SharingStarted.WhileSubscribed(5000),
                     initialValue = WifiSetting.Idle,
                 )
 
@@ -116,10 +130,13 @@ class MainViewModel
          *    を起点として `wifiState` が更新されます。これにより `combine` が即座に走り、`isValid` も
          *    同期して更新されるため、UI のボタンは即座に無効化 / 有効化されます。
          *
-         * 【Eagerly の必要性】
-         * 写真選択などの別画面からホームに戻った際、Wi-Fi 取得の「待ち時間」が発生して一瞬「未接続」
-         * に見えるのを防ぐためです。Started.Eagerly を使うことで、ViewModel が生存している間は
-         * バックグラウンドでも監視を継続し、画面復帰時に最新の状態を瞬時に提供します。
+         * 【WhileSubscribed(5000) の採用】
+         * かつては画面復帰時の「待ち時間」を防ぐために Eagerly を使用していましたが、
+         * 現在は 5 秒おきの自動更新と OS コールバックの監視を組み合わせているため、
+         * 画面が表示されていない間（購読者がいない間）はリソースを節約する方が適切です。
+         * WhileSubscribed(5000) を使うことで、画面回転などの一時的な購読解除ではフローを停止せず、
+         * 別画面への遷移時などは 5 秒後に監視を停止して電池消費を抑えます。
+         * 画面復帰時には即座に購読が再開されるため、最新の状態が瞬時に提供されます。
          */
         val wifiStatus: StateFlow<WifiStatus> =
             combine(
@@ -133,7 +150,7 @@ class MainViewModel
                 )
             }.stateIn(
                 scope = viewModelScope,
-                started = SharingStarted.Eagerly,
+                started = SharingStarted.WhileSubscribed(5000),
                 initialValue =
                     WifiStatus(
                         setting = WifiSetting.Idle,
@@ -168,7 +185,7 @@ class MainViewModel
                 )
             }.stateIn(
                 scope = viewModelScope,
-                started = SharingStarted.Eagerly,
+                started = SharingStarted.WhileSubscribed(5000),
                 initialValue =
                     UploadRequiredCondition(
                         isPermissionGranted = hasPermission.value,
