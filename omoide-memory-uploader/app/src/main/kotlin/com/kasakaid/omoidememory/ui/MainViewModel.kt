@@ -16,13 +16,16 @@ import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeUploading
 import com.kasakaid.omoidememory.worker.AutoGDriveUploadWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -57,12 +60,38 @@ class MainViewModel
         // Google サインイン状態
         private val isGoogleSignIn = MutableStateFlow(false)
 
+        // Wi-Fi 状況を強制的に再取得するためのトリガー
+        private val refreshTrigger = MutableStateFlow(0)
+
+        /**
+         * 外部（UI）から Wi-Fi 状況の更新を明示的に要求します。
+         * 画面が foreground に復帰した際などに呼び出すことを想定しています。
+         */
+        fun refreshWifiStatus() {
+            refreshTrigger.value++
+        }
+
         @OptIn(ExperimentalCoroutinesApi::class)
         private val wifiState: StateFlow<WifiSetting> =
-            hasPermission
+            combine(
+                hasPermission,
+                refreshTrigger,
+                // 5秒おきに最新状況を取得し直すための ticker
+                // ここで一つだけ run { ... } のような「単発の実行結果（Unit）」を渡してしまうと、combine はその一瞬の値しか受け取れず、その後の変化を追跡できなくなります。
+                // flow の場合: 5秒ごとに「今だ！」という信号を emit し続けます。これにより、combine 側は「あ、新しい信号が来たから、最新の hasPermission と組み合わせて再計算しよう」と動けるわけです。
+                // emit がほしいので flow で監視を継続する
+                flow {
+                    while (true) {
+                        delay(5000)
+                        emit(Unit)
+                    }
+                }.onStart { emit(Unit) },
+            ) { granted, _, _ -> granted }
                 .flatMapLatest { granted ->
                     if (granted) {
-                        // 権限がある時だけ、OSの監視を開始する
+                        // 権限がある時だけ、OSの監視を開始する。
+                        // flatMapLatest により、トリガーが引かれるたびに既存の監視が解除・再登録されるため
+                        // 強制的に最新の状態が OS から通知されます。
                         wifiRepository.observeWifiSSID()
                     } else {
                         flowOf(WifiSetting.Idle)

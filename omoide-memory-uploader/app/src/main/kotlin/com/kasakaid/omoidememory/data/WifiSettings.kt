@@ -7,7 +7,6 @@ import android.net.NetworkCapabilities
 import android.net.wifi.WifiInfo
 import android.os.Build
 import androidx.annotation.RequiresApi
-import com.kasakaid.omoidememory.extension.NetworkCapabilitiesExtension.ssid
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -88,14 +87,13 @@ class WifiRepository
                                     WifiSetting.NotFound
                                 }
                             trySend(result)
-                            // 重要：これ以上データは送らないので、チャネルを閉じる。
-                            // これにより awaitClose が実行される。
-                            channel.close()
+                            // 【修正】これ以上データは送らない... という考えを捨てて、監視を続けるようにする。
+                            // channel.close() を呼ぶと Flow が終了してしまうため、削除。
                         }
 
                         override fun onUnavailable() {
                             trySend(WifiSetting.NotConnected)
-                            channel.close()
+                            // channel.close() を削除
                         }
 
                         /**
@@ -121,8 +119,7 @@ class WifiRepository
 //            .build()
 //        connectivityManager.registerNetworkCallback(request, callback)
                 connectivityManager.registerDefaultNetworkCallback(callback)
-                // 1回取れたら監視を止める（メモリリーク防止）
-                // ここが唯一の場所。channel.close 経由でここにやってくる
+                // ViewModel の scope が終わるまで監視を続ける
                 awaitClose { connectivityManager.unregisterNetworkCallback(callback) }
             }
 
