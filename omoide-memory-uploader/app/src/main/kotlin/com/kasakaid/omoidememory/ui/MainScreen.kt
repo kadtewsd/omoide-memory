@@ -14,6 +14,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -23,8 +24,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 
 // 1. 判定用の小さな関数を定義（MainScreen 内、または companion 内）
 fun isWifiPermissionGranted(state: GrantPermissionState): Boolean = state is GrantPermissionState.Granted
@@ -38,6 +42,23 @@ fun MainScreen(
 
     val context = LocalContext.current
     val wifiPermissions = arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
+
+    // 🚀 画面が foreground に復帰（ON_RESUME）した際に Wi-Fi 状況をリフレッシュする
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer =
+            LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_RESUME) {
+                    // もし別画面から 5秒以内に戻ってきた場合（Flow がまだ停止していない場合）は、この ON_RESUME トリガーが refreshTrigger を更新し、flatMapLatest を強制的に再実行させます。
+                    viewModel.refreshWifiStatus()
+                }
+            }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
     // 🚀 初回起動時のみ現在の状態を確認して ViewModel に教える
     LaunchedEffect(Unit) {
         val initialPermission =
