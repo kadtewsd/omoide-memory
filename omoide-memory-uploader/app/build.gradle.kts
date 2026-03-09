@@ -47,6 +47,10 @@ android {
     }
 
     buildTypes {
+        debug {
+            // パッケージ名の末尾に .debug をつける (例: com.example.app.debug)
+            applicationIdSuffix = ".debug"
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
