@@ -54,9 +54,6 @@ fun WifiSettingsCard(
             Spacer(modifier = Modifier.height(8.dp))
             Text("安全な Wifi の SSID: ${fixedSecureSsid ?: "未設定"}")
 
-            // --- 未設定の場合 ---
-            Text("アップロードを許可するWi-Fiがまだ設定されていません。", color = Color.Gray)
-            Text(wifiSetting.message, color = Color.Gray)
             when (wifiSetting) {
                 is WifiSetting.Idle -> {
                     Text("接続中のWi-Fiを検出")
@@ -69,26 +66,21 @@ fun WifiSettingsCard(
                 is WifiSetting.Found -> {
                     // 今接続中のWi-Fiがある場合
                     if (fixedSecureSsid != null) {
-                        val currentState =
-                            if (wifiSetting.ssid == fixedSecureSsid) {
-                                "✅ 設定済みの WiFi $fixedSecureSsid"
-                            } else {
-                                "設定されていない Wifi: ${wifiSetting.ssid}"
-                            }
-                        // --- 設定済みの場合 ---
-                        Text(
-                            "${currentState}に接続中です。",
-                            color = Color(0xFF4CAF50),
-                        )
                         if (wifiSetting.ssid == fixedSecureSsid) {
-                            // 既存の設定を今回の Wifi に上書きする場合の選択肢
+                            // 現在の接続先が、すでに登録済みの「安全なWi-Fi」である
+                            Text(
+                                "✅ 設定済みの WiFi $fixedSecureSsid に接続中です。",
+                                color = Color(0xFF4CAF50),
+                            )
+                        } else {
+                            // 現在の接続先が、登録されているものとは「別のWi-Fi」である
+                            Text("設定されていない WiFi: ${wifiSetting.ssid} に接続中です。")
                             Button(onClick = { onFixSecureSsid(wifiSetting.ssid) }) { Text("現在の Wifi をセットする") }
                         }
                     } else {
                         Text(
-                            text = AnnotatedString(text = "検出されたWi-Fi: ${wifiSetting.ssid}"),
+                            text = "検出されたWi-Fi: ${wifiSetting.ssid}",
                             fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.bodyLarge,
                         )
                         Button(
                             onClick = { onFixSecureSsid(wifiSetting.ssid) },
