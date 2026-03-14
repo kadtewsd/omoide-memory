@@ -4,7 +4,9 @@ import androidx.compose.runtime.Composable
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.kasakaid.omoidememory.ui.fileselection.FileSelectionRoute
+import com.kasakaid.omoidememory.ui.maintenance.CrashDetailScreen
 import com.kasakaid.omoidememory.ui.maintenance.CrashReportViewerScreen
 import com.kasakaid.omoidememory.ui.maintenance.DbMaintenanceScreen
 import com.kasakaid.omoidememory.ui.maintenance.MaintenanceScreen
@@ -40,6 +42,19 @@ fun AppRouter() {
         }
         composable("crash_report_viewer") {
             CrashReportViewerScreen(
+                onBack = { navController.popBackStack() },
+                onNavigateToDetail = { fileName ->
+                    navController.navigate("crash_detail/$fileName")
+                },
+            )
+        }
+        composable(
+            route = "crash_detail/{fileName}",
+            arguments = listOf(navArgument("fileName") { type = androidx.navigation.NavType.StringType }),
+        ) { backStackEntry ->
+            val fileName = backStackEntry.arguments?.getString("fileName") ?: ""
+            CrashDetailScreen(
+                fileName = fileName,
                 onBack = { navController.popBackStack() },
             )
         }
