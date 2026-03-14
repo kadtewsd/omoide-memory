@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
@@ -29,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.kasakaid.omoidememory.maintenance.MaintenanceActivity
 
 // 1. 判定用の小さな関数を定義（MainScreen 内、または companion 内）
 fun isWifiPermissionGranted(state: GrantPermissionState): Boolean = state is GrantPermissionState.Granted
@@ -167,6 +169,13 @@ fun MainScreen(
             condition = uploadCondition,
             onNavigateToContentSelection = onNavigateToSelection,
         )
+
+        Button(
+            onClick = { MaintenanceActivity.start(context) },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("メンテナンス画面へ")
+        }
     }
     // 🚀 アップロード中のみ表示されるロック層
     if (isUploading) {
