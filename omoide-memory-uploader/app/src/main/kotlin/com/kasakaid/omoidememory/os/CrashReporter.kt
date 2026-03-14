@@ -9,6 +9,18 @@ import java.io.File
 object CrashReporter {
     private const val DIRECTORY_NAME = "crashes"
 
+    /**
+     * クラッシュ発生時にスタックトレースを自動保存するためのハンドラ登録
+     */
+    fun init(context: Context) {
+        val previousHandler = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            saveReport(context, throwable.stackTraceToString())
+            // 既存ハンドラ（Crashlytics 等）を壊さないよう必ず移譲する
+            previousHandler?.uncaughtException(thread, throwable)
+        }
+    }
+
     private fun getCrashDir(context: Context): File {
         val dir = File(context.filesDir, DIRECTORY_NAME)
         if (!dir.exists()) {
