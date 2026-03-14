@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
@@ -36,6 +37,7 @@ fun isWifiPermissionGranted(state: GrantPermissionState): Boolean = state is Gra
 @Composable
 fun MainScreen(
     viewModel: MainViewModel = hiltViewModel(),
+    onNavigateToMaintenance: () -> Unit,
     onNavigateToSelection: () -> Unit,
 ) {
     val uploadCondition by viewModel.uploadCondition.collectAsState()
@@ -167,6 +169,13 @@ fun MainScreen(
             condition = uploadCondition,
             onNavigateToContentSelection = onNavigateToSelection,
         )
+
+        Button(
+            onClick = onNavigateToMaintenance,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("メンテナンス画面へ")
+        }
     }
     // 🚀 アップロード中のみ表示されるロック層
     if (isUploading) {

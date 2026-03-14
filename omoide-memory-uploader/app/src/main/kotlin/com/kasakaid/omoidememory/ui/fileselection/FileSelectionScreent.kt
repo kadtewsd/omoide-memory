@@ -363,7 +363,7 @@ fun FileSelectionScreen(
     }
 
     Scaffold(
-        topBar = { AppBarWithBackIcon(toMainScreen) },
+        topBar = { AppBarWithBackIcon(title = "アップロードする写真を選択", onFinished = toMainScreen) },
         bottomBar = {
             val selectedFiles = pendingFiles.filter { selectedIds[it.id] == true }
             val totalSize = selectedFiles.totalSize()
@@ -554,7 +554,6 @@ fun Context.imageLoader(): ImageLoader {
             add(VideoFrameDecoder.Factory())
         }.build()
 }
-
 
 /**
  * バイト数を見やすく表示
