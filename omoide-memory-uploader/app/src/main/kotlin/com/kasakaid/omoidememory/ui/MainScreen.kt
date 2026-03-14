@@ -30,7 +30,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import com.kasakaid.omoidememory.maintenance.MaintenanceActivity
 
 // 1. 判定用の小さな関数を定義（MainScreen 内、または companion 内）
 fun isWifiPermissionGranted(state: GrantPermissionState): Boolean = state is GrantPermissionState.Granted
@@ -38,6 +37,7 @@ fun isWifiPermissionGranted(state: GrantPermissionState): Boolean = state is Gra
 @Composable
 fun MainScreen(
     viewModel: MainViewModel = hiltViewModel(),
+    onNavigateToMaintenance: () -> Unit,
     onNavigateToSelection: () -> Unit,
 ) {
     val uploadCondition by viewModel.uploadCondition.collectAsState()
@@ -171,7 +171,7 @@ fun MainScreen(
         )
 
         Button(
-            onClick = { MaintenanceActivity.start(context) },
+            onClick = onNavigateToMaintenance,
             modifier = Modifier.fillMaxWidth(),
         ) {
             Text("メンテナンス画面へ")

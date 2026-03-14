@@ -66,18 +66,6 @@
             android:foregroundServiceType="dataSync"
             tools:node="merge" />
 
-        <activity
-            android:name=".maintenance.MaintenanceActivity"
-            android:exported="false" />
-
-        <activity
-            android:name=".maintenance.DbMaintenanceActivity"
-            android:exported="false" />
-
-        <activity
-            android:name=".maintenance.CrashReportViewerActivity"
-            android:exported="false" />
-
     </application>
 
 </manifest>
