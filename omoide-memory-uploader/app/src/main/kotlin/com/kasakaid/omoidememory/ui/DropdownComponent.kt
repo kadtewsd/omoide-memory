@@ -21,17 +21,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
 /**
- * Enum を一覧表示するためのドロップダウンコンポーネント。
+ * ラベルを持つアイテムを一覧表示するためのドロップダウンコンポーネント。
  */
 @Composable
-fun <T : Enum<T>> EnumDropdown(
+fun <T : EnumWithLabel> EnumDropdown(
     modifier: Modifier = Modifier,
     label: String,
     items: Array<T>,
     selectedItem: T?,
     onItemSelected: (T?) -> Unit,
     allLabel: String? = null,
-    itemLabel: (T) -> String = { it.name },
+    itemLabel: (T) -> String = { it.label },
     trigger: @Composable (onClick: () -> Unit, currentLabel: String) -> Unit = { onClick, currentLabel ->
         DefaultTrigger(onClick, currentLabel)
     },

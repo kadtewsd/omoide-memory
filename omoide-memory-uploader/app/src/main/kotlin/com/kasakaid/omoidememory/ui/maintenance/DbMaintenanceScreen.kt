@@ -313,7 +313,7 @@ private fun StateLabel(
         modifier = modifier.padding(end = 8.dp),
     ) {
         Text(
-            text = state.name,
+            text = state.label,
             modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,

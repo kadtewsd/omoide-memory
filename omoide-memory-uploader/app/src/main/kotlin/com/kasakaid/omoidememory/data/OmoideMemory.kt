@@ -2,6 +2,7 @@ package com.kasakaid.omoidememory.data
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import com.kasakaid.omoidememory.ui.EnumWithLabel
 
 /**
  * ストレージから取り出してきたもの
@@ -41,12 +42,14 @@ fun List<OmoideMemory>.totalSize(): Long = sumOf { it.fileSize ?: 0L }
 
 fun List<OmoideMemory>.isOverLimit(): Boolean = totalSize() > OmoideMemory.UPLOAD_LIMIT_BYTES
 
-enum class UploadState {
-    READY, // アップロード待ち
-    UPLOADING, // 実行中（任意）
-    DONE, // 完了
-    FAILED, // 失敗（任意）
-    EXCLUDED, // 除外
+enum class UploadState(
+    override val label: String,
+) : EnumWithLabel {
+    READY("アップロード待ち"),
+    UPLOADING("実行中"),
+    DONE("完了"),
+    FAILED("失敗"),
+    EXCLUDED("除外"),
 }
 
 class ExcludeOmoide(
