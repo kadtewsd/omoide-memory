@@ -61,9 +61,11 @@ fun DbMaintenanceScreen(
     val rows by viewModel.rows.collectAsState()
     val selectedIds by viewModel.selectedIds.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
+    val filterState by viewModel.filterState.collectAsState()
 
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showStateMenu by remember { mutableStateOf(false) }
+    var showFilterMenu by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -148,17 +150,64 @@ fun DbMaintenanceScreen(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .padding(8.dp),
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                TextButton(onClick = { viewModel.selectAll() }) {
-                    Text("全選択")
+                // フィルター（スピナー風）
+                Box {
+                    Surface(
+                        onClick = { showFilterMenu = true },
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = MaterialTheme.shapes.small,
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = filterState?.name ?: "すべて (全表示)",
+                                style = MaterialTheme.typography.labelLarge,
+                            )
+                            Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                        }
+                    }
+                    DropdownMenu(
+                        expanded = showFilterMenu,
+                        onDismissRequest = { showFilterMenu = false },
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("すべて (全表示)") },
+                            onClick = {
+                                viewModel.setFilterState(null)
+                                showFilterMenu = false
+                            },
+                        )
+                        UploadState.entries.forEach { state ->
+                            DropdownMenuItem(
+                                text = { Text(state.name) },
+                                onClick = {
+                                    viewModel.setFilterState(state)
+                                    showFilterMenu = false
+                                },
+                            )
+                        }
+                    }
                 }
-                TextButton(onClick = { viewModel.clearSelection() }) {
-                    Text("全解除")
-                }
+
                 Spacer(Modifier.weight(1f))
-                Text("合計: ${rows.size} 行", style = MaterialTheme.typography.labelSmall)
+
+                Column(horizontalAlignment = Alignment.End) {
+                    TextButton(onClick = { viewModel.selectAll() }, modifier = Modifier.height(32.dp)) {
+                        Text("全選択", fontSize = 12.sp)
+                    }
+                    TextButton(onClick = { viewModel.clearSelection() }, modifier = Modifier.height(32.dp)) {
+                        Text("全解除", fontSize = 12.sp)
+                    }
+                }
+            }
+            Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                Spacer(Modifier.weight(1f))
+                Text("件数: ${rows.size}", style = MaterialTheme.typography.labelSmall)
             }
 
             HorizontalDivider()

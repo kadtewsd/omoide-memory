@@ -27,6 +27,9 @@ class DbMaintenanceViewModel
         private val _isRefreshing = MutableStateFlow(false)
         val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
+        private val _filterState = MutableStateFlow<UploadState?>(null)
+        val filterState: StateFlow<UploadState?> = _filterState.asStateFlow()
+
         init {
             reload()
         }
@@ -34,9 +37,20 @@ class DbMaintenanceViewModel
         fun reload() {
             viewModelScope.launch {
                 _isRefreshing.value = true
-                _rows.value = omoideMemoryDao.getAll()
+                val filter = _filterState.value
+                _rows.value =
+                    if (filter == null) {
+                        omoideMemoryDao.getAll()
+                    } else {
+                        omoideMemoryDao.findBy(filter)
+                    }
                 _isRefreshing.value = false
             }
+        }
+
+        fun setFilterState(state: UploadState?) {
+            _filterState.value = state
+            reload()
         }
 
         fun toggleSelect(id: Long) {

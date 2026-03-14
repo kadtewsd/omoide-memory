@@ -26,11 +26,12 @@ interface OmoideMemoryDao {
         """
         SELECT * FROM uploaded_memories
         WHERE state = :state
+        ORDER BY id DESC
     """,
     )
     suspend fun findBy(state: UploadState): List<OmoideMemory>
 
-    @Query("SELECT * FROM uploaded_memories WHERE state = :state")
+    @Query("SELECT * FROM uploaded_memories WHERE state = :state ORDER BY id DESC")
     fun findByAsFlow(state: UploadState): Flow<List<OmoideMemory>>
 
     @Insert(onConflict = OnConflictStrategy.ABORT)
