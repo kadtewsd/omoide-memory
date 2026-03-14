@@ -19,6 +19,9 @@ interface OmoideMemoryDao {
     @Query("SELECT count(id) FROM uploaded_memories")
     fun getAllUploadedIdsAsFlow(): Flow<Long>
 
+    @Query("SELECT * FROM uploaded_memories ORDER BY id DESC")
+    suspend fun getAll(): List<OmoideMemory>
+
     @Query(
         """
         SELECT * FROM uploaded_memories
