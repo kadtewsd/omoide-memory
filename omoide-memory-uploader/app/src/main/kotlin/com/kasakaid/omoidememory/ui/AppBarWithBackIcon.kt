@@ -14,19 +14,20 @@ import androidx.compose.runtime.Composable
  */
 @Composable
 fun AppBarWithBackIcon(
+    title: String,
     onFinished: () -> Unit,
 ) {
     @OptIn(ExperimentalMaterial3Api::class)
     TopAppBar(
-        title = { Text("アップロードする写真を選択") },
+        title = { Text(title) },
         // 🚀 左端にアイコンを置くスロット
         navigationIcon = {
             IconButton(onClick = onFinished) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "戻る"
+                    contentDescription = "戻る",
                 )
             }
-        }
+        },
     )
 }

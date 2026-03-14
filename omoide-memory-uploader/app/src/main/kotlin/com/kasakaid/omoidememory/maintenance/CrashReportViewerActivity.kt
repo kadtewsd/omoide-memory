@@ -5,9 +5,12 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.kasakaid.omoidememory.ui.AppBarWithBackIcon
 import com.kasakaid.omoidememory.ui.theme.OmoideMemoryTheme
 
 class CrashReportViewerActivity : ComponentActivity() {
@@ -15,8 +18,23 @@ class CrashReportViewerActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             OmoideMemoryTheme {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("スタックトレース一覧画面 (Stub)")
+                Scaffold(
+                    topBar = {
+                        AppBarWithBackIcon(
+                            title = "スタックトレース確認",
+                            onFinished = { finish() },
+                        )
+                    },
+                ) { padding ->
+                    Box(
+                        modifier =
+                            Modifier
+                                .padding(padding)
+                                .fillMaxSize(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text("スタックトレース一覧画面 (Stub)")
+                    }
                 }
             }
         }
