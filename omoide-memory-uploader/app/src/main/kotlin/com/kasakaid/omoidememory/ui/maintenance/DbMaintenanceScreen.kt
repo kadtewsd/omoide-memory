@@ -51,6 +51,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.kasakaid.omoidememory.data.OmoideMemory
 import com.kasakaid.omoidememory.data.UploadState
 import com.kasakaid.omoidememory.ui.AppRowBarWithBackIcon
+import com.kasakaid.omoidememory.ui.EnumDropdown
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -64,8 +65,6 @@ fun DbMaintenanceScreen(
     val filterState by viewModel.filterState.collectAsState()
 
     var showDeleteConfirm by remember { mutableStateOf(false) }
-    var showStateMenu by remember { mutableStateOf(false) }
-    var showFilterMenu by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -100,29 +99,21 @@ fun DbMaintenanceScreen(
                         )
 
                         // State 更新ボタン
-                        Box {
-                            Button(
-                                onClick = { showStateMenu = true },
-                                modifier = Modifier.height(40.dp),
-                            ) {
-                                Text("state更新", fontSize = 12.sp)
-                                Icon(Icons.Default.ArrowDropDown, contentDescription = null)
-                            }
-                            DropdownMenu(
-                                expanded = showStateMenu,
-                                onDismissRequest = { showStateMenu = false },
-                            ) {
-                                UploadState.entries.forEach { state ->
-                                    DropdownMenuItem(
-                                        text = { Text(state.name) },
-                                        onClick = {
-                                            viewModel.updateState(state)
-                                            showStateMenu = false
-                                        },
-                                    )
+                        EnumDropdown(
+                            label = "state更新",
+                            items = UploadState.entries.toTypedArray(),
+                            selectedItem = null,
+                            onItemSelected = { it?.let { viewModel.updateState(it) } },
+                            trigger = { onClick, _ ->
+                                Button(
+                                    onClick = onClick,
+                                    modifier = Modifier.height(40.dp),
+                                ) {
+                                    Text("state更新", fontSize = 12.sp)
+                                    Icon(Icons.Default.ArrowDropDown, contentDescription = null)
                                 }
-                            }
-                        }
+                            },
+                        )
 
                         // 削除ボタン
                         Button(
@@ -154,45 +145,13 @@ fun DbMaintenanceScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 // フィルター（スピナー風）
-                Box {
-                    Surface(
-                        onClick = { showFilterMenu = true },
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        shape = MaterialTheme.shapes.small,
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                text = filterState?.name ?: "すべて (全表示)",
-                                style = MaterialTheme.typography.labelLarge,
-                            )
-                            Icon(Icons.Default.ArrowDropDown, contentDescription = null)
-                        }
-                    }
-                    DropdownMenu(
-                        expanded = showFilterMenu,
-                        onDismissRequest = { showFilterMenu = false },
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("すべて (全表示)") },
-                            onClick = {
-                                viewModel.setFilterState(null)
-                                showFilterMenu = false
-                            },
-                        )
-                        UploadState.entries.forEach { state ->
-                            DropdownMenuItem(
-                                text = { Text(state.name) },
-                                onClick = {
-                                    viewModel.setFilterState(state)
-                                    showFilterMenu = false
-                                },
-                            )
-                        }
-                    }
-                }
+                EnumDropdown(
+                    label = "すべて (全表示)",
+                    items = UploadState.entries.toTypedArray(),
+                    selectedItem = filterState,
+                    onItemSelected = { viewModel.setFilterState(it) },
+                    allLabel = "すべて (全表示)",
+                )
 
                 Spacer(Modifier.weight(1f))
 
@@ -354,7 +313,7 @@ private fun StateLabel(
         modifier = modifier.padding(end = 8.dp),
     ) {
         Text(
-            text = state.name,
+            text = state.label,
             modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,
