@@ -2,6 +2,7 @@ package com.kasakaid.omoidememory.commentimport.adapter
 
 import com.kasakaid.omoidememory.APPLICATION_RUNNER_KEY
 import com.kasakaid.omoidememory.commentimport.domain.model.OmoideComment
+import com.kasakaid.omoidememory.commentimport.domain.model.OmoideCommentedDateFactory
 import com.kasakaid.omoidememory.commentimport.service.CommentImportService
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.reactive.awaitFirstOrNull
@@ -52,13 +53,19 @@ class CommentImportCommand(
                 if (parts.size >= 3) {
                     val fileName = parts[0].trim()
                     val authorDate = parts.last().trim()
-                    val authorParts = authorDate.split("·", limit = 2)
+                    val authorParts = authorDate.split(Regex("[·・]"), limit = 2)
 
                     OmoideComment(
                         fileName = fileName,
                         commentBody = parts.subList(1, parts.size - 1).joinToString(",").trim(),
                         commenterName = if (authorParts.isNotEmpty()) authorParts[0].trim() else "",
-                        dateString = if (authorParts.size == 2) authorParts[1].trim() else "",
+                        commentedAt =
+                            OmoideCommentedDateFactory.create(authorParts).fold(
+                                ifLeft = {
+                                    throw IllegalStateException("問題あり: $fileName $parts")
+                                },
+                                ifRight = { it },
+                            ),
                     )
                 } else {
                     logger.warn { "フォーマットが正しくない行をスキップします: $line" }
