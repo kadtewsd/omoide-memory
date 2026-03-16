@@ -1,6 +1,6 @@
 package com.kasakaid.omoidememory.commentimport.service
 
-import com.kasakaid.omoidememory.commentimport.domain.model.ParsedComment
+import com.kasakaid.omoidememory.commentimport.domain.model.OmoideComment
 import com.kasakaid.omoidememory.commentimport.infrastructure.CommentRepository
 import com.kasakaid.omoidememory.commentimport.infrastructure.CommenterRepository
 import com.kasakaid.omoidememory.downloader.domain.MediaType
@@ -14,25 +14,25 @@ class CommentImportService(
 ) {
     private val logger = KotlinLogging.logger {}
 
-    suspend fun importComment(parsedComment: ParsedComment) {
-        val mediaTypeOpt = MediaType.of(parsedComment.fileName)
+    suspend fun importComment(omoideComment: OmoideComment) {
+        val mediaTypeOpt = MediaType.of(omoideComment.fileName)
         if (mediaTypeOpt.isNone()) {
-            logger.warn { "Unknown media type for file: ${parsedComment.fileName}. Skipping." }
+            logger.warn { "Unknown media type for file: ${omoideComment.fileName}. Skipping." }
             return
         }
 
         val mediaType = mediaTypeOpt.getOrNull()!!
 
-        val commenterId = commenterRepository.findIdByName(parsedComment.commenterName)
+        val commenterId = commenterRepository.findIdByName(omoideComment.commenterName)
         if (commenterId == null) {
-            logger.warn { "Commenter not found in database: ${parsedComment.commenterName}. Saving with commenter_id = null." }
+            logger.warn { "Commenter not found in database: ${omoideComment.commenterName}. Saving with commenter_id = null." }
         }
 
         when (mediaType) {
             MediaType.PHOTO -> {
-                val photoId = commentRepository.findPhotoIdByFileName(parsedComment.fileName)
+                val photoId = commentRepository.findPhotoIdByFileName(omoideComment.fileName)
                 if (photoId == null) {
-                    logger.warn { "Photo not found in database: ${parsedComment.fileName}. Skipping." }
+                    logger.warn { "Photo not found in database: ${omoideComment.fileName}. Skipping." }
                     return
                 }
                 val nextSeq = commentRepository.getNextPhotoCommentSeq(photoId)
@@ -40,14 +40,14 @@ class CommentImportService(
                     photoId = photoId,
                     commenterId = commenterId,
                     commentSeq = nextSeq,
-                    commentBody = parsedComment.commentBody,
+                    commentBody = omoideComment.commentBody,
                 )
             }
 
             MediaType.VIDEO -> {
-                val videoId = commentRepository.findVideoIdByFileName(parsedComment.fileName)
+                val videoId = commentRepository.findVideoIdByFileName(omoideComment.fileName)
                 if (videoId == null) {
-                    logger.warn { "Video not found in database: ${parsedComment.fileName}. Skipping." }
+                    logger.warn { "Video not found in database: ${omoideComment.fileName}. Skipping." }
                     return
                 }
                 val nextSeq = commentRepository.getNextVideoCommentSeq(videoId)
@@ -55,7 +55,7 @@ class CommentImportService(
                     videoId = videoId,
                     commenterId = commenterId,
                     commentSeq = nextSeq,
-                    commentBody = parsedComment.commentBody,
+                    commentBody = omoideComment.commentBody,
                 )
             }
         }

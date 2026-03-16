@@ -2,7 +2,7 @@ package com.kasakaid.omoidememory.commentimport.domain.model
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 
-data class ParsedComment(
+data class OmoideComment(
     val fileName: String,
     val commentBody: String,
     val commenterName: String,
@@ -29,8 +29,8 @@ object GooglePhotoCommentParser {
             ".webm",
         )
 
-    fun parseLines(lines: List<String>): List<ParsedComment> {
-        val result = mutableListOf<ParsedComment>()
+    fun parseLines(lines: List<String>): List<OmoideComment> {
+        val result = mutableListOf<OmoideComment>()
         var currentFileName = ""
         var currentCommentBody = ""
 
@@ -49,7 +49,7 @@ object GooglePhotoCommentParser {
                 if (parts.size == 2 && currentFileName.isNotEmpty()) {
                     val commenter = parts[0].trim()
                     val dateStr = parts[1].trim()
-                    result.add(ParsedComment(currentFileName, currentCommentBody.trim(), commenter, dateStr))
+                    result.add(OmoideComment(currentFileName, currentCommentBody.trim(), commenter, dateStr))
 
                     // Reset state
                     currentFileName = ""
