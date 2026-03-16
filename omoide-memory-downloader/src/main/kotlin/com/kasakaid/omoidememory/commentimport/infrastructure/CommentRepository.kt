@@ -1,94 +1,64 @@
 package com.kasakaid.omoidememory.commentimport.infrastructure
 
+import com.kasakaid.omoidememory.commentimport.domain.model.OmoideComment
+import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.COMMENTER
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.COMMENT_OMOIDE_PHOTO
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.COMMENT_OMOIDE_VIDEO
-import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_PHOTO
-import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_VIDEO
 import com.kasakaid.omoidememory.utility.MyUUIDGenerator
-import kotlinx.coroutines.reactive.awaitFirstOrNull
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.reactive.asFlow
 import kotlinx.coroutines.reactive.awaitSingle
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.jooq.DSLContext
 import org.springframework.stereotype.Repository
 import java.time.OffsetDateTime
-import java.util.UUID
 
 @Repository
 class CommentRepository(
     private val dslContext: DSLContext,
 ) {
-    suspend fun findPhotoIdByFileName(fileName: String): UUID? =
-        dslContext
-            .selectFrom(SYNCED_OMOIDE_PHOTO)
-            .where(SYNCED_OMOIDE_PHOTO.FILE_NAME.eq(fileName))
-            .awaitFirstOrNull()
-            ?.id
+    private var commenters: Map<String, Number>? = null
+    private val mutex = Mutex()
 
-    suspend fun findVideoIdByFileName(fileName: String): UUID? =
-        dslContext
-            .selectFrom(SYNCED_OMOIDE_VIDEO)
-            .where(SYNCED_OMOIDE_VIDEO.FILE_NAME.eq(fileName))
-            .awaitFirstOrNull()
-            ?.id
+    private suspend fun getCommenters(): Map<String, Number> =
+        commenters ?: mutex.withLock {
+            // ロック取得後に再チェック（二重初期化防止）
+            commenters ?: dslContext
+                .selectFrom(COMMENTER)
+                .asFlow()
+                .toList()
+                .associate { it.name to it.id!! }
+                .also { commenters = it }
+        }
 
-    suspend fun getNextPhotoCommentSeq(photoId: UUID): Int {
-        val maxSeqRec =
+    suspend fun insertPhotoComment(omoideComment: OmoideComment) {
+        COMMENT_OMOIDE_PHOTO.run {
             dslContext
-                .selectFrom(COMMENT_OMOIDE_PHOTO)
-                .where(COMMENT_OMOIDE_PHOTO.PHOTO_ID.eq(photoId))
-                .orderBy(COMMENT_OMOIDE_PHOTO.COMMENT_SEQ.desc())
-                .limit(1)
-                .awaitFirstOrNull()
-        return (maxSeqRec?.commentSeq ?: 0) + 1
+                .insertInto(COMMENT_OMOIDE_PHOTO)
+                .set(ID, MyUUIDGenerator.generateUUIDv7())
+                .set(FILE_NAME, omoideComment.fileName)
+                .set(COMMENTER_ID, getCommenters()[omoideComment.commenterName]?.toLong()!!)
+                .set(COMMENT_BODY, omoideComment.commentBody)
+                .set(COMMENTED_AT, omoideComment.commentedAt)
+                .set(CREATED_AT, OffsetDateTime.now())
+                .set(CREATED_BY, "comment-import")
+                .awaitSingle()
+        }
     }
 
-    suspend fun getNextVideoCommentSeq(videoId: UUID): Int {
-        val maxSeqRec =
+    suspend fun insertVideoComment(omoideComment: OmoideComment) {
+        COMMENT_OMOIDE_VIDEO.run {
             dslContext
-                .selectFrom(COMMENT_OMOIDE_VIDEO)
-                .where(COMMENT_OMOIDE_VIDEO.VIDEO_ID.eq(videoId))
-                .orderBy(COMMENT_OMOIDE_VIDEO.COMMENT_SEQ.desc())
-                .limit(1)
-                .awaitFirstOrNull()
-        return (maxSeqRec?.commentSeq ?: 0) + 1
-    }
-
-    suspend fun insertPhotoComment(
-        photoId: UUID,
-        commenterId: Long?,
-        commentSeq: Int,
-        commentBody: String,
-        createdBy: String = "comment-import",
-    ) {
-        dslContext
-            .insertInto(COMMENT_OMOIDE_PHOTO)
-            .set(COMMENT_OMOIDE_PHOTO.ID, MyUUIDGenerator.generateUUIDv7())
-            .set(COMMENT_OMOIDE_PHOTO.PHOTO_ID, photoId)
-            .set(COMMENT_OMOIDE_PHOTO.COMMENTER_ID, commenterId)
-            .set(COMMENT_OMOIDE_PHOTO.COMMENT_SEQ, commentSeq)
-            .set(COMMENT_OMOIDE_PHOTO.COMMENT_BODY, commentBody)
-            .set(COMMENT_OMOIDE_PHOTO.COMMENTED_AT, OffsetDateTime.now())
-            .set(COMMENT_OMOIDE_PHOTO.CREATED_AT, OffsetDateTime.now())
-            .set(COMMENT_OMOIDE_PHOTO.CREATED_BY, createdBy)
-            .awaitSingle()
-    }
-
-    suspend fun insertVideoComment(
-        videoId: UUID,
-        commenterId: Long?,
-        commentSeq: Int,
-        commentBody: String,
-        createdBy: String = "comment-import",
-    ) {
-        dslContext
-            .insertInto(COMMENT_OMOIDE_VIDEO)
-            .set(COMMENT_OMOIDE_VIDEO.ID, MyUUIDGenerator.generateUUIDv7())
-            .set(COMMENT_OMOIDE_VIDEO.VIDEO_ID, videoId)
-            .set(COMMENT_OMOIDE_VIDEO.COMMENTER_ID, commenterId)
-            .set(COMMENT_OMOIDE_VIDEO.COMMENT_SEQ, commentSeq)
-            .set(COMMENT_OMOIDE_VIDEO.COMMENT_BODY, commentBody)
-            .set(COMMENT_OMOIDE_VIDEO.COMMENTED_AT, OffsetDateTime.now())
-            .set(COMMENT_OMOIDE_VIDEO.CREATED_AT, OffsetDateTime.now())
-            .set(COMMENT_OMOIDE_VIDEO.CREATED_BY, createdBy)
-            .awaitSingle()
+                .insertInto(COMMENT_OMOIDE_VIDEO)
+                .set(ID, MyUUIDGenerator.generateUUIDv7())
+                .set(FILE_NAME, omoideComment.fileName)
+                .set(COMMENTER_ID, getCommenters()[omoideComment.commenterName]?.toLong()!!)
+                .set(COMMENT_BODY, omoideComment.commentBody)
+                .set(COMMENTED_AT, omoideComment.commentedAt)
+                .set(CREATED_AT, OffsetDateTime.now())
+                .set(CREATED_BY, "comment-import")
+                .awaitSingle()
+        }
     }
 }
