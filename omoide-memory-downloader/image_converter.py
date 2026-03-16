@@ -4,6 +4,9 @@ import argparse
 from PIL import Image
 
 def png_to_data_url(png_path: str, quality: int = 85, max_width: int = 400) -> str:
+    """
+    アイコンを Base64 にエンコードする関数
+    """
     with Image.open(png_path) as img:
         # リサイズ（アスペクト比維持）
         if img.width > max_width:
