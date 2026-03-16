@@ -13,22 +13,20 @@ class CommentImportService(
     private val logger = KotlinLogging.logger {}
 
     suspend fun importComment(omoideComment: OmoideComment) {
-        val mediaTypeOpt = MediaType.of(omoideComment.fileName)
-        if (mediaTypeOpt.isNone()) {
-            logger.warn { "Unknown media type for file: ${omoideComment.fileName}. Skipping." }
-            return
-        }
+        MediaType
+            .of(omoideComment.fileName)
+            .map {
+                when (it) {
+                    MediaType.PHOTO -> {
+                        commentRepository.insertPhotoComment(omoideComment)
+                    }
 
-        val mediaType = mediaTypeOpt.getOrNull()!!
-
-        when (mediaType) {
-            MediaType.PHOTO -> {
-                commentRepository.insertPhotoComment(omoideComment)
+                    MediaType.VIDEO -> {
+                        commentRepository.insertVideoComment(omoideComment)
+                    }
+                }
+            }.onNone {
+                logger.warn { "Unknown media type for file: ${omoideComment.fileName}. Skipping." }
             }
-
-            MediaType.VIDEO -> {
-                commentRepository.insertVideoComment(omoideComment)
-            }
-        }
     }
 }

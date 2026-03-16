@@ -37,6 +37,7 @@ class CommentRepository(
             dslContext
                 .insertInto(COMMENT_OMOIDE_PHOTO)
                 .set(ID, MyUUIDGenerator.generateUUIDv7())
+                .set(FILE_NAME, omoideComment.fileName)
                 .set(COMMENTER_ID, getCommenters()[omoideComment.commenterName]?.toLong()!!)
                 .set(COMMENT_BODY, omoideComment.commentBody)
                 .set(COMMENTED_AT, OffsetDateTime.now())
@@ -51,6 +52,7 @@ class CommentRepository(
             dslContext
                 .insertInto(COMMENT_OMOIDE_VIDEO)
                 .set(ID, MyUUIDGenerator.generateUUIDv7())
+                .set(FILE_NAME, omoideComment.fileName)
                 .set(COMMENTER_ID, getCommenters()[omoideComment.commenterName]?.toLong()!!)
                 .set(COMMENT_BODY, omoideComment.commentBody)
                 .set(COMMENTED_AT, OffsetDateTime.now())
