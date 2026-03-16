@@ -1,22 +1,19 @@
 -- Create table for storing comments on files
 CREATE TABLE omoide_memory.comment_omoide_photo (
     id              UUID  NOT NULL,
-    photo_id        UUID          NOT NULL,
+    file_name      VARCHAR(255)          NOT NULL,
     commenter_id    BIGINT,
-    comment_seq     INT             NOT NULL DEFAULT 1,
     comment_body    TEXT,
     commented_at    TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     created_by      VARCHAR(255),
     CONSTRAINT pk_comment_omoide_photo PRIMARY KEY (id),
-    -- なくても入るように外部キー制約はコメントアウト
-    -- CONSTRAINT fk_comment_omoide_photo_photo FOREIGN KEY (photo_id) REFERENCES omoide_memory.synced_omoide_photo (id) ON DELETE CASCADE,
     CONSTRAINT fk_comment_omoide_photo_commenter FOREIGN KEY (commenter_id) REFERENCES omoide_memory.commenter (id) ON DELETE SET NULL
 );
 
 COMMENT ON TABLE  omoide_memory.comment_omoide_photo IS '写真に対するコメント';
 COMMENT ON COLUMN omoide_memory.comment_omoide_photo.id IS 'コメントID（サロゲートキー）';
-COMMENT ON COLUMN omoide_memory.comment_omoide_photo.photo_id IS '対象写真ID（外部キー）';
+COMMENT ON COLUMN omoide_memory.comment_omoide_photo.file_name IS '対象写真の名前';
 COMMENT ON COLUMN omoide_memory.comment_omoide_photo.commenter_id IS 'コメント投稿者ID（外部キー）';
 COMMENT ON COLUMN omoide_memory.comment_omoide_photo.comment_body IS 'コメント本文';
 COMMENT ON COLUMN omoide_memory.comment_omoide_photo.commented_at IS 'コメント投稿日時（タイムゾーン付き）';
