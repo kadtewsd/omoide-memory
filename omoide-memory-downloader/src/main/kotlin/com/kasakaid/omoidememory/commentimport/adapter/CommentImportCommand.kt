@@ -60,7 +60,7 @@ class CommentImportCommand(
                         commentBody = parts.subList(1, parts.size - 1).joinToString(",").trim(),
                         commenterName = if (authorParts.isNotEmpty()) authorParts[0].trim() else "",
                         commentedAt =
-                            OmoideCommentedDateFactory.create(authorParts).fold(
+                            OmoideCommentedDateFactory.create(fileName = fileName, authorParts = authorParts).fold(
                                 ifLeft = {
                                     throw IllegalStateException("問題あり: $fileName $parts")
                                 },
