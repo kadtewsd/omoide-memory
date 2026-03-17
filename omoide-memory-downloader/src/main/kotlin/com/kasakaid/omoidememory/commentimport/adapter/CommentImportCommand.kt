@@ -8,10 +8,14 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.reactive.awaitFirstOrNull
 import kotlinx.coroutines.reactor.mono
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.slf4j.MDCContext
+import kotlinx.coroutines.withContext
 import org.springframework.boot.ApplicationArguments
 import org.springframework.boot.ApplicationRunner
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.stereotype.Component
+import org.springframework.transaction.reactive.TransactionalOperator
+import org.springframework.transaction.reactive.executeAndAwait
 import reactor.core.publisher.Flux
 import java.nio.file.Files
 import java.nio.file.Path
@@ -20,6 +24,7 @@ import java.nio.file.Path
 @ConditionalOnProperty(name = [APPLICATION_RUNNER_KEY], havingValue = "import-comments")
 class CommentImportCommand(
     private val commentImportService: CommentImportService,
+    private val transactionalOperator: TransactionalOperator,
 ) : ApplicationRunner {
     private val logger = KotlinLogging.logger {}
 
@@ -44,8 +49,8 @@ class CommentImportCommand(
             return
         }
 
-        val omoideComments =
-            lines.mapIndexedNotNull { index, line ->
+        lines
+            .mapIndexedNotNull { index, line ->
                 if (index == 0 && line.startsWith("コンテンツ")) return@mapIndexedNotNull null
                 if (line.isBlank()) return@mapIndexedNotNull null
 
@@ -71,30 +76,32 @@ class CommentImportCommand(
                     logger.warn { "フォーマットが正しくない行をスキップします: $line" }
                     null
                 }
+            }.let { omoideComments ->
+                logger.info { "${omoideComments.size} 件のコメントをパースしました" }
+
+                // ID の付与を読み込み順で行いたいので順列で処理していく
+                runBlocking {
+                    Flux
+                        .fromIterable(omoideComments)
+                        .concatMap { comment ->
+                            mono {
+                                try {
+                                    transactionalOperator.executeAndAwait {
+                                        withContext(MDCContext(mapOf("requestId" to comment.fileName))) {
+                                            commentImportService.importComment(comment)
+                                        }
+                                    }
+                                } catch (e: Exception) {
+                                    logger.error(e) { "Failed to process comment for file: ${comment.fileName}" }
+                                } finally {
+                                    org.slf4j.MDC.remove("requestId")
+                                }
+                            }
+                        }.then()
+                        .awaitFirstOrNull()
+                }
+                logger.info { "コメントインポート処理を終了しました" }
             }
-
-        logger.info { "${omoideComments.size} 件のコメントをパースしました" }
-
-        // ID の付与を読み込み順で行いたいので順列で処理していく
-        runBlocking {
-            Flux
-                .fromIterable(omoideComments)
-                .concatMap { comment ->
-                    mono {
-                        try {
-                            org.slf4j.MDC.put("requestId", comment.fileName)
-                            commentImportService.importComment(comment)
-                        } catch (e: Exception) {
-                            logger.error(e) { "Failed to process comment for file: ${comment.fileName}" }
-                        } finally {
-                            org.slf4j.MDC.remove("requestId")
-                        }
-                    }
-                }.then()
-                .awaitFirstOrNull()
-        }
-
-        logger.info { "コメントインポート処理を終了しました" }
     }
 
     private fun parseCsvLine(line: String): List<String> {
