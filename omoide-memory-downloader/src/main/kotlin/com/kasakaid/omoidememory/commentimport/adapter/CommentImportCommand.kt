@@ -5,6 +5,8 @@ import com.kasakaid.omoidememory.commentimport.domain.model.OmoideComment
 import com.kasakaid.omoidememory.commentimport.domain.model.OmoideCommentedDateFactory
 import com.kasakaid.omoidememory.commentimport.service.CommentImportService
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.reactive.asFlow
 import kotlinx.coroutines.reactive.awaitFirstOrNull
 import kotlinx.coroutines.reactor.mono
 import kotlinx.coroutines.runBlocking
@@ -17,6 +19,7 @@ import org.springframework.stereotype.Component
 import org.springframework.transaction.reactive.TransactionalOperator
 import org.springframework.transaction.reactive.executeAndAwait
 import reactor.core.publisher.Flux
+import reactor.core.publisher.Mono
 import java.nio.file.Files
 import java.nio.file.Path
 
@@ -81,27 +84,24 @@ class CommentImportCommand(
 
                 // ID の付与を読み込み順で行いたいので順列で処理していく
                 runBlocking {
-                    Flux
-                        .fromIterable(omoideComments)
-                        .concatMap { comment ->
-                            mono {
-                                try {
-                                    transactionalOperator.executeAndAwait {
-                                        withContext(MDCContext(mapOf("requestId" to comment.fileName))) {
-                                            commentImportService.importComment(comment)
-                                        }
-                                    }
-                                } catch (e: Exception) {
-                                    logger.error(e) { "Failed to process comment for file: ${comment.fileName}" }
-                                } finally {
-                                    org.slf4j.MDC.remove("requestId")
-                                }
-                            }
-                        }.then()
-                        .awaitFirstOrNull()
+                    importComment(omoideComments)
                 }
                 logger.info { "コメントインポート処理を終了しました" }
             }
+    }
+
+    private suspend fun importComment(omoideComments: List<OmoideComment>) {
+        transactionalOperator.executeAndAwait {
+            Flux
+                .fromIterable(omoideComments)
+                .concatMap { comment ->
+                    mono {
+                        logger.info { "${comment.fileName}: ${comment.commenterName}" }
+                        commentImportService.importComment(comment)
+                    }
+                }.then()
+                .awaitFirstOrNull()
+        }
     }
 
     private fun parseCsvLine(line: String): List<String> {
