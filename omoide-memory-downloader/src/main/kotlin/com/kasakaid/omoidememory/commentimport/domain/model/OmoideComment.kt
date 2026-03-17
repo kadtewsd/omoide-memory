@@ -8,3 +8,9 @@ class OmoideComment(
     val commenterName: String,
     val commentedAt: OffsetDateTime,
 )
+
+interface OmoideCommentRepository {
+    suspend fun add(omoideComment: OmoideComment)
+
+    suspend fun exists(omoideComment: OmoideComment): Boolean
+}
