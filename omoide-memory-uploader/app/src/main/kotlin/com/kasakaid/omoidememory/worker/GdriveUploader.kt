@@ -10,7 +10,6 @@ import arrow.core.right
 import com.kasakaid.omoidememory.data.OmoideMemory
 import com.kasakaid.omoidememory.data.OmoideMemoryRepository
 import com.kasakaid.omoidememory.data.OmoideUploadPrefsRepository
-import com.kasakaid.omoidememory.data.WifiRepository
 import com.kasakaid.omoidememory.data.WifiSetting
 import com.kasakaid.omoidememory.network.GoogleDriveService
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -23,7 +22,6 @@ class GdriveUploader
     @Inject
     constructor(
         @ApplicationContext private val context: Context,
-        private val wifiRepository: WifiRepository,
         private val driveService: GoogleDriveService,
     ) {
         companion object {
@@ -55,10 +53,6 @@ class GdriveUploader
              * ※ セキュリティ上の制約より厳密さを求める場合は、開始時だけでなく各ファイル毎に
              *    snapshotSsid() を呼び出す必要がありますが、現状はユーザビリティと安定性を優先しています。
              */
-            if (!wifiRepository.isConnectedToWifi()) {
-                Log.w(tag, "Wi-Fi に接続されていません。アップロードを中断します。")
-                return WorkerExecutionError.WifiNotConnected.left()
-            }
 
             // 4. Upload Files
             return try {
