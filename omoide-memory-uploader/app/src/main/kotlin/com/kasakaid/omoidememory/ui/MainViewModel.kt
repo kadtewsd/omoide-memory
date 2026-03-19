@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
@@ -76,42 +77,22 @@ class MainViewModel
             combine(
                 hasPermission,
                 refreshTrigger,
-                // 5秒おきに最新状況を取得し直すための ticker
-                // ここで一つだけ run { ... } のような「単発の実行結果（Unit）」を渡してしまうと、combine はその一瞬の値しか受け取れず、その後の変化を追跡できなくなります。
-                // flow の場合: 5秒ごとに「今だ！」という信号を emit し続けます。これにより、combine 側は「あ、新しい信号が来たから、最新の hasPermission と組み合わせて再計算しよう」と動けるわけです。
-                // emit がほしいので flow で監視を継続する
-                flow {
-                    while (true) {
-                        delay(5000)
-                        emit(Unit)
-                    }
-                    /**
-                     * onStart { emit(Unit) } の存在: 5秒おきの ticker 自体は delay(5000) から始まりますが、末尾に .onStart { emit(Unit) } をつけたことで、Flow が再起動した瞬間に最初の1発目の信号が即座に emit されます。
-                     * flatMapLatest による再取得: この「1発目の信号」が combine を通り flatMapLatest に届くと、wifiRepository.observeWifiSSID() が新たに呼び出されます。これにより、OSから最新の Wi-Fi 状況が即座に通知されます。
-                     */
-                }.onStart { emit(Unit) },
-            ) { granted, _, _ -> granted }
-                .flatMapLatest { granted ->
+            ) { granted, trigger -> granted to trigger }
+                // 🚀 Point: 権限状態やリフレッシュ要求が「実際に変化した時」だけ後続へ流す。
+                // これがないと、同じ値が流れてきた際にも flatMapLatest が走り、OS へのコールバック登録が重複・頻発して
+                // TooManyRequestsException を引き起こす原因になります。
+                .distinctUntilChanged()
+                .flatMapLatest { (granted, _) ->
                     if (granted) {
-                        // 権限がある時だけ、OSの監視を開始する。
-                        // flatMapLatest により、トリガーが引かれるたびに既存の監視が解除・再登録されるため
-                        // 強制的に最新の状態が OS から通知されます。
+                        // 🚀 WifiRepository.observeWifiSSID() は OS (ConnectivityManager) からの
+                        // リアルタイムな通知を callbackFlow で検知して emit してくれます。
+                        // そのため、ViewModel 側でループを回して自発的に再取得する必要はありません。
                         wifiRepository.observeWifiSSID()
                     } else {
                         flowOf(WifiSetting.Idle)
                     }
                 }.stateIn(
                     scope = viewModelScope,
-                    /**
-                     * MainViewModel は MainScreen  がナビゲーションのバックスタックに積まれている間（別の画面に遷移している間など）は、メモリ上に残り続け、ViewModelScope もキャンセルされません。
-                     * Eagerly から WhileSubscribed への変更:
-                     * Eagerly のままだと、ユーザーが別画面に移動したり、アプリをホーム画面に隠したりしている間も、5秒おきのループと OS のネットワーク監視が走り続けてしまいます。
-                     * SharingStarted.WhileSubscribed(5000) に変更することで、「UIがこの値を必要としなくなってから5秒後」にフローを停止させることができます。
-                     * 5000 (5秒) のバッファを置く理由は、画面の回転（Configuration Change）時に一瞬購読が途切れても、監視をリセットさせないためです。
-                     * ユーザー体験への影響:
-                     * 画面に戻ってきた瞬間（購読再開時）、フローは即座に再稼働します。
-                     * StateFlow は直近の値をキャッシュしているため、再稼働後に新しい値が取得されるまでの間も、前回の正しい状態が即座に UI に表示されます。これにより「一瞬未接続に見える」といったフリッカー（ちらつき）を回避しつつ、最新の Wi-Fi 状況を（ON_RESUME のトリガーと合わせて）取得できます。
-                     */
                     started = SharingStarted.WhileSubscribed(5000),
                     initialValue = WifiSetting.Idle,
                 )
