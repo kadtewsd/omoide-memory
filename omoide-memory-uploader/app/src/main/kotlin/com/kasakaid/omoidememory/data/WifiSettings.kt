@@ -112,13 +112,15 @@ class WifiRepository
                 // イベントが届かない: 後から Wi-Fi が見つかって onCapabilitiesChanged が呼ばれても、流す先の「川（Flow）」がすでに干上がっている状態になります。
                 // メモリリーク: unregisterNetworkCallback を呼ぶタイミングを失い、リスナーが OS 内に残ったままになります。
                 // Android 12+ の非同期取得
-                // 現在使っている registerNetworkCallback(request, callback) は、「特定のネットワーク（Wi-Fiなど）が利用可能になったら教えて」というリクエストです。しかし、すでに Wi-Fi に繋がっている状態だと、「状態の変化」が起きない限り呼ばれない ことがあります。
-                // 今のデバイスが接続している「デフォルトのネットワーク」の情報を取るなら、registerDefaultNetworkCallbackの方が確実です。
-//        val request = NetworkRequest.Builder()
-//            .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
-//            .build()
-//        connectivityManager.registerNetworkCallback(request, callback)
-                connectivityManager.registerDefaultNetworkCallback(callback)
+                // registerDefaultNetworkCallback は WorkManager などの他ライブラリも多用するため、
+                // アプリ側では Wi-Fi に特化した NetworkRequest を使うことで Callback 数上限 (TooManyRequestsException)
+                // の競合を回避します。
+                val request =
+                    android.net.NetworkRequest
+                        .Builder()
+                        .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+                        .build()
+                connectivityManager.registerNetworkCallback(request, callback)
                 // ViewModel の scope が終わるまで監視を続ける
                 awaitClose { connectivityManager.unregisterNetworkCallback(callback) }
             }
