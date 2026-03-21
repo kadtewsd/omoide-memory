@@ -5,14 +5,9 @@ plugins {
     kotlin("plugin.spring") version "2.2.21"
     id("io.spring.dependency-management") version "1.1.7"
     id("nu.studer.jooq") version "9.0"
-    id("org.jlleitschuh.gradle.ktlint") version "12.3.0" apply true
     `java-library`
 }
 
-ktlint {
-    ignoreFailures.set(true)
-    version.set("1.8.0")
-}
 dependencyManagement {
     imports {
         mavenBom("org.springframework.boot:spring-boot-dependencies:4.0.2")
@@ -79,7 +74,7 @@ jooq {
     version = dependencyManagement.importedProperties["jooq.version"] // Spring Boot管理バージョンに追従
     configurations {
         create("main") {
-            generateSchemaSourceOnCompilation = true
+            generateSchemaSourceOnCompilation = false
             jooqConfiguration.apply {
                 generator.apply {
                     name = "org.jooq.codegen.KotlinGenerator" // Kotlin コード生成
@@ -107,7 +102,12 @@ jooq {
                     }
                     target.apply {
                         packageName = "com.kasakaid.omoidememory.jooq" // 生成先パッケージ
-                        directory = "build/generated-sources/jooq"
+                        // プラグイン標準の構成（build/generated-sources/jooq/main）に合わせる
+                        directory =
+                            project.layout.buildDirectory
+                                .dir("generated-sources/jooq/main")
+                                .get()
+                                .asFile.path
                     }
                     generate.apply {
                         isKotlinNotNullRecordAttributes = true
@@ -129,11 +129,10 @@ jooq {
     }
 }
 
-// jOOQ 生成コードを kotlin コンパイルのソースセットに追加
 kotlin {
     sourceSets {
         main {
-            kotlin.srcDir("build/generated-sources/jooq")
+            kotlin.srcDir(project.layout.buildDirectory.dir("generated-sources/jooq/main"))
         }
     }
 }

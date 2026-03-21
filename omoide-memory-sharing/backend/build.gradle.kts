@@ -54,17 +54,18 @@ kotlin {
     compilerOptions {
         freeCompilerArgs.addAll("-Xjsr305=strict", "-Xannotation-default-target=param-property")
     }
+    sourceSets {
+        main {
+            kotlin.srcDir(project.layout.buildDirectory.dir("generated-sources/jooq/main"))
+        }
+    }
 }
 
 tasks.withType<Test> {
     useJUnitPlatform()
 }
 
-// jOOQ 生成コードを kotlin コンパイルのソースセットに追加
-kotlin {
-    sourceSets {
-        main {
-            kotlin.srcDir("build/generated-sources/jooq")
-        }
-    }
+tasks.named("compileKotlin") {
+    dependsOn(":omoide-memory-jooq:generateJooq")
 }
+// jOOQ 生成コードは依存プロジェクト (omoide-memory-jooq) 側で管理されます
