@@ -24,6 +24,10 @@ java {
     }
 }
 
+tasks.jar {
+    archiveBaseName.set("omoide-memory-jooq")
+}
+
 repositories {
     mavenCentral()
 }
@@ -129,14 +133,30 @@ jooq {
     }
 }
 
+sourceSets {
+    main {
+        java {
+            srcDir(project.getLayout().getBuildDirectory().dir("generated-sources/jooq/main"))
+        }
+    }
+}
+
 kotlin {
     sourceSets {
         main {
-            kotlin.srcDir(project.layout.buildDirectory.dir("generated-sources/jooq/main"))
+            kotlin.srcDir(project.getLayout().getBuildDirectory().dir("generated-sources/jooq/main"))
         }
     }
 }
 
 tasks.named("compileKotlin") {
     dependsOn("generateJooq")
+}
+
+val deleteBin by tasks.registering(Delete::class) {
+    delete("bin")
+}
+
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+    dependsOn(deleteBin)
 }

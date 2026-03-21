@@ -64,3 +64,11 @@ kotlin {
 tasks.withType<Test> {
     useJUnitPlatform()
 }
+
+val deleteBin by tasks.registering(Delete::class) {
+    delete("bin")
+}
+
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+    dependsOn(deleteBin)
+}
