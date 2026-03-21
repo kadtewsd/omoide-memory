@@ -64,8 +64,3 @@ kotlin {
 tasks.withType<Test> {
     useJUnitPlatform()
 }
-
-tasks.named("compileKotlin") {
-    dependsOn(":omoide-memory-jooq:generateJooq")
-}
-// jOOQ 生成コードは依存プロジェクト (omoide-memory-jooq) 側で管理されます

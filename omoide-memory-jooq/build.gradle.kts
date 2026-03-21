@@ -136,3 +136,7 @@ kotlin {
         }
     }
 }
+
+tasks.named("compileKotlin") {
+    dependsOn("generateJooq")
+}
