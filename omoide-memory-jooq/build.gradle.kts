@@ -24,6 +24,7 @@ java {
     }
 }
 
+// 日本語が入ってしまうと上手くビルドができないのでプロジェクト名を明示的にセット
 tasks.jar {
     archiveBaseName.set("omoide-memory-jooq")
 }
@@ -136,7 +137,7 @@ jooq {
 sourceSets {
     main {
         java {
-            srcDir(project.getLayout().getBuildDirectory().dir("generated-sources/jooq/main"))
+            srcDir(project.layout.buildDirectory.dir("generated-sources/jooq/main"))
         }
     }
 }
@@ -144,7 +145,7 @@ sourceSets {
 kotlin {
     sourceSets {
         main {
-            kotlin.srcDir(project.getLayout().getBuildDirectory().dir("generated-sources/jooq/main"))
+            kotlin.srcDir(project.layout.buildDirectory.dir("generated-sources/jooq/main"))
         }
     }
 }
