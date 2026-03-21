@@ -54,17 +54,21 @@ kotlin {
     compilerOptions {
         freeCompilerArgs.addAll("-Xjsr305=strict", "-Xannotation-default-target=param-property")
     }
+    sourceSets {
+        main {
+            kotlin.srcDir(project.layout.buildDirectory.dir("generated-sources/jooq/main"))
+        }
+    }
 }
 
 tasks.withType<Test> {
     useJUnitPlatform()
 }
 
-// jOOQ 生成コードを kotlin コンパイルのソースセットに追加
-kotlin {
-    sourceSets {
-        main {
-            kotlin.srcDir("build/generated-sources/jooq")
-        }
-    }
+val deleteBin by tasks.registering(Delete::class) {
+    delete("bin")
+}
+
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+    dependsOn(deleteBin)
 }
