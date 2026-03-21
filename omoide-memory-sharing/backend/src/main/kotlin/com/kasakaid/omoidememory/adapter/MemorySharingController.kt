@@ -1,7 +1,6 @@
 package com.kasakaid.omoidememory.adapter
 
-import com.kasakaid.omoidememory.jooq.omoide_memory.tables.pojos.CommentOmoidePhoto
-import com.kasakaid.omoidememory.jooq.omoide_memory.tables.pojos.CommentOmoideVideo
+import com.kasakaid.omoidememory.jooq.omoide_memory.tables.pojos.CommentOmoide
 import com.kasakaid.omoidememory.service.query.MemoryFeedDto
 import com.kasakaid.omoidememory.service.query.MemoryQueryService
 import org.springframework.web.bind.annotation.*
@@ -25,10 +24,10 @@ class MemorySharingController(
     @GetMapping("/content/photo/{id}/comments")
     suspend fun getPhotoComments(
         @PathVariable id: java.util.UUID,
-    ): Flux<CommentOmoidePhoto> = memoryQueryService.getPhotoComments(id)
+    ): Flux<CommentOmoide> = memoryQueryService.getPhotoComments(id)
 
     @GetMapping("/content/video/{id}/comments")
     suspend fun getVideoComments(
         @PathVariable id: java.util.UUID,
-    ): Flux<CommentOmoideVideo> = memoryQueryService.getVideoComments(id)
+    ): Flux<CommentOmoide> = memoryQueryService.getVideoComments(id)
 }
