@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { fetchFeed } from '../api';
 import { MemoryFeedItem } from '../types';
 
@@ -7,7 +7,7 @@ export function useFeed() {
     const [loading, setLoading] = useState(false);
     const [hasMore, setHasMore] = useState(true);
 
-    const loadMore = async () => {
+    const loadMore = useCallback(async () => {
         if (loading || !hasMore) return;
         setLoading(true);
         try {
@@ -23,12 +23,13 @@ export function useFeed() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [items, loading, hasMore]);
 
     useEffect(() => {
-        loadMore();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+        if (items.length === 0) {
+            loadMore();
+        }
+    }, [loadMore, items.length]);
 
     return { items, loading, hasMore, loadMore };
 }
