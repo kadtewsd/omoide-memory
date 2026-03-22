@@ -134,14 +134,6 @@ jooq {
     }
 }
 
-sourceSets {
-    main {
-        java {
-            srcDir(project.layout.buildDirectory.dir("generated-sources/jooq/main"))
-        }
-    }
-}
-
 kotlin {
     sourceSets {
         main {
@@ -154,6 +146,11 @@ tasks.named("compileKotlin") {
     dependsOn("generateJooq")
 }
 
+tasks.named("generateJooq") {
+    // generateJooq タスクは clean タスクに依存する
+    // これにより、generateJooq を実行すると自動的に先に clean が走る
+    dependsOn(tasks.named("clean"))
+}
 val deleteBin by tasks.registering(Delete::class) {
     delete("bin")
 }
