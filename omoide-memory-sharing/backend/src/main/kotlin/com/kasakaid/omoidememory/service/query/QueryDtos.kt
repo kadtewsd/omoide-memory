@@ -5,9 +5,9 @@ import java.util.UUID
 
 class MemoryFeedDto(
     val id: UUID,
-    val type: String,
-    val filePath: String,
-    val captureTime: OffsetDateTime,
+    val type: String?,
+    val contentBase64: String?,
+    val commentedAt: OffsetDateTime,
     val thumbnailBase64: String? = null,
     val thumbnailMimeType: String? = null,
 )

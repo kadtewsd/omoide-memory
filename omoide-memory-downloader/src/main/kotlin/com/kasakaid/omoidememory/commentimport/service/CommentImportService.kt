@@ -4,6 +4,7 @@ import com.kasakaid.omoidememory.commentimport.domain.model.OmoideComment
 import com.kasakaid.omoidememory.commentimport.domain.model.OmoideCommentRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.stereotype.Service
+import java.util.UUID
 
 @Service
 class CommentImportService(

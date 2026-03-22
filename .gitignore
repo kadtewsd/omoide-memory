@@ -2,6 +2,11 @@
 .gradle/
 **/build/
 build/
+dist/
+
+*tsbuildinfo
+vite.config.d.ts
+vite.config.js
 
 # Android/Local configuration
 local.properties

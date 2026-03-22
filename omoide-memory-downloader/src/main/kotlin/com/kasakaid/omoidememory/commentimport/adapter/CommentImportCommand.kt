@@ -4,14 +4,12 @@ import com.kasakaid.omoidememory.APPLICATION_RUNNER_KEY
 import com.kasakaid.omoidememory.commentimport.domain.model.OmoideComment
 import com.kasakaid.omoidememory.commentimport.domain.model.OmoideCommentedDateFactory
 import com.kasakaid.omoidememory.commentimport.service.CommentImportService
+import com.kasakaid.omoidememory.domain.Extension
+import com.kasakaid.omoidememory.utility.MyUUIDGenerator
 import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlinx.coroutines.flow.toList
-import kotlinx.coroutines.reactive.asFlow
 import kotlinx.coroutines.reactive.awaitFirstOrNull
 import kotlinx.coroutines.reactor.mono
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.slf4j.MDCContext
-import kotlinx.coroutines.withContext
 import org.springframework.boot.ApplicationArguments
 import org.springframework.boot.ApplicationRunner
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -19,9 +17,9 @@ import org.springframework.stereotype.Component
 import org.springframework.transaction.reactive.TransactionalOperator
 import org.springframework.transaction.reactive.executeAndAwait
 import reactor.core.publisher.Flux
-import reactor.core.publisher.Mono
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.UUID
 
 @Component
 @ConditionalOnProperty(name = [APPLICATION_RUNNER_KEY], havingValue = "import-comments")
@@ -52,56 +50,77 @@ class CommentImportCommand(
             return
         }
 
-        lines
-            .mapIndexedNotNull { index, line ->
-                if (index == 0 && line.startsWith("コンテンツ")) return@mapIndexedNotNull null
-                if (line.isBlank()) return@mapIndexedNotNull null
-
-                val parts = parseCsvLine(line)
-                if (parts.size >= 3) {
-                    val fileName = parts[0].trim()
-                    val authorDate = parts.last().trim()
-                    val authorParts = authorDate.split(Regex("[·・]"), limit = 2)
-
-                    OmoideComment(
-                        fileName = fileName,
-                        commentBody = parts.subList(1, parts.size - 1).joinToString(",").trim(),
-                        commenterName = if (authorParts.isNotEmpty()) authorParts[0].trim() else "",
-                        commentedAt =
-                            OmoideCommentedDateFactory.create(fileName = fileName, authorParts = authorParts).fold(
-                                ifLeft = {
-                                    throw IllegalStateException("問題あり: $fileName $parts")
-                                },
-                                ifRight = { it },
-                            ),
-                    )
-                } else {
-                    logger.warn { "フォーマットが正しくない行をスキップします: $line" }
-                    null
-                }
-            }.let { omoideComments ->
-                logger.info { "${omoideComments.size} 件のコメントをパースしました" }
-
-                // ID の付与を読み込み順で行いたいので順列で処理していく
-                runBlocking {
-                    importComment(omoideComments)
-                }
-                logger.info { "コメントインポート処理を終了しました" }
-            }
+        // ID の付与を読み込み順で行いたいので順列で処理していく
+        runBlocking {
+            importComment(
+                lines
+                    .filterIndexed { index, line ->
+                        !(index == 0 && line.startsWith("コンテンツ")) && line.isNotBlank()
+                    }.groupBy { line ->
+                        parseCsvLine(line)[0].trim() // fileName
+                    }.entries
+                    .associate { (fileName, groupedLines) ->
+                        // ここで新しいUUIDを「キー」に、行リストを「値」に変換
+                        FileKey(fileName) to groupedLines
+                    },
+            )
+        }
+        logger.info { "コメントインポート処理を終了しました" }
     }
 
-    private suspend fun importComment(omoideComments: List<OmoideComment>) {
-        transactionalOperator.executeAndAwait {
-            Flux
-                .fromIterable(omoideComments)
-                .concatMap { comment ->
-                    mono {
-                        logger.info { "${comment.fileName}: ${comment.commenterName}" }
-                        commentImportService.importComment(comment)
+    class FileKey(
+        val name: String,
+    ) {
+        val mediaId: UUID = MyUUIDGenerator.generateUUIDv7()
+        val mediaType = Extension.of(name).mimeType
+    }
+
+    private suspend fun importComment(groupedLines: Map<FileKey, Collection<String>>) {
+        groupedLines.entries
+            .flatMap { entry ->
+                val file = entry.key
+                val fileLines = entry.value
+                fileLines.mapNotNull { line ->
+                    val parts = parseCsvLine(line)
+                    if (parts.size >= 3) {
+                        val authorDate = parts.last().trim()
+                        val authorParts = authorDate.split(Regex("[·・]"), limit = 2)
+                        val commentedAt =
+                            OmoideCommentedDateFactory
+                                .create(fileName = file.name, authorParts = authorParts)
+                                .fold(
+                                    ifLeft = {
+                                        throw IllegalStateException("パース不可能なコメントです: ${file.name} $parts $it")
+                                    },
+                                    ifRight = { it },
+                                )
+
+                        OmoideComment(
+                            fileName = file.name,
+                            commentBody = parts.subList(1, parts.size - 1).joinToString(",").trim(),
+                            commenterName = if (authorParts.isNotEmpty()) authorParts[0].trim() else "",
+                            commentedAt = commentedAt,
+                            mediaType = file.mediaType,
+                            feedId = file.mediaId,
+                        )
+                    } else {
+                        logger.warn { "フォーマットが正しくない行をスキップします: $line" }
+                        null
                     }
-                }.then()
-                .awaitFirstOrNull()
-        }
+                }
+            }.let { comments ->
+                transactionalOperator.executeAndAwait {
+                    Flux
+                        .fromIterable(comments)
+                        .concatMap { comment ->
+                            mono {
+                                logger.info { "${comment.fileName}: ${comment.commenterName}" }
+                                commentImportService.importComment(comment)
+                            }
+                        }.then()
+                        .awaitFirstOrNull()
+                }
+            }
     }
 
     private fun parseCsvLine(line: String): List<String> {

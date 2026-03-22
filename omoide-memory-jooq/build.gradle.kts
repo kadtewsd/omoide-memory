@@ -79,7 +79,7 @@ jooq {
     version = dependencyManagement.importedProperties["jooq.version"] // Spring Boot管理バージョンに追従
     configurations {
         create("main") {
-            generateSchemaSourceOnCompilation = false
+            generateSchemaSourceOnCompilation = true
             jooqConfiguration.apply {
                 generator.apply {
                     name = "org.jooq.codegen.KotlinGenerator" // Kotlin コード生成
