@@ -6,10 +6,8 @@ import com.kasakaid.omoidememory.utility.MyUUIDGenerator
 import kotlinx.coroutines.reactive.awaitFirstOrNull
 import kotlinx.coroutines.reactive.awaitSingle
 import org.jooq.DSLContext
-import org.jooq.Path
 import org.springframework.stereotype.Repository
 import java.time.OffsetDateTime
-import kotlin.io.path.name
 
 @Repository
 class OmoideStorageBackupRepository(

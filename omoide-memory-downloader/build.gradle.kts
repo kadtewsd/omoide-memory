@@ -87,7 +87,7 @@ tasks.withType<Test> {
 }
 
 val deleteBin by tasks.registering(Delete::class) {
-//    delete("bin")
+    delete("bin")
 }
 
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
