@@ -1,5 +1,7 @@
 CREATE TABLE omoide_memory.comment_omoide (
     id              UUID NOT NULL,
+    feed_id        UUID NOT NULL,
+    media_type      VARCHAR(10)           NOT NULL,
     file_name        VARCHAR(255)          NOT NULL,
     commenter_id    BIGINT,
     comment_body    TEXT,
@@ -14,6 +16,8 @@ CREATE TABLE omoide_memory.comment_omoide (
 
 COMMENT ON TABLE  omoide_memory.comment_omoide IS '動画に対するコメント';
 COMMENT ON COLUMN omoide_memory.comment_omoide.id IS 'コメントID（サロゲートキー）';
+COMMENT ON COLUMN omoide_memory.comment_omoide.feed_id IS 'フィードごとのID（メディア写真・動画単位）。同一メディアのコメントで共通';
+COMMENT ON COLUMN omoide_memory.comment_omoide.media_type IS 'メディアの種類（PHOTO, VIDEO）';
 COMMENT ON COLUMN omoide_memory.comment_omoide.file_name IS 'コメントをつけた写真の名前。パスは含まれない';
 COMMENT ON COLUMN omoide_memory.comment_omoide.commenter_id IS 'コメント投稿者ID（外部キー）';
 COMMENT ON COLUMN omoide_memory.comment_omoide.comment_body IS 'コメント本文';

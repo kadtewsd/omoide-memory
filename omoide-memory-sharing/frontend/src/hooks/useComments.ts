@@ -11,8 +11,12 @@ export function useComments() {
         setSelectedItem(item);
         setCommentsLoading(true);
         try {
-            const comms = await fetchComments(item.type, item.id);
-            setComments(comms);
+            if (item.type) {
+                const comms = await fetchComments(item.type, item.id);
+                setComments(comms);
+            } else {
+                setComments([]);
+            }
         } catch (err) {
             console.error(err);
         } finally {

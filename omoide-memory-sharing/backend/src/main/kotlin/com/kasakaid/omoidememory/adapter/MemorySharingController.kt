@@ -17,8 +17,8 @@ class MemorySharingController(
         @RequestParam(required = false) cursor: String?,
         @RequestParam(defaultValue = "20") limit: Int,
     ): Flux<MemoryFeedDto> {
-        val cursorTime = cursor?.let { OffsetDateTime.parse(it) }
-        return memoryQueryService.getFeed(cursorTime, limit)
+        val cursorUuid = cursor?.let { java.util.UUID.fromString(it) }
+        return memoryQueryService.getFeed(cursorUuid, limit)
     }
 
     @GetMapping("/content/photo/{id}/comments")

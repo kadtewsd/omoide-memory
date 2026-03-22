@@ -1,5 +1,6 @@
 import { MemoryFeedItem, Comment } from '../types';
 import { CommentPanel } from './CommentPanel';
+import { ContentNotFound } from './ContentNotFound';
 
 interface Props {
     selectedItem: MemoryFeedItem | null;
@@ -24,19 +25,21 @@ export function MemoryModal({ selectedItem, comments, commentsLoading, onClose }
                         </svg>
                     </button>
                     <div className="text-sm opacity-70">
-                        {selectedItem.captureTime ? new Date(selectedItem.captureTime).toLocaleDateString() : ''}
+                        {selectedItem.commentedAt ? new Date(selectedItem.commentedAt).toLocaleDateString() : ''}
                     </div>
                 </header>
 
                 <div className="flex-1 flex items-center justify-center p-4">
-                    {selectedItem.type === 'VIDEO' && selectedItem.thumbnailBase64 ? (
+                    {selectedItem.contentBase64 ? (
                         <img
-                            src={`data:${selectedItem.thumbnailMimeType || 'image/jpeg'};base64,${selectedItem.thumbnailBase64}`}
+                            src={selectedItem.contentBase64}
                             alt=""
                             className="max-w-full max-h-full object-contain"
                         />
                     ) : (
-                        <div className="text-white/50">Image placeholder ({selectedItem.filePath})</div>
+                        <div className="w-full h-full max-w-lg max-h-96 relative">
+                           <ContentNotFound />
+                        </div>
                     )}
                 </div>
             </div>

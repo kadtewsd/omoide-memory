@@ -38,6 +38,8 @@ class JooqCommentRepository(
             dslContext
                 .insertInto(COMMENT_OMOIDE)
                 .set(ID, MyUUIDGenerator.generateUUIDv7())
+                .set(FEED_ID, omoideComment.feedId)
+                .set(MEDIA_TYPE, omoideComment.mediaType)
                 .set(FILE_NAME, omoideComment.fileName)
                 .set(COMMENTER_ID, getCommenters()[omoideComment.commenterName]?.toLong()!!)
                 .set(COMMENT_BODY, omoideComment.commentBody)

@@ -1,4 +1,5 @@
 import { MemoryFeedItem } from '../types';
+import { ContentNotFound } from './ContentNotFound';
 
 interface Props {
     item: MemoryFeedItem;
@@ -8,12 +9,19 @@ interface Props {
 export function FeedPhotoCard({ item, onClick }: Props) {
     return (
         <div
-            className="group relative rounded-2xl overflow-hidden cursor-pointer bg-gray-100 transition-transform active:scale-95"
+            className="group relative rounded-2xl overflow-hidden cursor-pointer bg-gray-100 transition-transform active:scale-95 aspect-square"
             onClick={onClick}
         >
-            <div className="w-full h-full flex items-center justify-center text-gray-400 bg-gray-200">
-                <span className="text-sm font-medium">Photo</span>
-            </div>
+            {item.contentBase64 ? (
+                <img 
+                    src={item.contentBase64} 
+                    alt="Memory" 
+                    className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-500"
+                    loading="lazy"
+                />
+            ) : (
+                <ContentNotFound />
+            )}
 
             {/* Gradient overlay */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
