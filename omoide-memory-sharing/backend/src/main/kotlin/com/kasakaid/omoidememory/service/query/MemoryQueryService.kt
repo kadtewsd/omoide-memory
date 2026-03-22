@@ -39,6 +39,7 @@ class MemoryQueryService(
                         SYNCED_OMOIDE_VIDEO.THUMBNAIL_IMAGE,
                         SYNCED_OMOIDE_VIDEO.THUMBNAIL_MIME_TYPE,
                         COMMENT_OMOIDE.FILE_NAME,
+                        DSL.count(COMMENT_OMOIDE.ID).`as`("COMMENT_COUNT"),
                     ).from(COMMENT_OMOIDE)
                     .leftJoin(SYNCED_OMOIDE_PHOTO)
                     .on(COMMENT_OMOIDE.FILE_NAME.eq(SYNCED_OMOIDE_PHOTO.FILE_NAME))
@@ -90,6 +91,7 @@ class MemoryQueryService(
                         commentedAt = row.getValue(COMMENT_OMOIDE.COMMENTED_AT)!!,
                         thumbnailBase64 = if (type == "VIDEO") contentBase64.ifEmpty { null } else null,
                         thumbnailMimeType = if (type == "VIDEO") thumbnailMimeType else null,
+                        commentCount = row.get("COMMENT_COUNT", Int::class.java) ?: 0,
                     )
                 }
             }

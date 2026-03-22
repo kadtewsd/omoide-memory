@@ -1,15 +1,15 @@
 export interface MemoryFeedItem {
-    id: number;
-    type: 'PHOTO' | 'VIDEO';
-    filePath: string;
-    captureTime: string | null;
-    thumbnailBase64?: string;
-    thumbnailMimeType?: string;
+    id: string; // From UUID
+    type: 'PHOTO' | 'VIDEO' | null;
+    contentBase64: string | null;
+    commentedAt: string; // ISO 8601 string from OffsetDateTime
+    thumbnailBase64?: string | null;
+    thumbnailMimeType?: string | null;
     commentCount?: number;
 }
 
 export interface Comment {
-    id: number;
+    id: string; // From UUID
     commenterName: string;
     commenterIconBase64: string | null;
     commentBody: string;

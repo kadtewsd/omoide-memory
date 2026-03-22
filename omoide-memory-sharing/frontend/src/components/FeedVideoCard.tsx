@@ -1,4 +1,5 @@
 import { MemoryFeedItem } from '../types';
+import { ContentNotFound } from './ContentNotFound';
 
 interface Props {
     item: MemoryFeedItem;
@@ -6,21 +7,17 @@ interface Props {
 }
 
 export function FeedVideoCard({ item, onClick }: Props) {
-    const imgSrc = item.thumbnailBase64
-        ? `data:${item.thumbnailMimeType || 'image/jpeg'};base64,${item.thumbnailBase64}`
-        : '/placeholder.jpg'; // Real implementation should resolve filePath for images
+    const imgSrc = item.thumbnailBase64 || null;
 
     return (
         <div
-            className="group relative rounded-2xl overflow-hidden cursor-pointer bg-gray-100 transition-transform active:scale-95"
+            className="group relative rounded-2xl overflow-hidden cursor-pointer bg-gray-100 transition-transform active:scale-95 aspect-square"
             onClick={onClick}
         >
-            {item.thumbnailBase64 ? (
-                <img src={imgSrc} alt="" className="w-full h-full object-cover" />
+            {imgSrc ? (
+                <img src={imgSrc} alt="" className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-500" loading="lazy" />
             ) : (
-                <div className="w-full h-full flex items-center justify-center text-gray-400 bg-gray-200">
-                    <span className="text-sm font-medium">Video</span>
-                </div>
+                <ContentNotFound />
             )}
 
             {/* Gradient overlay */}

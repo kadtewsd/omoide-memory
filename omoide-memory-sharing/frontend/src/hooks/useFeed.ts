@@ -11,7 +11,7 @@ export function useFeed() {
         if (loading || !hasMore) return;
         setLoading(true);
         try {
-            const cursor = items.length > 0 ? items[items.length - 1].captureTime || undefined : undefined;
+            const cursor = items.length > 0 ? items[items.length - 1].id : undefined;
             const newItems = await fetchFeed(cursor, 20);
             if (newItems.length === 0) {
                 setHasMore(false);
