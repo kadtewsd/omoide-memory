@@ -1,11 +1,10 @@
 package com.kasakaid.omoidememory.adapter
 
-import com.kasakaid.omoidememory.jooq.omoide_memory.tables.pojos.CommentOmoide
+import com.kasakaid.omoidememory.service.query.CommentDto
 import com.kasakaid.omoidememory.service.query.MemoryFeedDto
 import com.kasakaid.omoidememory.service.query.MemoryQueryService
 import org.springframework.web.bind.annotation.*
 import reactor.core.publisher.Flux
-import java.time.OffsetDateTime
 
 @RestController
 @RequestMapping("/api")
@@ -21,13 +20,8 @@ class MemorySharingController(
         return memoryQueryService.getFeed(cursorUuid, limit)
     }
 
-    @GetMapping("/content/photo/{id}/comments")
-    suspend fun getPhotoComments(
+    @GetMapping("/content/{id}/comments")
+    suspend fun getComments(
         @PathVariable id: java.util.UUID,
-    ): Flux<CommentOmoide> = memoryQueryService.getPhotoComments(id)
-
-    @GetMapping("/content/video/{id}/comments")
-    suspend fun getVideoComments(
-        @PathVariable id: java.util.UUID,
-    ): Flux<CommentOmoide> = memoryQueryService.getVideoComments(id)
+    ): Flux<CommentDto> = memoryQueryService.getComments(id)
 }

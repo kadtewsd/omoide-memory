@@ -26,7 +26,13 @@ export function CommentPanel({ comments, loading }: Props) {
                         <div key={comment.id} className="flex gap-3">
                             <div className="w-8 h-8 rounded-full bg-gray-200 flex-shrink-0 overflow-hidden">
                                 {comment.commenterIconBase64 ? (
-                                    <img src={`data:image/jpeg;base64,${comment.commenterIconBase64}`} alt="" className="w-full h-full object-cover" />
+                                    <img 
+                                        src={comment.commenterIconBase64.startsWith('data:') 
+                                            ? comment.commenterIconBase64 
+                                            : `data:image/jpeg;base64,${comment.commenterIconBase64}`} 
+                                        alt="" 
+                                        className="w-full h-full object-cover" 
+                                    />
                                 ) : (
                                     <div className="w-full h-full flex items-center justify-center text-gray-500 font-medium text-sm">
                                         {comment.commenterName.charAt(0)}

@@ -110,7 +110,7 @@ jooq {
                         // プラグイン標準の構成（build/generated-sources/jooq/main）に合わせる
                         directory =
                             project.layout.buildDirectory
-                                .dir("generated-sources/jooq/main")
+                                .dir("generated/jooq/main")
                                 .get()
                                 .asFile.path
                     }
@@ -137,24 +137,13 @@ jooq {
 kotlin {
     sourceSets {
         main {
-            kotlin.srcDir(project.layout.buildDirectory.dir("generated-sources/jooq/main"))
+            kotlin.srcDir(project.layout.buildDirectory.dir("generated/jooq/main"))
         }
     }
 }
 
-tasks.named("compileKotlin") {
-    dependsOn("generateJooq")
-}
-
 tasks.named("generateJooq") {
-    // generateJooq タスクは clean タスクに依存する
-    // これにより、generateJooq を実行すると自動的に先に clean が走る
-    dependsOn(tasks.named("clean"))
-}
-val deleteBin by tasks.registering(Delete::class) {
-    delete("bin")
-}
-
-tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
-    dependsOn(deleteBin)
+    doLast {
+        delete(layout.projectDirectory.dir("bin"))
+    }
 }

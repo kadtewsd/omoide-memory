@@ -56,19 +56,11 @@ kotlin {
     }
     sourceSets {
         main {
-            kotlin.srcDir(project.layout.buildDirectory.dir("generated-sources/jooq/main"))
+            kotlin.srcDir(project.layout.buildDirectory.dir("generated/jooq/main"))
         }
     }
 }
 
 tasks.withType<Test> {
     useJUnitPlatform()
-}
-
-val deleteBin by tasks.registering(Delete::class) {
-    delete("bin")
-}
-
-tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
-    dependsOn(deleteBin)
 }
