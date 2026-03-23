@@ -1,14 +1,12 @@
-import { useRef } from 'react';
 import { useFeed } from './hooks/useFeed';
 import { useComments } from './hooks/useComments';
 import { FeedGrid } from './components/FeedGrid';
 import { MemoryModal } from './components/MemoryModal';
+import { InfiniteScrollLoader } from './components/InfiniteScrollLoader';
 
 function App() {
     const { items, loading, hasMore, loadMore } = useFeed();
     const { selectedItem, comments, commentsLoading, openModal, closeModal } = useComments();
-
-    const loaderRef = useRef<HTMLDivElement>(null);
 
     return (
         <div className="min-h-screen bg-gray-50 text-gray-900">
@@ -30,17 +28,11 @@ function App() {
                     </div>
                 )}
 
-                {hasMore && (
-                    <div className="flex justify-center mt-8 pb-8" ref={loaderRef}>
-                        <button
-                            onClick={loadMore}
-                            disabled={loading}
-                            className="px-6 py-2 rounded-full bg-blue-50 text-blue-600 font-medium hover:bg-blue-100 transition-colors disabled:opacity-50"
-                        >
-                            {loading ? '読み込み中...' : 'もっと見る'}
-                        </button>
-                    </div>
-                )}
+                <InfiniteScrollLoader 
+                    onLoadMore={loadMore} 
+                    hasMore={hasMore} 
+                    loading={loading} 
+                />
             </main>
 
             {/* Modal matching Google Photos style */}
