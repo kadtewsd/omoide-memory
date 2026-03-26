@@ -1,6 +1,7 @@
 package com.kasakaid.omoidememory.service.query
 
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.pojos.CommentOmoide
+import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.COMMENTER
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.COMMENT_OMOIDE
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_PHOTO
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_VIDEO
@@ -97,23 +98,28 @@ class MemoryQueryService(
             }
     }
 
-    suspend fun getPhotoComments(feedId: UUID): Flux<CommentOmoide> =
+    suspend fun getComments(feedId: UUID): Flux<CommentDto> =
         Flux
             .from(
                 dslContext
-                    .select(COMMENT_OMOIDE.asterisk())
-                    .from(COMMENT_OMOIDE)
+                    .select(
+                        COMMENT_OMOIDE.ID,
+                        COMMENTER.NAME,
+                        COMMENTER.ICON,
+                        COMMENT_OMOIDE.COMMENT_BODY,
+                        COMMENT_OMOIDE.COMMENTED_AT,
+                    ).from(COMMENT_OMOIDE)
+                    .leftJoin(COMMENTER)
+                    .on(COMMENT_OMOIDE.COMMENTER_ID.eq(COMMENTER.ID))
                     .where(COMMENT_OMOIDE.FEED_ID.eq(feedId))
                     .orderBy(COMMENT_OMOIDE.COMMENTED_AT.asc()),
-            ).map { row: org.jooq.Record -> row.into(CommentOmoide::class.java) }
-
-    suspend fun getVideoComments(feedId: UUID): Flux<CommentOmoide> =
-        Flux
-            .from(
-                dslContext
-                    .select(COMMENT_OMOIDE.asterisk())
-                    .from(COMMENT_OMOIDE)
-                    .where(COMMENT_OMOIDE.FEED_ID.eq(feedId))
-                    .orderBy(COMMENT_OMOIDE.COMMENTED_AT.asc()),
-            ).map { row: org.jooq.Record -> row.into(CommentOmoide::class.java) }
+            ).map { row: org.jooq.Record ->
+                CommentDto(
+                    id = row.getValue(COMMENT_OMOIDE.ID)!!,
+                    commenterName = row.get(COMMENTER.NAME)!!,
+                    commenterIconBase64 = row.get(COMMENTER.ICON)!!,
+                    commentBody = row.getValue(COMMENT_OMOIDE.COMMENT_BODY)!!,
+                    commentedAt = row.getValue(COMMENT_OMOIDE.COMMENTED_AT)!!,
+                )
+            }
 }
