@@ -4,9 +4,7 @@ import com.drew.imaging.ImageMetadataReader
 import com.drew.metadata.exif.ExifIFD0Directory
 import com.drew.metadata.exif.ExifSubIFDDirectory
 import com.drew.metadata.exif.GpsDirectory
-import java.nio.file.Files
 import java.nio.file.Path
-import java.time.Instant
 import java.time.LocalDateTime
 import java.time.OffsetDateTime
 import java.time.ZoneId
@@ -14,14 +12,8 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
 object MediaMetadataFactory {
-    fun createVideo(localFile: LocalFile): VideoMetadata {
-        val captured =
-            OffsetDateTime.ofInstant(
-                Instant.ofEpochMilli(Files.getLastModifiedTime(localFile.path).toMillis()),
-                ZoneId.systemDefault(),
-            )
-        return VideoMetadata(capturedTime = captured, filePath = localFile.path)
-    }
+    fun createVideo(localFile: LocalFile): VideoMetadata =
+        VideoMetadata(capturedTime = OmoideMemoryMetadataService.estimateCaptureTimeFrom(localFile.path), filePath = localFile.path)
 
     fun createPhoto(localFile: Path): PhotoMetadata {
         val metadata = ImageMetadataReader.readMetadata(localFile.toFile())
@@ -42,6 +34,7 @@ object MediaMetadataFactory {
                     // localDateTime.atZone(ZoneId.systemDefault()).toOffsetDateTime()
                 }?.toInstant()
                 ?.let { OffsetDateTime.ofInstant(it, ZoneId.systemDefault()) }
+                ?: OmoideMemoryMetadataService.estimateCaptureTimeFrom(localFile)
 
         return PhotoMetadata(
             exifIFD0 = exifIFD0,
