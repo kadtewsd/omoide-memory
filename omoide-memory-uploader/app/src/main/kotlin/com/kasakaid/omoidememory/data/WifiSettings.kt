@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -60,7 +61,9 @@ class WifiRepository
         // connectivityManager のコールバック
         // connectivityManager に callBack を登録して、応答が来たら、 onCapabilitiesChanged に入ってきて、trySend で結果が格納。
         // 呼び出し元は、Flow から ssid を取り出す。
-        fun observeWifiSSID(): Flow<WifiSetting> =
+        private val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default)
+
+        private val sharedWifiState: kotlinx.coroutines.flow.StateFlow<WifiSetting> =
             callbackFlow {
                 val connectivityManager =
                     context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
@@ -120,10 +123,30 @@ class WifiRepository
                         .Builder()
                         .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
                         .build()
-                connectivityManager.registerNetworkCallback(request, callback)
+
+                try {
+                    connectivityManager.registerNetworkCallback(request, callback)
+                } catch (e: Exception) {
+                    android.util.Log.e("WifiRepository", "Failed to register network callback", e)
+                }
+
                 // ViewModel の scope が終わるまで監視を続ける
-                awaitClose { connectivityManager.unregisterNetworkCallback(callback) }
-            }
+                awaitClose {
+                    try {
+                        connectivityManager.unregisterNetworkCallback(callback)
+                    } catch (e: Exception) {
+                        android.util.Log.e("WifiRepository", "Failed to unregister network callback", e)
+                    }
+                }
+            }.stateIn(
+                scope = scope,
+                started =
+                    kotlinx.coroutines.flow.SharingStarted
+                        .WhileSubscribed(5000),
+                initialValue = WifiSetting.Idle,
+            )
+
+        fun observeWifiSSID(): Flow<WifiSetting> = sharedWifiState
 
         fun isConnectedToWifi(): Boolean {
             val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
