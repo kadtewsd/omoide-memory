@@ -54,7 +54,21 @@ class GdriveUploader
              *    snapshotSsid() を呼び出す必要がありますが、現状はユーザビリティと安定性を優先しています。
              */
 
-            // 4. Upload Files
+            val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            val activeNetwork = cm.activeNetwork
+            val capabilities = cm.getNetworkCapabilities(activeNetwork)
+
+            if (activeNetwork == null || capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) != true) {
+                Log.e(tag, "Upload aborted: Wi-Fi is not connected.")
+                return WorkerExecutionError.WifiNotConnected.left()
+            }
+
+            // 🚀 OS レベルでこのプロセス（ソケット）を現在の Wi-Fi ネットワークに強制バインドします。
+            // これにより、もしアップロードの途中で外に出て Wi-Fi が切れた場合、
+            // OS が勝手に SIM (モバイルデータ) 通信に切り替えてしまう（ハンドオーバー）のを完全に防ぎます。
+            // Wi-Fi 切断と同時にソケットは即座にエラー (Network Unreachable 等) になり安全に終了します。
+            cm.bindProcessToNetwork(activeNetwork)
+
             return try {
                 val fileId = driveService.uploadFile(pendingFile)
                 if (fileId != null) {
@@ -69,6 +83,9 @@ class GdriveUploader
             } catch (e: Exception) {
                 Log.e(tag, "Upload Failed for ${pendingFile.name}: ${e.message}")
                 WorkerExecutionError.UploadFailed(e.message ?: "Unknown error during upload").left()
+            } finally {
+                // 処理が終わったらネットワークバインドを解除し、元のデフォルト経路に戻す
+                cm.bindProcessToNetwork(null)
             }
         }
     }
