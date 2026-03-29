@@ -33,6 +33,7 @@ import com.kasakaid.omoidememory.data.OmoideMemory
 @Composable
 fun FileItemCard(
     item: OmoideMemory,
+    imageLoader: coil.ImageLoader,
     isSelected: Boolean,
     onToggle: () -> Unit,
     onPreview: () -> Unit,
@@ -79,7 +80,7 @@ fun FileItemCard(
                     .videoFrameMillis(500)
                     .crossfade(true)
                     .build(),
-            imageLoader = LocalContext.current.imageLoader(),
+            imageLoader = imageLoader,
             contentDescription = null,
             modifier =
                 Modifier
