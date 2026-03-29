@@ -214,6 +214,10 @@ class FileSelectionViewModel
             }
         }
 
+        fun cancelManualUpload() {
+            workManager.cancelUniqueWork("manual_upload")
+        }
+
         fun markAsRemoved(ids: List<Long>) {
             viewModelScope.launch {
                 val targets = pendingFiles.value.filter { it.id in ids }.map { it.exclude() }
@@ -322,6 +326,9 @@ fun FileSelectionRoute(
         onSwitchChanged = { onOff ->
             viewModel.toggleAll(onOff)
         },
+        onCancelUpload = {
+            viewModel.cancelManualUpload()
+        },
         isUploading = isUploading,
         progress = progress,
         onRemove = { ids ->
@@ -351,6 +358,7 @@ fun FileSelectionScreen(
     progress: Pair<Int, Int>?,
     onRemove: (ids: List<Long>) -> Unit,
     onRevive: (ids: List<Long>) -> Unit,
+    onCancelUpload: () -> Unit,
     onDeletePhysically: (items: List<OmoideMemory>) -> Unit,
 ) {
     var previewingItem by remember { mutableStateOf<OmoideMemory?>(null) }
@@ -536,6 +544,7 @@ fun FileSelectionScreen(
     if (isUploading) {
         UploadIndicator(
             uploadProgress = progress,
+            onCancel = onCancelUpload,
         )
     }
 }
