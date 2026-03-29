@@ -3,8 +3,11 @@ package com.kasakaid.omoidememory.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
@@ -16,7 +19,10 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun UploadIndicator(uploadProgress: Pair<Int, Int>?) {
+fun UploadIndicator(
+    uploadProgress: Pair<Int, Int>?,
+    onCancel: (() -> Unit)? = null,
+) {
     // 背景を少し白くして、クリックを無効化する
     Box(
         modifier = Modifier.fillMaxSize().background(Color.White.copy(alpha = 0.7f)).pointerInput(Unit) {},
@@ -37,6 +43,13 @@ fun UploadIndicator(uploadProgress: Pair<Int, Int>?) {
                 // まだ起動待ちの時はグルグル
                 CircularProgressIndicator()
                 Text("準備中...")
+            }
+
+            if (onCancel != null) {
+                Spacer(modifier = Modifier.padding(16.dp))
+                Button(onClick = onCancel) {
+                    Text("強制キャンセル")
+                }
             }
         }
     }
