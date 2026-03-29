@@ -361,6 +361,8 @@ fun FileSelectionScreen(
     onCancelUpload: () -> Unit,
     onDeletePhysically: (items: List<OmoideMemory>) -> Unit,
 ) {
+    val context = LocalContext.current
+    val imageLoader = remember(context) { context.imageLoader() }
     var previewingItem by remember { mutableStateOf<OmoideMemory?>(null) }
 
     previewingItem?.let { item ->
@@ -532,6 +534,7 @@ fun FileSelectionScreen(
                 ) { item ->
                     FileItemCard(
                         item = item,
+                        imageLoader = imageLoader,
                         isSelected = selectedIds[item.id] ?: false,
                         onToggle = { onToggle(item.id) },
                         onPreview = { previewingItem = item },
