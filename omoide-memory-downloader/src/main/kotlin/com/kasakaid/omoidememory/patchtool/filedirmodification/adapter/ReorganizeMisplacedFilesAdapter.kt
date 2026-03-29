@@ -70,7 +70,7 @@ class ReorganizeMisplacedFilesAdapter(
                         }
                     }.map {
                         com.kasakaid.omoidememory.patchtool.filedirmodification.domain
-                            .RecognizedPath(it)
+                            .ReorganizedFile(it, backupRootPath)
                     }
 
             logger.info { "対象ディレクトリ内で ${filesToProcess.size} 件のファイルが見つかりました。" }
@@ -78,9 +78,6 @@ class ReorganizeMisplacedFilesAdapter(
             transactionalOperator.executeAndAwait {
                 reorganizeMisplacedFilesService.execute(
                     files = filesToProcess,
-                    backupRootPath =
-                        com.kasakaid.omoidememory.domain
-                            .LocalFile(backupRootPath, backupRootPath.fileName.toString()),
                 )
             }
 
