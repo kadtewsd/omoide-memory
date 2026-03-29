@@ -1,25 +1,40 @@
 package com.kasakaid.omoidememory.patchtool.filedirmodification.domain
 
+import arrow.core.None
+import arrow.core.Option
+import arrow.core.some
+import com.kasakaid.omoidememory.domain.FileOrganizeService
 import com.kasakaid.omoidememory.downloader.domain.MediaType
 import java.nio.file.Path
 import java.time.OffsetDateTime
 
 class ReorganizedFile(
-    val fileName: String,
-    val mediaType: MediaType,
-    val captureTime: OffsetDateTime,
-    val backupRootPath: Path,
+    val filePath: Path,
+    private val backupRootPath: Path,
 ) {
-    val correctPath: Path by lazy {
-        val year = captureTime.year.toString()
-        val month = String.format("%02d", captureTime.monthValue)
-        backupRootPath
-            .resolve(year)
-            .resolve(month)
-            .resolve(mediaType.directoryName)
-            .resolve(fileName)
-    }
+    val fileName: String = filePath.fileName.toString()
+    val mediaType: MediaType? = MediaType.of(fileName).getOrNull()
+    val captureTime: OffsetDateTime? = FileOrganizeService.extractDateFromFilename(fileName)
 
-    val serverPathString: String
-        get() = correctPath.toAbsolutePath().toString()
+    val isProcessable: Boolean
+        get() = mediaType != null && captureTime != null
+
+    fun correctByFileName(): Option<ReorganizedFile> {
+        if (!isProcessable) return None
+
+        val year = captureTime!!.year.toString()
+        val month = String.format("%02d", captureTime.monthValue)
+        val correctPath =
+            backupRootPath
+                .resolve(year)
+                .resolve(month)
+                .resolve(mediaType!!.directoryName)
+                .resolve(fileName)
+
+        return if (filePath.toAbsolutePath() != correctPath.toAbsolutePath()) {
+            ReorganizedFile(correctPath, backupRootPath).some()
+        } else {
+            None
+        }
+    }
 }
