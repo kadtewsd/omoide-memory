@@ -4,6 +4,7 @@ import arrow.core.Either
 import arrow.core.left
 import arrow.core.raise.either
 import arrow.core.right
+import com.drew.metadata.Directory
 import com.drew.metadata.exif.ExifIFD0Directory
 import com.drew.metadata.exif.ExifSubIFDDirectory
 import com.drew.metadata.exif.GpsDirectory
@@ -124,25 +125,29 @@ class PhotoMetadata(
                     driveFileId = sourceFile.driveFileId,
                     fileSize = sourceFile.size,
                     locationName = locationName,
-                    aperture = exifSubIFD?.getDoubleObject(ExifSubIFDDirectory.TAG_FNUMBER)?.toFloat(),
-                    shutterSpeed = exifSubIFD?.getString(ExifSubIFDDirectory.TAG_EXPOSURE_TIME),
-                    isoSpeed = exifSubIFD?.getInteger(ExifSubIFDDirectory.TAG_ISO_EQUIVALENT),
-                    focalLength = exifSubIFD?.getDoubleObject(ExifSubIFDDirectory.TAG_FOCAL_LENGTH)?.toFloat(),
-                    focalLength35mm = exifSubIFD?.getInteger(ExifSubIFDDirectory.TAG_35MM_FILM_EQUIV_FOCAL_LENGTH),
-                    whiteBalance = exifSubIFD?.getString(ExifSubIFDDirectory.TAG_WHITE_BALANCE),
+                    aperture = exifSubIFD?.valueAsDouble(listOf(ExifSubIFDDirectory.TAG_FNUMBER))?.toFloat(),
+                    shutterSpeed = exifSubIFD?.valueAsString(listOf(ExifSubIFDDirectory.TAG_EXPOSURE_TIME)),
+                    isoSpeed = exifSubIFD?.valueAsInteger(listOf(ExifSubIFDDirectory.TAG_ISO_EQUIVALENT)),
+                    focalLength = exifSubIFD?.valueAsDouble(listOf(ExifSubIFDDirectory.TAG_FOCAL_LENGTH))?.toFloat(),
+                    focalLength35mm = exifSubIFD?.valueAsInteger(listOf(ExifSubIFDDirectory.TAG_35MM_FILM_EQUIV_FOCAL_LENGTH)),
+                    whiteBalance = exifSubIFD?.valueAsString(listOf(ExifSubIFDDirectory.TAG_WHITE_BALANCE)),
                     imageWidth =
-                        exifSubIFD?.getInteger(ExifSubIFDDirectory.TAG_EXIF_IMAGE_WIDTH)
-                            ?: exifIFD0?.getInteger(ExifIFD0Directory.TAG_IMAGE_WIDTH),
+                        listOf(
+                            exifSubIFD,
+                            exifIFD0,
+                        ).valueAsInteger(listOf(ExifSubIFDDirectory.TAG_EXIF_IMAGE_WIDTH, ExifIFD0Directory.TAG_IMAGE_WIDTH)),
                     imageHeight =
-                        exifSubIFD?.getInteger(ExifSubIFDDirectory.TAG_EXIF_IMAGE_HEIGHT)
-                            ?: exifIFD0?.getInteger(ExifIFD0Directory.TAG_IMAGE_HEIGHT),
-                    orientation = exifIFD0?.getInteger(ExifIFD0Directory.TAG_ORIENTATION),
+                        listOf(
+                            exifSubIFD,
+                            exifIFD0,
+                        ).valueAsInteger(listOf(ExifSubIFDDirectory.TAG_EXIF_IMAGE_HEIGHT, ExifIFD0Directory.TAG_IMAGE_HEIGHT)),
+                    orientation = exifIFD0?.valueAsInteger(listOf(ExifIFD0Directory.TAG_ORIENTATION)),
                     latitude = gpsDirectory?.geoLocation?.latitude,
                     longitude = gpsDirectory?.geoLocation?.longitude,
-                    altitude = gpsDirectory?.getDouble(GpsDirectory.TAG_ALTITUDE),
+                    altitude = gpsDirectory?.valueAsDouble(listOf(GpsDirectory.TAG_ALTITUDE)),
                     captureTime = this.capturedTime,
-                    deviceMake = exifIFD0?.getString(ExifIFD0Directory.TAG_MAKE),
-                    deviceModel = exifIFD0?.getString(ExifIFD0Directory.TAG_MODEL),
+                    deviceMake = exifIFD0?.valueAsString(listOf(ExifIFD0Directory.TAG_MAKE)),
+                    deviceModel = exifIFD0?.valueAsString(listOf(ExifIFD0Directory.TAG_MODEL)),
                 ).right()
         } catch (e: Exception) {
             logger.error(e) { "画像メタデータの抽出に失敗: ${this.filePath}" }
@@ -150,3 +155,11 @@ class PhotoMetadata(
         }
     }
 }
+
+fun Directory.valueAsString(tagTypes: List<Int>): String? = tagTypes.firstOrNull { containsTag(it) }?.let { getString(it) }
+
+fun Directory.valueAsInteger(tagTypes: List<Int>): Int? = tagTypes.firstOrNull { containsTag(it) }?.let { getInteger(it) }
+
+fun Directory.valueAsDouble(tagTypes: List<Int>): Double? = tagTypes.firstOrNull { containsTag(it) }?.let { getDoubleObject(it) }
+
+fun List<Directory?>.valueAsInteger(tagTypes: List<Int>): Int? = this.firstNotNullOfOrNull { it?.valueAsInteger(tagTypes) }
