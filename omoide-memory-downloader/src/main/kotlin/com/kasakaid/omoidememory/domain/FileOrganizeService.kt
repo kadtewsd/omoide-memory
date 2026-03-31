@@ -7,23 +7,20 @@ import kotlinx.coroutines.withContext
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
-import java.time.LocalDateTime
 import java.time.OffsetDateTime
-import java.time.ZoneId
-import java.util.regex.Pattern
 
 /**
  * ダウンロードしてきたファイルを該当のパスに振り分ける
  */
 object FileOrganizeService {
     private val logger = KotlinLogging.logger {}
-    private val dateInFilenamePattern = Pattern.compile("(\\d{4})(\\d{2})(\\d{2})")
 
     /**
      * ファイルの配置先パスを決定する（実際の移動は行わない）
      *
      * @param fileName ファイル名
      * @param captureTime 撮影日時
+     * @param omoideBackupDirectory バックアップ先ディレクトリ
      * @return 配置先のフルパス
      */
     suspend fun determineTargetPath(
@@ -36,7 +33,7 @@ object FileOrganizeService {
 
             val effectiveCaptureTime =
                 captureTime
-                    ?: extractDateFromFilename(fileName)
+                    ?: extractDateFromFilename(fileName).getOrNull()
                     ?: OffsetDateTime.now()
 
             val year = effectiveCaptureTime.year.toString()
@@ -80,22 +77,4 @@ object FileOrganizeService {
             Files.move(sourcePath, targetPath, StandardCopyOption.REPLACE_EXISTING)
             targetPath
         }
-
-    fun extractDateFromFilename(filename: String): OffsetDateTime? {
-        val matcher = dateInFilenamePattern.matcher(filename)
-        if (matcher.find()) {
-            try {
-                val year = matcher.group(1).toInt()
-                val month = matcher.group(2).toInt()
-                val day = matcher.group(3).toInt()
-                return LocalDateTime
-                    .of(year, month, day, 12, 0)
-                    .atZone(ZoneId.systemDefault())
-                    .toOffsetDateTime()
-            } catch (e: Exception) {
-                logger.warn { "ファイル名からの日付抽出に失敗: $filename" }
-            }
-        }
-        return null
-    }
 }

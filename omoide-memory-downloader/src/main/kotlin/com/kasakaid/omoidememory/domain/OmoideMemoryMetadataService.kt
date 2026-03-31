@@ -1,6 +1,7 @@
 package com.kasakaid.omoidememory.domain
 
 import arrow.core.Either
+import arrow.core.Option
 import arrow.core.raise.context.bind
 import arrow.core.raise.context.either
 import arrow.core.raise.context.raise
@@ -71,8 +72,8 @@ class OmoideMemoryMetadataService(
          */
         fun estimateCaptureTimeFrom(filePath: Path): OffsetDateTime {
             // 1. ファイル名から推測
-            FileOrganizeService
-                .extractDateFromFilename(filePath.fileName.toString())
+            extractDateFromFilename(filePath.fileName.toString())
+                .getOrNull()
                 ?.let { return it }
 
             // 2. ディレクトリ構造から推測

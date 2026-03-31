@@ -14,7 +14,7 @@ class ReorganizedFile(
 ) {
     val fileName: String = filePath.fileName.toString()
     val mediaType: MediaType? = MediaType.of(fileName).getOrNull()
-    val captureTime: OffsetDateTime? = FileOrganizeService.extractDateFromFilename(fileName)
+    val captureTime: OffsetDateTime? = FileOrganizeService.extractDateFromFilename(fileName).getOrNull()
 
     val isProcessable: Boolean
         get() = mediaType != null && captureTime != null
