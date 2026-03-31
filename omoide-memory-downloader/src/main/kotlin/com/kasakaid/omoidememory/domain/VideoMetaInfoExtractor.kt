@@ -7,6 +7,7 @@ import arrow.core.raise.context.either
 import arrow.core.right
 import com.fasterxml.jackson.databind.JsonNode
 import com.kasakaid.omoidememory.utility.JsonMapper
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
@@ -18,6 +19,8 @@ import java.util.concurrent.TimeUnit
 class MetadataExtractError(
     val ex: Exception,
 )
+
+private val logger = KotlinLogging.logger {}
 
 object VideoMetaInfoExtractor {
     /**

@@ -3,7 +3,7 @@ package com.kasakaid.omoidememory.patchtool.filedirmodification.domain
 import arrow.core.None
 import arrow.core.Option
 import arrow.core.some
-import com.kasakaid.omoidememory.domain.FileOrganizeService
+import com.kasakaid.omoidememory.domain.extractDateFromFilename
 import com.kasakaid.omoidememory.downloader.domain.MediaType
 import java.nio.file.Path
 import java.time.OffsetDateTime
@@ -14,7 +14,7 @@ class ReorganizedFile(
 ) {
     val fileName: String = filePath.fileName.toString()
     val mediaType: MediaType? = MediaType.of(fileName).getOrNull()
-    val captureTime: OffsetDateTime? = FileOrganizeService.extractDateFromFilename(fileName)
+    val captureTime: OffsetDateTime? = extractDateFromFilename(fileName).getOrNull()
 
     val isProcessable: Boolean
         get() = mediaType != null && captureTime != null

@@ -73,6 +73,9 @@ dependencies {
 
     // R2DBC Proxy for logging
     implementation("io.r2dbc:r2dbc-proxy:1.1.4.RELEASE")
+
+    // Arrow-kt
+    implementation("io.arrow-kt:arrow-core:2.2.0")
 }
 
 kotlin {

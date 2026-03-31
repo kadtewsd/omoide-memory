@@ -88,7 +88,7 @@ class VideoMetadata(
         }
 }
 
-val logger = KotlinLogging.logger {}
+private val logger = KotlinLogging.logger {}
 
 class PhotoMetadata(
     val exifIFD0: ExifIFD0Directory?,
