@@ -15,25 +15,26 @@ typealias RefreshToken = String
  * 複数の認証情報を JSON から読み込む
  */
 object GoogleTokenCollector {
-    private val clientId =
+    private val clientId by lazy {
         System.getenv("GDRIVE_CLIENT_ID")
             ?: throw IllegalArgumentException("環境変数 GDRIVE_CLIENT_ID が設定されていません。")
-    private val clientSecret =
+    }
+    private val clientSecret by lazy {
         System.getenv("GDRIVE_CLIENT_SECRET")
             ?: throw IllegalArgumentException("環境変数 GDRIVE_CLIENT_SECRET が設定されていません。")
+    }
+
+    val refreshTokens: List<RefreshToken> by lazy {
+        val tokens =
+            System.getenv("GDRIVE_REFRESH_TOKENS")
+                ?: throw IllegalArgumentException("環境変数 GDRIVE_REFRESH_TOKENS が設定されていません。")
+        tokens.split(",").map { it.trim() }
+    }
 
     init {
         // DNSの名前解決失敗（Negative Cache）を長時間保持しないように設定
         java.security.Security.setProperty("networkaddress.cache.negative.ttl", "0")
     }
-
-    val refreshTokens: List<RefreshToken> =
-        run {
-            val tokens =
-                System.getenv("GDRIVE_REFRESH_TOKENS")
-                    ?: throw IllegalArgumentException("環境変数 GDRIVE_REFRESH_TOKENS が設定されていません。")
-            tokens.split(",").map { it.trim() }
-        }
 
     fun createUserCredentials(token: RefreshToken): UserCredentials =
         UserCredentials
@@ -56,5 +57,25 @@ object GoogleTokenCollector {
         }
     }
 
-    fun asHttpCredentialsAdapter(userCredentials: UserCredentials): HttpCredentialsAdapter = HttpCredentialsAdapter(userCredentials)
+    fun asHttpCredentialsAdapter(userCredentials: com.google.auth.oauth2.UserCredentials): HttpCredentialsAdapter =
+        HttpCredentialsAdapter(userCredentials)
+
+    /**
+     * リフレッシュトークンを使ってアクセストークンを新しく生成します。
+     */
+    suspend fun <T> executeWithSafeRefresh(
+        token: RefreshToken,
+        block: suspend () -> T,
+    ): T =
+        try {
+            block()
+        } catch (e: com.google.api.client.googleapis.json.GoogleJsonResponseException) {
+            if (e.statusCode == 401) {
+                logger.warn { "401 Unauthorized detected. Refreshing token manually and retrying..." }
+                refreshIfNeeded(createUserCredentials(token))
+                block()
+            } else {
+                throw e
+            }
+        }
 }

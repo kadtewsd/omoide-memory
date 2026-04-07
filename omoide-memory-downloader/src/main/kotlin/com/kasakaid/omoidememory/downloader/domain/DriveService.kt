@@ -13,53 +13,29 @@ interface DriveService {
      * ドライブからファイルを持ってきます。
      * 実装は Google や OneDrive などいずれかのドライブのアクセスになります。
      * まずはメタデータを取得します。
-     * 戻り値は refreshToken をキー、そのアカウントのファイルリストを値とした Map です。
+     * 戻り値はファイルリストです。
+     *
+     * @param accessInfo SA の場合は folderId, RefreshToken の場合は refreshToken
      */
-    suspend fun listFiles(): Map<String, List<File>>
+    suspend fun listFiles(accessInfo: String): List<File>
+
+    /**
+     * ファイルをダウンロードして OutputStream に書き込みます。
+     */
+    suspend fun download(
+        fileId: String,
+        outputStream: java.io.OutputStream,
+    ): Either<Throwable, Unit>
 
     /**
      * 取得されたファイルのメタデータから実体を取得してメモリをローカル PC のストレージに書き込みます。
      * omoideBackupPath -> コンテンツをバックアップするディレクトリ
      */
-    class WriteError(
+    data class WriteError(
         val paths: Set<Path>,
     ) {
         constructor(
             path: Path,
         ) : this(paths = setOf(path))
     }
-
-    suspend fun writeOmoideMemoryToTargetPath(
-        googleFile: File,
-        omoideBackupPath: Path,
-        mediaType: MediaType,
-        familyId: String,
-        refreshToken: String,
-    ): Either<WriteError, OmoideMemory>
-
-    /**
-     * 指定ファイルをゴミ箱に移動
-     * 内部で setTrashed(true) を使用すること
-     * delete() は使用禁止（DB保存失敗時に完全消去されるため）
-     *
-     * @param fileId Google Drive ファイルID
-     * @param refreshToken 処理対象アカウントの refreshToken
-     * @return 成功時は Unit、失敗時は Throwable を Either 型で返す
-     */
-    suspend fun moveToTrash(
-        fileId: String,
-        refreshToken: String,
-    ): Either<Throwable, Unit>
-
-    /**
-     * 指定ファイルをGoogle Driveから物理的に削除（ゴミ箱を経由しない完全削除）
-     *
-     * @param fileId Google Drive ファイルID
-     * @param refreshToken 処理対象アカウントの refreshToken
-     * @return 成功時は Unit、失敗時は Throwable を Either 型で返す
-     */
-    suspend fun delete(
-        fileId: String,
-        refreshToken: String,
-    ): Either<Throwable, Unit>
 }
