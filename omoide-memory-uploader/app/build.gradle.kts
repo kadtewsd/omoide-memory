@@ -34,12 +34,23 @@ android {
             useSupportLibrary = true
         }
 
-        // 1. local.properties を読み込む準備
+        // 1. フォルダIDの設定
         val localProperties = Properties()
         val localPropertiesFile = rootProject.file("local.properties")
         if (localPropertiesFile.exists()) {
             localProperties.load(localPropertiesFile.inputStream())
         }
+
+        // 1. ファイル名の設定（取得してすぐ field にバインド）
+        localProperties.getProperty("omoide.sa.email.address")?.let { name ->
+            buildConfigField("String", "OMOIDE_SA_EMAIL_ADDRESS", "\"$name\"")
+        } ?: throw IllegalStateException("local.properties: 'omoide.sa.email.address' が未定義です")
+
+        // 2. フォルダIDの設定
+        localProperties.getProperty("omoide.folder.id")?.let { id ->
+            buildConfigField("String", "OMOIDE_FOLDER_ID", "\"$id\"")
+        } ?: throw IllegalStateException("local.properties: 'omoide.folder.id' が未定義です")
+
         // buildConfigField: アプリが実行時に「どのファイル名」を開けばいいかを知るために必要。
         buildFeatures {
             buildConfig = true

@@ -12,6 +12,7 @@ import com.kasakaid.omoidememory.data.OmoideMemoryRepository
 import com.kasakaid.omoidememory.data.OmoideUploadPrefsRepository
 import com.kasakaid.omoidememory.data.WifiSetting
 import com.kasakaid.omoidememory.network.GoogleDriveService
+import com.kasakaid.omoidememory.network.SaPermissionDriveMetadataProvider
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 
@@ -70,7 +71,7 @@ class GdriveUploader
             cm.bindProcessToNetwork(activeNetwork)
 
             return try {
-                val fileId = driveService.uploadFile(pendingFile)
+                val fileId = driveService.uploadFile(omoideMemory = pendingFile)
                 if (fileId != null) {
                     Log.d(tag, "Uploaded: ${pendingFile.name}")
                     fileId.right()

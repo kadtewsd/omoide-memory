@@ -28,6 +28,7 @@ class GoogleDriveService
     constructor(
         @param:ApplicationContext private val context: Context,
         omoideUploadPrefsRepository: OmoideUploadPrefsRepository,
+        private val metadataProvider: DriveMetadataProvider,
     ) {
         private val accountName: String = omoideUploadPrefsRepository.getAccountName() ?: throw SecurityException("共有したいフォルダを持つアカウントでログインしてください")
         private val service: Drive =
@@ -46,32 +47,6 @@ class GoogleDriveService
                     .build()
             }
 
-        private fun OmoideMemory.toDriveFileMetaData(): com.google.api.services.drive.model.File {
-            val omoide = this
-            return com.google.api.services.drive.model.File().apply {
-                // 1. 基本情報
-                name = omoide.name
-                mimeType = omoide.mimeType
-
-                // 3. 撮影日時をセット (Drive上での「作成日」として扱われる)
-                // omoide.dateTaken はミリ秒(Long)を想定
-                createdTime = omoide.dateTaken?.let { DateTime(it) }
-
-                // 4. 説明文に端末情報を入れる (後でドライブ内検索が可能)
-                description = "Uploaded by OmoideMemory App\n" +
-                    "Device: ${Build.MANUFACTURER} ${Build.MODEL}\n" +
-                    "Original Path: ${omoide.filePath}"
-
-                // 5. アプリ専用の隠しプロパティ (ユーザーには見えないがAPIから取得可能)
-                // 重複排除やDBとの紐付けに非常に有益
-                appProperties =
-                    mapOf(
-                        "local_id" to omoide.id.toString(),
-                        "origin_device_id" to Build.ID, // 端末識別の一助
-                    )
-            }
-        }
-
         /**
          * ファイルをアップロードします
          */
@@ -87,7 +62,7 @@ class GoogleDriveService
                         service
                             .files()
                             .create(
-                                omoideMemory.toDriveFileMetaData(),
+                                metadataProvider.createMetadata(omoideMemory),
                                 FileContent(omoideMemory.mimeType, File(omoideMemory.filePath)),
                             ).setFields("id")
                             .execute()
@@ -104,7 +79,11 @@ class GoogleDriveService
                         Log.w("Drive", "Attempt $attempt failed. Retrying in ${waitTime}ms... Error: ${e.message}")
 
                         delay(waitTime)
-                        return@withContext uploadFile(omoideMemory, attempt + 1)
+                        return@withContext uploadFile(
+                            omoideMemory = omoideMemory,
+                            attempt =
+                                attempt + 1,
+                        )
                     } else {
                         Log.e("Drive", "All attempts failed for ${omoideMemory.name}", e)
                         return@withContext null
