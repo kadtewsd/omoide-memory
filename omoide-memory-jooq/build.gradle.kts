@@ -105,13 +105,16 @@ jooq {
                             },
                         )
                     }
+                    generateSchemaSourceOnCompilation.set(false) // 自動生成を切る。ビルド時に build 配下のソースコードなどを消している節があるため
                     target.apply {
                         packageName = "com.kasakaid.omoidememory.jooq" // 生成先パッケージ
                         // プラグイン標準の構成（build/generated-sources/jooq/main）に合わせる
                         directory =
-                            project.layout.buildDirectory
-                                .dir("generated/jooq/main")
-                                .get()
+                            project.layout.projectDirectory
+                                // intellij の out ディレクトリ配下がパスが通らない
+                                // 都度 gradle を回すとソース生成タスクが走り思い。
+                                // 間をとって、src 配下に自動生成
+                                .dir("src/main/generated")
                                 .asFile.path
                     }
                     generate.apply {
@@ -137,13 +140,17 @@ jooq {
 kotlin {
     sourceSets {
         main {
-            kotlin.srcDir(project.layout.buildDirectory.dir("generated/jooq/main"))
+            kotlin.srcDir(project.layout.projectDirectory.dir("src/main/generated"))
+            // build だと out で日常的に開発したい時に足りないので利用しない
+//            kotlin.srcDir(project.layout.buildDirectory.dir("generated/jooq/main"))
         }
     }
 }
 
 tasks.named("generateJooq") {
     doLast {
-        delete(layout.projectDirectory.dir("bin"))
+        val dir = layout.projectDirectory.dir("bin")
+        println("下記のディレクトリを削除 $dir")
+        println(delete(dir))
     }
 }
