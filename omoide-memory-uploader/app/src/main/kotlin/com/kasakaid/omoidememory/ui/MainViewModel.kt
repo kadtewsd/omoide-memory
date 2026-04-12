@@ -16,6 +16,7 @@ import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeUploading
 import com.kasakaid.omoidememory.worker.AutoGDriveUploadWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -23,7 +24,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -75,10 +78,19 @@ class MainViewModel
             combine(
                 hasPermission,
                 refreshTrigger,
-            ) { granted, trigger -> granted to trigger }
-                // 🚀 Point: 権限状態やリフレッシュ要求が「実際に変化した時」だけ後続へ流す。
-                // これがないと、同じ値が流れてきた際にも flatMapLatest が走り、OS へのコールバック登録が重複・頻発して
-                // TooManyRequestsException を引き起こす原因になります。
+                /**
+                 * 🚀 5秒おきの「つついて確認」 (Ticker)
+                 * OS の NetworkCallback は稀にイベントを逃す（あるいは滞る）ことがあるため、
+                 * 定期的に Unit を流して後続の flatMapLatest を再トリガーさせます。
+                 */
+                flow {
+                    while (true) {
+                        emit(Unit)
+                        delay(5000)
+                    }
+                },
+            ) { granted, trigger, _ -> granted to trigger }
+                // 🚀 Point: 権限、リフレッシュ要求、または 5秒タイマーのいずれかが動いた時に後続へ流す。
                 .distinctUntilChanged()
                 .flatMapLatest { (granted, _) ->
                     if (granted) {
