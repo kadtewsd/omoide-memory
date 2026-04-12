@@ -101,6 +101,14 @@ enum class SelectionMode(
     DONE("完了"),
 }
 
+enum class DoneFilter(
+    val label: String,
+) {
+    ALL("すべて"),
+    NOT_DELETED("未削除"),
+    DELETED("削除済み"),
+}
+
 @HiltViewModel
 class FileSelectionViewModel
     @Inject
@@ -133,6 +141,14 @@ class FileSelectionViewModel
             _selectionMode.value = mode
         }
 
+        private val _doneFilter = MutableStateFlow(DoneFilter.ALL)
+        val doneFilter: StateFlow<DoneFilter> = _doneFilter.asStateFlow()
+
+        fun setDoneFilter(filter: DoneFilter) {
+            _doneFilter.value = filter
+            selectedIds.clear()
+        }
+
         // 削除確認ダイアログ（OS側）を起動するためのイベント
         private val _deleteRequestEvent = MutableSharedFlow<android.app.PendingIntent>()
         val deleteRequestEvent: SharedFlow<android.app.PendingIntent> = _deleteRequestEvent.asSharedFlow()
@@ -152,9 +168,9 @@ class FileSelectionViewModel
          */
         @OptIn(ExperimentalCoroutinesApi::class)
         val pendingFiles: StateFlow<List<OmoideMemory>> =
-            combine(selectionMode, localFileRepository.getAllUploadedIdsAsFlow()) { mode, _ ->
-                mode
-            }.flatMapLatest { mode ->
+            combine(selectionMode, doneFilter, localFileRepository.getAllUploadedIdsAsFlow()) { mode, filter, _ ->
+                mode to filter
+            }.flatMapLatest { (mode, filter) ->
                 when (mode) {
                     SelectionMode.TARGET -> {
                         localFileRepository
@@ -171,7 +187,13 @@ class FileSelectionViewModel
                     }
 
                     SelectionMode.DONE -> {
-                        localFileRepository.findByAsFlow(listOf(UploadState.DONE, UploadState.DRIVE_DELETED))
+                        localFileRepository.findByAsFlow(listOf(UploadState.DONE, UploadState.DRIVE_DELETED)).combine(doneFilter) { files, f ->
+                            when (f) {
+                                DoneFilter.ALL -> files
+                                DoneFilter.NOT_DELETED -> files.filter { it.state == UploadState.DONE }
+                                DoneFilter.DELETED -> files.filter { it.state == UploadState.DRIVE_DELETED }
+                            }
+                        }
                     }
                 }
             }.stateIn(
@@ -195,8 +217,21 @@ class FileSelectionViewModel
          */
         fun toggleAll(onOff: OnOff) {
             _onOff.value = onOff
+            val selectableIds =
+                if (selectionMode.value == SelectionMode.DONE) {
+                    pendingFiles.value
+                        .filter { it.state == UploadState.DONE }
+                        .map { it.id }
+                        .toSet()
+                } else {
+                    selectedIds.keys
+                }
             selectedIds.forEach { (hash, _) ->
-                selectedIds[hash] = onOff.isChecked
+                if (hash in selectableIds) {
+                    selectedIds[hash] = onOff.isChecked
+                } else {
+                    selectedIds[hash] = false
+                }
             }
         }
 
@@ -351,8 +386,12 @@ fun FileSelectionRoute(
         selectedIds = viewModel.selectedIds,
         pendingFiles = pendingFiles,
         selectionMode = viewModel.selectionMode.collectAsState().value,
+        doneFilter = viewModel.doneFilter.collectAsState().value,
         onSelectionModeChanged = { mode ->
             viewModel.setSelectionMode(mode)
+        },
+        onDoneFilterChanged = { filter ->
+            viewModel.setDoneFilter(filter)
         },
         onContentFixed = { ids ->
             // 🚀 ここで Worker をキック
@@ -394,7 +433,9 @@ fun FileSelectionScreen(
     selectedIds: Map<Long, Boolean>,
     pendingFiles: List<OmoideMemory>,
     selectionMode: SelectionMode,
+    doneFilter: DoneFilter,
     onSelectionModeChanged: (SelectionMode) -> Unit,
+    onDoneFilterChanged: (DoneFilter) -> Unit,
     onContentFixed: (fileIds: List<Long>) -> Unit,
     onToggle: (hash: Long) -> Unit,
     toMainScreen: () -> Unit,
@@ -423,7 +464,10 @@ fun FileSelectionScreen(
     }
 
     Scaffold(
-        topBar = { AppBarWithBackIcon(title = "アップロードする写真を選択", onFinished = toMainScreen) },
+        topBar = {
+            val title = if (selectionMode == SelectionMode.DONE) "アップロード済みの写真" else "アップロードする写真を選択"
+            AppBarWithBackIcon(title = title, onFinished = toMainScreen)
+        },
         bottomBar = {
             val selectedFiles = pendingFiles.filter { selectedIds[it.id] == true }
             val totalSize = selectedFiles.totalSize()
@@ -451,13 +495,8 @@ fun FileSelectionScreen(
                     )
                 }
 
-                androidx.compose.foundation.layout.Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement =
-                        androidx.compose.foundation.layout.Arrangement
-                            .spacedBy(8.dp),
-                ) {
-                    // アクションボタン (送信 / 復活)
+                if (!(selectionMode == SelectionMode.DONE && doneFilter == DoneFilter.DELETED)) {
+                    // アクションボタン
                     Button(
                         onClick = {
                             when (selectionMode) {
@@ -474,7 +513,7 @@ fun FileSelectionScreen(
                                 }
                             }
                         },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.fillMaxWidth(),
                         enabled =
                             !isUploading && !isDeleting && selectedFiles.isNotEmpty() &&
                                 (selectionMode != SelectionMode.TARGET || !isOverLimit) &&
@@ -484,39 +523,6 @@ fun FileSelectionScreen(
                             SelectionMode.TARGET -> Text("送信")
                             SelectionMode.EXCLUDED -> Text("復活")
                             SelectionMode.DONE -> Text("ドライブから削除")
-                        }
-                    }
-
-                    // 右側のボタン (TARGET: 一括除外 / EXCLUDED: 物理削除)
-                    Button(
-                        onClick = {
-                            when (selectionMode) {
-                                SelectionMode.TARGET -> {
-                                    onRemove(selectedFiles.map { it.id })
-                                }
-
-                                SelectionMode.EXCLUDED -> {
-                                    onDeletePhysically(selectedFiles)
-                                }
-
-                                SelectionMode.DONE -> {}
-                            }
-                        },
-                        modifier = Modifier.weight(1f),
-                        enabled =
-                            !isUploading && !isDeleting && selectedFiles.isNotEmpty() &&
-                                (selectionMode == SelectionMode.TARGET || selectionMode == SelectionMode.EXCLUDED),
-                    ) {
-                        when (selectionMode) {
-                            SelectionMode.TARGET -> {
-                                Text("一括除外")
-                            }
-
-                            SelectionMode.EXCLUDED -> {
-                                Text("物理削除")
-                            }
-
-                            else -> {}
                         }
                     }
                 }
@@ -573,6 +579,42 @@ fun FileSelectionScreen(
                 }
             }
 
+            // DONE モードの時にフィルタを表示する
+            if (selectionMode == SelectionMode.DONE) {
+                androidx.compose.foundation.layout.Row(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement =
+                        androidx.compose.foundation.layout.Arrangement
+                            .spacedBy(4.dp),
+                ) {
+                    Text(
+                        text = "フィルタ:",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                        modifier = Modifier.padding(end = 4.dp),
+                    )
+                    DoneFilter.entries.forEach { f ->
+                        androidx.compose.foundation.layout.Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            androidx.compose.material3.RadioButton(
+                                selected = doneFilter == f,
+                                onClick = { onDoneFilterChanged(f) },
+                            )
+                            Text(
+                                text = f.label,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.clickable { onDoneFilterChanged(f) },
+                            )
+                        }
+                    }
+                }
+            }
+
             MySwitch(
                 onOff = onOff,
                 onSwitchChanged,
@@ -597,6 +639,7 @@ fun FileSelectionScreen(
                         item = item,
                         imageLoader = imageLoader,
                         isSelected = selectedIds[item.id] ?: false,
+                        isSelectable = selectionMode != SelectionMode.DONE || item.state == UploadState.DONE,
                         onToggle = { onToggle(item.id) },
                         onPreview = { previewingItem = item },
                     )
