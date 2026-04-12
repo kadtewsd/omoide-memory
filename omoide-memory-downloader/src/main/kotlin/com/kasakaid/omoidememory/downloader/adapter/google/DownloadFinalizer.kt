@@ -19,7 +19,7 @@ import kotlinx.coroutines.withContext
 object NoOpes : DownloadFinalizer {
     override suspend fun finalize(
         fileId: String,
-        token: RefreshToken,
+        refreshToken: RefreshToken,
     ): Either<Throwable, Unit> = Unit.right()
 }
 
@@ -44,16 +44,16 @@ object GoogleDriveToTrash : DownloadFinalizer {
 
     override suspend fun finalize(
         fileId: String,
-        token: RefreshToken,
+        refreshToken: RefreshToken,
     ): Either<Throwable, Unit> =
         withContext(Dispatchers.IO) {
             Either
                 .catch {
                     val drive =
-                        driveServices[token]
-                            ?: throw IllegalArgumentException("指定された token (${token.take(8)}...) のドライブサービスが見つかりませんでした。")
+                        driveServices[refreshToken]
+                            ?: throw IllegalArgumentException("指定された token (${refreshToken.take(8)}...) のドライブサービスが見つかりませんでした。")
 
-                    executeWithSafeRefresh(token) {
+                    executeWithSafeRefresh(refreshToken) {
                         val fileInfo =
                             drive
                                 .files()
