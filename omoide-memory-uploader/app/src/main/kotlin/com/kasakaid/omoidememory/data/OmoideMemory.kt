@@ -23,6 +23,11 @@ class OmoideMemory(
     @androidx.room.ColumnInfo(defaultValue = "DONE")
     var state: UploadState = UploadState.DONE,
 ) {
+    fun ready(): OmoideMemory =
+        apply {
+            this.state = UploadState.READY
+        }
+
     fun done(): OmoideMemory =
         apply {
             this.state = UploadState.DONE

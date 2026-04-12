@@ -184,7 +184,7 @@ class FileSelectionViewModel
             selectedIds[id] = !(selectedIds[id] ?: false)
         }
 
-        private val _onOff: MutableStateFlow<OnOff> = MutableStateFlow(OnOff.On)
+        private val _onOff: MutableStateFlow<OnOff> = MutableStateFlow(OnOff.Off)
         val onOff: StateFlow<OnOff> = _onOff.asStateFlow()
 
         /**
@@ -209,14 +209,18 @@ class FileSelectionViewModel
 
         fun startManualUpload(ids: List<Long>) {
             viewModelScope.launch {
+                val idSet = ids.toSet()
                 val targets =
                     pendingFiles.value
-                        .filter { it.id in ids }
+                        .filter { it.id in idSet }
                         .map {
-                            it.apply { state = UploadState.READY }
+                            it.ready()
                         }
-                localFileRepository.add(targets)
-                workManager.enqueueWManualUpload()
+                if (targets.isNotEmpty()) {
+                    localFileRepository.add(targets)
+                    selectedIds.clear()
+                    workManager.enqueueWManualUpload()
+                }
             }
         }
 
