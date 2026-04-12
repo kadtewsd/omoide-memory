@@ -56,7 +56,7 @@ kotlin {
     }
     sourceSets {
         main {
-            kotlin.srcDir(project.layout.buildDirectory.dir("generated/jooq/main"))
+            kotlin.srcDir(project.layout.projectDirectory.dir("src/main/generated"))
         }
     }
 }

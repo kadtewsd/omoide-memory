@@ -83,6 +83,11 @@ kotlin {
         freeCompilerArgs.addAll("-Xjsr305=strict")
         freeCompilerArgs.add("-Xcontext-parameters")
     }
+    sourceSets {
+        main {
+            kotlin.srcDir(project.layout.projectDirectory.dir("src/main/generated"))
+        }
+    }
 }
 
 tasks.withType<Test> {
@@ -90,7 +95,9 @@ tasks.withType<Test> {
 }
 
 val deleteBin by tasks.registering(Delete::class) {
-    delete("bin")
+    val dir = layout.projectDirectory.dir("bin")
+    println("下記のディレクトリを削除 $dir")
+    println(delete(dir))
 }
 
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
