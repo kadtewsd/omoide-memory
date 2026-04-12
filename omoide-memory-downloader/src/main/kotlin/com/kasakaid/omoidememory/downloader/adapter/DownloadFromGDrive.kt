@@ -7,10 +7,12 @@ import com.kasakaid.omoidememory.domain.SourceFile
 import com.kasakaid.omoidememory.downloader.adapter.google.*
 import com.kasakaid.omoidememory.downloader.domain.DriveService
 import com.kasakaid.omoidememory.downloader.domain.OmoideMemoryExportService
+import com.kasakaid.omoidememory.downloader.domain.RefreshTokenDriveService
 import com.kasakaid.omoidememory.downloader.domain.SaDriveService
 import com.kasakaid.omoidememory.downloader.service.DownloadFileBackUpService
 import com.kasakaid.omoidememory.r2dbc.transaction.RollbackException
 import com.kasakaid.omoidememory.utility.CoroutineHelper.mapWithCoroutine
+import com.kasakaid.omoidememory.utility.OneLineLogFormatter
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.slf4j.MDCContext
@@ -53,19 +55,22 @@ class DownloadFromGDrive(
                 throw IllegalArgumentException("絶対パスを指定してください。")
             }
 
-            val saPaths = System.getenv("GOOGLE_SA_CREDENTIAL_PATHS")
+            val saPath = System.getenv("GOOGLE_SA_CREDENTIAL_PATHS")
             val (accessInfos, driveService) =
-                if (!saPaths.isNullOrBlank()) {
+                if (!saPath.isNullOrBlank()) {
                     logger.info { "Service Account モードで起動します。" }
                     val folderIdsString = System.getenv("OMOIDE_FOLDER_ID") ?: ""
                     val folderIds = folderIdsString.split(",").map { it.trim() }.filter { it.isNotEmpty() }
                     if (folderIds.isEmpty()) {
                         throw IllegalArgumentException("対象のフォルダIDを OMOIDE_FOLDER_ID 環境変数に指定してください（カンマ区切り可）。")
                     }
-                    folderIds to SaDriveService()
+                    folderIds to
+                        SaDriveService(
+                            googleSaCredentialPath = saPath,
+                        )
                 } else {
                     logger.info { "Refresh Token モードで起動します。" }
-                    GoogleTokenCollector.refreshTokens to RefreshTokenDriveService(folderIds = folderIds)
+                    GoogleTokenCollector.refreshTokens to RefreshTokenDriveService
                 }
 
             val omoideMemoryExportService =
@@ -111,7 +116,9 @@ class DownloadFromGDrive(
                                         omoideBackupPath = Path.of(destination),
                                         familyId = familyId,
                                     ).onRight {
-                                        GoogleDriveToTrash.finalize(googleFile.id, accessInfo)
+//                                        GoogleDriveToTrash.finalize(googleFile.id, accessInfo).onLeft {
+//                                            logger.error { OneLineLogFormatter.format(it) }
+//                                        }
                                         PostProcess.onSuccess(it)
                                     }.onLeft {
                                         Files.deleteIfExists(tempPath)

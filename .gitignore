@@ -3,6 +3,7 @@
 **/build/
 build/
 dist/
+**/generated/
 
 *tsbuildinfo
 vite.config.d.ts
