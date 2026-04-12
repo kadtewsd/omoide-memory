@@ -10,6 +10,10 @@ sealed interface WorkManagerTag {
         override val value: String = "manual_upload"
     }
 
+    data object ManualDelete : WorkManagerTag {
+        override val value: String = "manual_delete"
+    }
+
     data object Auto : WorkManagerTag {
         override val value: String = "AutoUploadWork"
     }

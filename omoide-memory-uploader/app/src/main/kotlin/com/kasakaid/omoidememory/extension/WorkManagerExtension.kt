@@ -8,6 +8,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.workDataOf
+import com.kasakaid.omoidememory.worker.GdriveDeleteWorker
 import com.kasakaid.omoidememory.worker.GdriveUploadWorker
 import com.kasakaid.omoidememory.worker.WorkManagerTag
 import kotlinx.coroutines.CoroutineScope
@@ -48,6 +49,28 @@ object WorkManagerExtension {
         )
     }
 
+    fun WorkManager.enqueueManualDelete(ids: List<Long>) {
+        val constraints =
+            Constraints
+                .Builder()
+                .setRequiredNetworkType(NetworkType.CONNECTED)
+                .setRequiresBatteryNotLow(true)
+                .build()
+
+        val deleteRequest =
+            OneTimeWorkRequestBuilder<GdriveDeleteWorker>()
+                .addTag(GdriveDeleteWorker.TAG)
+                .setInputData(workDataOf("SELECTED_IDS" to ids.toLongArray()))
+                .setConstraints(constraints)
+                .build()
+
+        enqueueUniqueWork(
+            WorkManagerTag.ManualDelete.value,
+            ExistingWorkPolicy.REPLACE,
+            deleteRequest,
+        )
+    }
+
     /**
      * アップロード状態を監視します。
      * 現在の進捗とほぼ同じですが、念の為 Worker のステートで確認
@@ -66,6 +89,12 @@ object WorkManagerExtension {
             .map { infos ->
                 infos.any { it.state == WorkInfo.State.RUNNING || it.state == WorkInfo.State.ENQUEUED }
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    fun WorkManager.observeDeletingStateByManualTag(viewModelScope: CoroutineScope): StateFlow<Boolean> =
+        observeUploadingState(
+            viewModelScope = viewModelScope,
+            workManagerTag = WorkManagerTag.ManualDelete,
+        )
 
     fun WorkManager.observeProgressByManual(viewModelScope: CoroutineScope): StateFlow<Pair<Int, Int>?> =
         observeProgress(
@@ -92,4 +121,10 @@ object WorkManagerExtension {
                     null
                 }
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    fun WorkManager.observeProgressByManualDelete(viewModelScope: CoroutineScope): StateFlow<Pair<Int, Int>?> =
+        observeProgress(
+            viewModelScope = viewModelScope,
+            workManagerTag = WorkManagerTag.ManualDelete,
+        )
 }
