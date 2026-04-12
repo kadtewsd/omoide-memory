@@ -39,6 +39,7 @@ fun MainScreen(
     viewModel: MainViewModel = hiltViewModel(),
     onNavigateToMaintenance: () -> Unit,
     onNavigateToSelection: () -> Unit,
+    onNavigateToUploadedMaintenance: () -> Unit,
 ) {
     val uploadCondition by viewModel.uploadCondition.collectAsState()
 
@@ -168,6 +169,11 @@ fun MainScreen(
         UploadStatusRoute(
             condition = uploadCondition,
             onNavigateToContentSelection = onNavigateToSelection,
+        )
+
+        // Uploaded Content Maintenance
+        UploadedContentRoute(
+            onNavigateToMaintenance = onNavigateToUploadedMaintenance,
         )
 
         Button(

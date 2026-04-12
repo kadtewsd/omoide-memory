@@ -300,10 +300,15 @@ private fun StateLabel(
             UploadState.DONE -> Color(0xFF4CAF50)
 
             // Green
-            UploadState.FAILED -> Color(0xFFF44336)
+            UploadState.FAILED -> Color(0xFFc71585)
 
             // Red
-            UploadState.EXCLUDED -> Color(0xFF9E9E9E) // Gray
+            UploadState.EXCLUDED -> Color(0xFF9E9E9E)
+
+            // Gray
+
+            // Gray
+            UploadState.DRIVE_DELETED -> Color(0xFF9E9E9E) // Gray
         }
 
     Surface(
