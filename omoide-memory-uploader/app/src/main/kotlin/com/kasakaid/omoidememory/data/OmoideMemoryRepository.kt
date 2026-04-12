@@ -237,5 +237,7 @@ class OmoideMemoryRepository
 
         fun findByAsFlow(state: UploadState): Flow<List<OmoideMemory>> = omoideMemoryDao.findByAsFlow(state)
 
+        fun findByAsFlow(states: List<UploadState>): Flow<List<OmoideMemory>> = omoideMemoryDao.findByAsFlow(states)
+
         fun getAllUploadedIdsAsFlow(): Flow<Long> = omoideMemoryDao.getAllUploadedIdsAsFlow()
     }

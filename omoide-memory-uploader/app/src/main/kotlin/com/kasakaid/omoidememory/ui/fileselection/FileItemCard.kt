@@ -35,6 +35,7 @@ fun FileItemCard(
     item: OmoideMemory,
     imageLoader: coil.ImageLoader,
     isSelected: Boolean,
+    isSelectable: Boolean = true,
     onToggle: () -> Unit,
     onPreview: () -> Unit,
 ) {
@@ -63,7 +64,7 @@ fun FileItemCard(
                  * 2. onLongClick (長押し): 動画の場合のみ、その場で中身を確認できるプレビューダイアログを開く。
                  */
                 .combinedClickable(
-                    onClick = { onToggle() },
+                    onClick = { if (isSelectable) onToggle() },
                     onLongClick = { if (isVideo) onPreview() },
                 ),
     ) {
@@ -85,7 +86,15 @@ fun FileItemCard(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .alpha(if (isSelected) 1f else 0.8f),
+                    .alpha(
+                        if (!isSelectable) {
+                            0.4f
+                        } else if (isSelected) {
+                            1f
+                        } else {
+                            0.8f
+                        },
+                    ),
             contentScale = ContentScale.Crop,
         )
 
@@ -111,10 +120,12 @@ fun FileItemCard(
         }
 
         // 選択中かどうかを示す右上のチェックボックス
-        Checkbox(
-            checked = isSelected,
-            onCheckedChange = { onToggle() },
-            modifier = Modifier.align(Alignment.TopEnd),
-        )
+        if (isSelectable) {
+            Checkbox(
+                checked = isSelected,
+                onCheckedChange = { onToggle() },
+                modifier = Modifier.align(Alignment.TopEnd),
+            )
+        }
     }
 }
