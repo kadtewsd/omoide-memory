@@ -16,7 +16,6 @@ import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeUploading
 import com.kasakaid.omoidememory.worker.AutoGDriveUploadWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -24,9 +23,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -51,8 +48,9 @@ class MainViewModel
         private val wifiRepository: WifiRepository,
         private val omoideUploadPrefsRepository: OmoideUploadPrefsRepository,
     ) : ViewModel() {
-        private val _isAutoUploadEnabled =
-            MutableStateFlow(omoideUploadPrefsRepository.isAutoUploadEnabled())
+        // 一旦、自動アップロード機能は利用しないため false 固定とする。
+        // 将来的な参照のためにコードは残しておくが、初期値は常に false。
+        private val _isAutoUploadEnabled = MutableStateFlow(false)
         val isAutoUploadEnabled: StateFlow<Boolean> = _isAutoUploadEnabled.asStateFlow()
 
         // 権限状態を管理する Flow
@@ -190,10 +188,13 @@ class MainViewModel
             )
 
         fun toggleAutoUpload(enabled: Boolean) {
-            omoideUploadPrefsRepository.setAutoUploadEnabled(enabled)
-            _isAutoUploadEnabled.value = enabled
+            // 自動アップロードは現在利用しないため、常に無効化する。
+            // 参照実装としてロジックは残すが、外部からの変更は受け付けない。
+            val fixedEnabled = false
+            omoideUploadPrefsRepository.setAutoUploadEnabled(fixedEnabled)
+            _isAutoUploadEnabled.value = fixedEnabled
 
-            if (enabled) {
+            if (fixedEnabled) {
                 enqueuePeriodicWork()
             } else {
                 workManager.cancelUniqueWork("AutoUploadWork")

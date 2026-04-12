@@ -1,7 +1,9 @@
 package com.kasakaid.omoidememory.ui
 
 import android.Manifest
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -11,6 +13,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -24,6 +27,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
@@ -90,8 +94,6 @@ fun MainScreen(
         mutableStateOf(false)
     }
 
-    val isAutoUploadEnabled by viewModel.isAutoUploadEnabled.collectAsState()
-
     LaunchedEffect(isUploading) {
         /**
          * 手動でアップロードが完了していたら再度候補を取得するため
@@ -109,80 +111,111 @@ fun MainScreen(
 
     val wifiStatus by viewModel.wifiStatus.collectAsState()
 
-    Column(
+    Box(
         modifier =
             Modifier
-                .fillMaxSize() // 画面全体を占有
-                .padding(16.dp) // 全体に余白
-                .verticalScroll(scrollState),
-        verticalArrangement = Arrangement.spacedBy(16.dp), // 各要素の間に隙間を作る
-    ) {
-        // Android の権限コンポーネント
-        GrantPermissionRoute(onPermissionChanged = {
-            // 最低限 Wifi が入っているかのチェックを、State Hoisting でチェック!
-            val current =
-                isWifiPermissionGranted(
-                    GrantPermissionState.checkInitialPermission(
-                        context = context,
-                        checkTargetPermissions = wifiPermissions,
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors =
+                            listOf(
+                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f),
+                                MaterialTheme.colorScheme.surface,
+                            ),
                     ),
-                )
-            viewModel.updatePermissionStatus(current)
-        })
-        // Google のサインインの状態
-        GoogleAuthStateRoute(onSignInSuccess = {
-            viewModel.updateGoogleSignInStatus(it)
-        })
-        // Wi-Fi Configuration Section
-        WifiSettingsCard(
-            wifiSetting = wifiStatus.setting,
-            fixedSecureSsid = wifiStatus.fixedSsid,
-            onFixSecureSsid = { viewModel.changeWifiSsid(it) },
-            isPermissionGranted = uploadCondition.isPermissionGranted,
-        )
+                ),
+    ) {
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxSize() // 画面全体を占有
+                    .padding(16.dp) // 全体に余白
+                    .verticalScroll(scrollState),
+            verticalArrangement = Arrangement.spacedBy(16.dp), // 各要素の間に隙間を作る
+        ) {
+            // Android の権限コンポーネント
+            GrantPermissionRoute(onPermissionChanged = {
+                // 最低限 Wifi が入っているかのチェックを、State Hoisting でチェック!
+                val current =
+                    isWifiPermissionGranted(
+                        GrantPermissionState.checkInitialPermission(
+                            context = context,
+                            checkTargetPermissions = wifiPermissions,
+                        ),
+                    )
+                viewModel.updatePermissionStatus(current)
+            })
+            // Google のサインインの状態
+            GoogleAuthStateRoute(onSignInSuccess = {
+                viewModel.updateGoogleSignInStatus(it)
+            })
+            // Wi-Fi Configuration Section
+            WifiSettingsCard(
+                wifiSetting = wifiStatus.setting,
+                fixedSecureSsid = wifiStatus.fixedSsid,
+                onFixSecureSsid = { viewModel.changeWifiSsid(it) },
+                isPermissionGranted = uploadCondition.isPermissionGranted,
+            )
 
-        // Auto Upload Toggle
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Row(
-                modifier =
-                    Modifier
-                        .padding(16.dp)
-                        .fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
+            // Auto Upload Toggle
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors =
+                    CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
+                    ),
             ) {
-                Text(
-                    "コンテンツの自動アップロードは?",
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                Switch(
-                    checked = isAutoUploadEnabled,
-                    onCheckedChange = { viewModel.toggleAutoUpload(it) },
-                )
+                Row(
+                    modifier =
+                        Modifier
+                            .padding(16.dp)
+                            .fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Column {
+                        Text(
+                            "コンテンツの自動アップロードは?",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                        )
+                        Text(
+                            "(現在ご利用いただけません)",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                        )
+                    }
+                    Switch(
+                        checked = false,
+                        onCheckedChange = { },
+                        enabled = false,
+                    )
+                }
+            }
+
+            // 基準日設定
+            UploadedBaseLineRoute()
+
+            // Status & Trigger
+            UploadStatusRoute(
+                condition = uploadCondition,
+                onNavigateToContentSelection = onNavigateToSelection,
+            )
+
+            // Uploaded Content Maintenance
+            UploadedContentRoute(
+                onNavigateToMaintenance = onNavigateToUploadedMaintenance,
+            )
+
+            Button(
+                onClick = onNavigateToMaintenance,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("メンテナンス画面へ")
             }
         }
-
-        // 基準日設定
-        UploadedBaseLineRoute()
-
-        // Status & Trigger
-        UploadStatusRoute(
-            condition = uploadCondition,
-            onNavigateToContentSelection = onNavigateToSelection,
-        )
-
-        // Uploaded Content Maintenance
-        UploadedContentRoute(
-            onNavigateToMaintenance = onNavigateToUploadedMaintenance,
-        )
-
-        Button(
-            onClick = onNavigateToMaintenance,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text("メンテナンス画面へ")
-        }
     }
+
     // 🚀 アップロード中のみ表示されるロック層
     if (isUploading) {
         UploadIndicator(
