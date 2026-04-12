@@ -171,7 +171,7 @@ class FileSelectionViewModel
                     }
 
                     SelectionMode.DONE -> {
-                        localFileRepository.findByAsFlow(UploadState.DONE)
+                        localFileRepository.findByAsFlow(listOf(UploadState.DONE, UploadState.DRIVE_DELETED))
                     }
                 }
             }.stateIn(
@@ -470,14 +470,15 @@ fun FileSelectionScreen(
                                 }
 
                                 SelectionMode.DONE -> {
-                                    onDeleteFromDrive(selectedFiles.map { it.id })
+                                    onDeleteFromDrive(selectedFiles.filter { it.state == UploadState.DONE }.map { it.id })
                                 }
                             }
                         },
                         modifier = Modifier.weight(1f),
                         enabled =
                             !isUploading && !isDeleting && selectedFiles.isNotEmpty() &&
-                                (selectionMode != SelectionMode.TARGET || !isOverLimit),
+                                (selectionMode != SelectionMode.TARGET || !isOverLimit) &&
+                                (selectionMode != SelectionMode.DONE || selectedFiles.any { it.state == UploadState.DONE }),
                     ) {
                         when (selectionMode) {
                             SelectionMode.TARGET -> Text("送信")

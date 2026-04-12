@@ -31,6 +31,7 @@ import androidx.work.WorkManager
 import com.kasakaid.omoidememory.data.OmoideMemoryDao
 import com.kasakaid.omoidememory.data.OmoideMemoryRepository
 import com.kasakaid.omoidememory.data.OmoideUploadPrefsRepository
+import com.kasakaid.omoidememory.data.UploadState
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.enqueueWManualUpload
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeProgressByManual
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -91,10 +92,9 @@ class UploadStatusViewModel
                 initialValue = 0,
             )
 
-        // UI State
         val uploadedCount: StateFlow<Int> =
             omoideMemoryRepository
-                .getUploadedCount(listOf(com.kasakaid.omoidememory.data.UploadState.DONE))
+                .getUploadedCount(listOf(UploadState.DONE, UploadState.DRIVE_DELETED))
                 .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
         fun triggerManualUpload() {
@@ -133,6 +133,7 @@ fun UploadStatusRoute(
 
     UploadStatusCard(
         pendingFilesCount = pendingFilesCount,
+        uploadedCount = uploadedCount,
         condition = condition,
         onUploadClick = {
             viewModel.triggerManualUpload()
@@ -158,6 +159,7 @@ fun UploadedContentRoute(
 @Composable
 fun UploadStatusCard(
     pendingFilesCount: Int,
+    uploadedCount: Int,
     condition: UploadRequiredCondition, // 状態を引数で受け取る
     onUploadClick: () -> Unit, // ボタンクリック時のアクション
     onNavigateToContentSelection: () -> Unit,
@@ -170,6 +172,7 @@ fun UploadStatusCard(
         Column(modifier = Modifier.padding(16.dp)) {
             Text("Status", style = MaterialTheme.typography.titleMedium)
             Text("アップロード対象ファイル数: $pendingFilesCount")
+            Text("アップロード済み数: $uploadedCount")
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -247,7 +250,7 @@ fun UploadedContentCard(
                 onClick = onMaintenanceClick,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text("メンテナンス (ドライブから削除)")
+                Text("確認")
             }
         }
     }
