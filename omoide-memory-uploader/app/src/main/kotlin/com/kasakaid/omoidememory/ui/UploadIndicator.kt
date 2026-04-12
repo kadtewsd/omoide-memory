@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun UploadIndicator(
     uploadProgress: Pair<Int, Int>?,
+    label: String = "アップロード中...",
     onCancel: (() -> Unit)? = null,
 ) {
     // 背景を少し白くして、クリックを無効化する
@@ -38,7 +39,7 @@ fun UploadIndicator(
                     progress = { progressValue.coerceIn(0f, 1f) },
                     modifier = Modifier.width(200.dp),
                 )
-                Text("$current / $total アップロード中...")
+                Text("$current / $total $label")
             } else {
                 // まだ起動待ちの時はグルグル
                 CircularProgressIndicator()

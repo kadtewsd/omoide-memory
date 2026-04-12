@@ -94,37 +94,66 @@ class GoogleDriveService
         /**
          * 端末側の ID に基づいて Google Drive 上のファイルを削除します。
          */
-        suspend fun deleteFileByLocalId(localId: Long): Boolean =
+        suspend fun deleteFilesByLocalIds(
+            localIds: List<Long>,
+            onProgress: suspend (Int, Int) -> Unit,
+        ): List<Long> =
             withContext(Dispatchers.IO) {
+                val driveFiles = mutableListOf<Pair<Long, String>>() // localId to driveFileId
                 try {
-                    // 1. まず対象のファイルを探す
-                    // appProperties の検索クエリを作成 (デバイス ID も含めて確実に特定する)
-                    val query =
-                        "appProperties has { key='local_id' and value='$localId' } " +
-                            "and appProperties has { key='origin_device_id' and value='${Build.ID}' } " +
-                            "and trashed = false"
-                    val fileList =
-                        service
-                            .files()
-                            .list()
-                            .setQ(query)
-                            .setSpaces("drive")
-                            .setFields("files(id, name)")
-                            .execute()
+                    // 1. 対象のファイルをまとめて探す (N+1 解消)
+                    // 30件ずつバッチ処理してクエリ長制限を回避
+                    localIds.chunked(30).forEach { batch ->
+                        val idQueries = batch.joinToString(" or ") { "appProperties has { key='local_id' and value='$it' }" }
+                        val query =
+                            "appProperties has { key='origin_device_id' and value='${Build.ID}' } " +
+                                "and trashed = false and ($idQueries)"
 
-                    val fileId = fileList.files?.firstOrNull()?.id
-                    if (fileId != null) {
-                        // 2. 見つかったら削除（ゴミ箱へ移動）
-                        service.files().delete(fileId).execute()
-                        Log.i("Drive", "Deleted file from Drive: $fileId (localId: $localId)")
-                        return@withContext true
-                    } else {
-                        Log.w("Drive", "File not found on Drive for localId: $localId")
-                        return@withContext false
+                        val fileList =
+                            service
+                                .files()
+                                .list()
+                                .setQ(query)
+                                .setSpaces("drive")
+                                .setFields("files(id, appProperties)")
+                                .execute()
+
+                        fileList.files?.forEach { file ->
+                            val lid = file.appProperties?.get("local_id")?.toLongOrNull()
+                            if (lid != null) {
+                                driveFiles.add(lid to file.id)
+                            }
+                        }
                     }
+
+                    if (driveFiles.isEmpty()) return@withContext emptyList<Long>()
+
+                    val deletedLocalIds = mutableListOf<Long>()
+                    val total = driveFiles.size
+
+                    // 2. 見つかったファイルを順次削除 (429 対策で delay を入れる)
+                    driveFiles.forEachIndexed { index, (lid, driveId) ->
+                        onProgress(index, total)
+                        try {
+                            service.files().delete(driveId).execute()
+                            deletedLocalIds.add(lid)
+                            Log.i("Drive", "Deleted file from Drive: $driveId (localId: $lid)")
+                            // 🚀 429 対策: 削除の間に少し待機
+                            delay(500)
+                        } catch (e: Exception) {
+                            Log.e("Drive", "Failed to delete file from Drive: $driveId (localId: $lid)", e)
+                        }
+                    }
+                    onProgress(total, total)
+                    return@withContext deletedLocalIds
                 } catch (e: Exception) {
-                    Log.e("Drive", "Failed to delete file from Drive for localId: $localId", e)
-                    return@withContext false
+                    Log.e("Drive", "Failed in batch delete process", e)
+                    return@withContext emptyList<Long>()
                 }
             }
+
+        /**
+         * 端末側の ID に基づいて Google Drive 上のファイルを削除します。
+         */
+        suspend fun deleteFileByLocalId(localId: Long): Boolean = deleteFilesByLocalIds(listOf(localId)) { _, _ -> }.isNotEmpty()
     }

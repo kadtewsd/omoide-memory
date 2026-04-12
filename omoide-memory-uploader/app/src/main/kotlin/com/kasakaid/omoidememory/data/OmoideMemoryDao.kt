@@ -34,6 +34,9 @@ interface OmoideMemoryDao {
     @Query("SELECT * FROM uploaded_memories WHERE state = :state ORDER BY id DESC")
     fun findByAsFlow(state: UploadState): Flow<List<OmoideMemory>>
 
+    @Query("SELECT * FROM uploaded_memories WHERE id IN (:ids)")
+    suspend fun findBy(ids: List<Long>): List<OmoideMemory>
+
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertUploadedFiles(omoideMemories: List<OmoideMemory>)
 

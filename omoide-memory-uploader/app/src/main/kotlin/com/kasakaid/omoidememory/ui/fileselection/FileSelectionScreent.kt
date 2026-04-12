@@ -64,8 +64,11 @@ import com.kasakaid.omoidememory.data.OmoideMemoryRepository
 import com.kasakaid.omoidememory.data.UploadState
 import com.kasakaid.omoidememory.data.isOverLimit
 import com.kasakaid.omoidememory.data.totalSize
+import com.kasakaid.omoidememory.extension.WorkManagerExtension.enqueueManualDelete
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.enqueueWManualUpload
+import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeDeletingStateByManualTag
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeProgressByManual
+import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeProgressByManualDelete
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeUploadingStateByManualTag
 import com.kasakaid.omoidememory.network.GoogleDriveService
 import com.kasakaid.omoidememory.ui.AppBarWithBackIcon
@@ -206,6 +209,14 @@ class FileSelectionViewModel
             workManager.observeProgressByManual(
                 viewModelScope = viewModelScope,
             )
+        val isDeleting: StateFlow<Boolean> =
+            workManager.observeDeletingStateByManualTag(
+                viewModelScope = viewModelScope,
+            )
+        val deleteProgress: StateFlow<Pair<Int, Int>?> =
+            workManager.observeProgressByManualDelete(
+                viewModelScope = viewModelScope,
+            )
 
         fun startManualUpload(ids: List<Long>) {
             viewModelScope.launch {
@@ -270,15 +281,15 @@ class FileSelectionViewModel
 
         fun deleteFromDrive(ids: List<Long>) {
             viewModelScope.launch {
-                val targets = pendingFiles.value.filter { it.id in ids }
-                targets.forEach { item ->
-                    val success = driveService.deleteFileByLocalId(item.id)
-                    if (success) {
-                        localFileRepository.update(listOf(item.driveDeleted()))
-                    }
+                if (ids.isNotEmpty()) {
+                    workManager.enqueueManualDelete(ids)
+                    selectedIds.clear()
                 }
-                selectedIds.clear()
             }
+        }
+
+        fun cancelDelete() {
+            workManager.cancelUniqueWork("manual_delete")
         }
     }
 
@@ -295,6 +306,8 @@ fun FileSelectionRoute(
     val onOff by viewModel.onOff.collectAsState()
     val isUploading by viewModel.isUploading.collectAsState()
     val progress by viewModel.progress.collectAsState()
+    val isDeleting by viewModel.isDeleting.collectAsState()
+    val deleteProgress by viewModel.deleteProgress.collectAsState()
     var hasStartedUploading by remember {
         mutableStateOf(false)
     }
@@ -370,6 +383,9 @@ fun FileSelectionRoute(
         onDeleteFromDrive = { ids ->
             viewModel.deleteFromDrive(ids)
         },
+        isDeleting = isDeleting,
+        deleteProgress = deleteProgress,
+        onCancelDelete = { viewModel.cancelDelete() },
     )
 }
 
@@ -391,6 +407,9 @@ fun FileSelectionScreen(
     onCancelUpload: () -> Unit,
     onDeletePhysically: (items: List<OmoideMemory>) -> Unit,
     onDeleteFromDrive: (ids: List<Long>) -> Unit,
+    isDeleting: Boolean,
+    deleteProgress: Pair<Int, Int>?,
+    onCancelDelete: () -> Unit,
 ) {
     val context = LocalContext.current
     val imageLoader = remember(context) { context.imageLoader() }
@@ -457,7 +476,7 @@ fun FileSelectionScreen(
                         },
                         modifier = Modifier.weight(1f),
                         enabled =
-                            !isUploading && selectedFiles.isNotEmpty() &&
+                            !isUploading && !isDeleting && selectedFiles.isNotEmpty() &&
                                 (selectionMode != SelectionMode.TARGET || !isOverLimit),
                     ) {
                         when (selectionMode) {
@@ -484,7 +503,7 @@ fun FileSelectionScreen(
                         },
                         modifier = Modifier.weight(1f),
                         enabled =
-                            !isUploading && selectedFiles.isNotEmpty() &&
+                            !isUploading && !isDeleting && selectedFiles.isNotEmpty() &&
                                 (selectionMode == SelectionMode.TARGET || selectionMode == SelectionMode.EXCLUDED),
                     ) {
                         when (selectionMode) {
@@ -589,6 +608,15 @@ fun FileSelectionScreen(
         UploadIndicator(
             uploadProgress = progress,
             onCancel = onCancelUpload,
+        )
+    }
+
+    // 🚀 削除中のみ表示されるロック層
+    if (isDeleting) {
+        UploadIndicator(
+            uploadProgress = deleteProgress,
+            label = "削除中...",
+            onCancel = onCancelDelete,
         )
     }
 }
