@@ -33,6 +33,11 @@ class OmoideMemory(
             this.state = UploadState.EXCLUDED
         }
 
+    fun driveDeleted(): OmoideMemory =
+        apply {
+            this.state = UploadState.DRIVE_DELETED
+        }
+
     companion object {
         const val UPLOAD_LIMIT_BYTES = 10 * 1024 * 1024 * 1024L
     }
@@ -50,6 +55,7 @@ enum class UploadState(
     DONE("完了"),
     FAILED("失敗"),
     EXCLUDED("除外"),
+    DRIVE_DELETED("ドライブ削除済み"),
 }
 
 class ExcludeOmoide(

@@ -133,7 +133,6 @@ fun UploadStatusRoute(
 
     UploadStatusCard(
         pendingFilesCount = pendingFilesCount,
-        uploadedCount = uploadedCount,
         condition = condition,
         onUploadClick = {
             viewModel.triggerManualUpload()
@@ -144,9 +143,21 @@ fun UploadStatusRoute(
 }
 
 @Composable
+fun UploadedContentRoute(
+    viewModel: UploadStatusViewModel = hiltViewModel(),
+    onNavigateToMaintenance: () -> Unit,
+) {
+    val uploadedCount by viewModel.uploadedCount.collectAsState()
+
+    UploadedContentCard(
+        uploadedCount = uploadedCount,
+        onMaintenanceClick = onNavigateToMaintenance,
+    )
+}
+
+@Composable
 fun UploadStatusCard(
     pendingFilesCount: Int,
-    uploadedCount: Int,
     condition: UploadRequiredCondition, // 状態を引数で受け取る
     onUploadClick: () -> Unit, // ボタンクリック時のアクション
     onNavigateToContentSelection: () -> Unit,
@@ -159,7 +170,6 @@ fun UploadStatusCard(
         Column(modifier = Modifier.padding(16.dp)) {
             Text("Status", style = MaterialTheme.typography.titleMedium)
             Text("アップロード対象ファイル数: $pendingFilesCount")
-            Text("全アップロード数: $uploadedCount")
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -214,6 +224,30 @@ fun UploadStatusCard(
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.padding(top = 8.dp),
                 )
+            }
+        }
+    }
+}
+
+@Composable
+fun UploadedContentCard(
+    uploadedCount: Int,
+    onMaintenanceClick: () -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("アップロード済みのコンテンツ", style = MaterialTheme.typography.titleMedium)
+            Text("全アップロード数: $uploadedCount")
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Button(
+                onClick = onMaintenanceClick,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("メンテナンス (ドライブから削除)")
             }
         }
     }

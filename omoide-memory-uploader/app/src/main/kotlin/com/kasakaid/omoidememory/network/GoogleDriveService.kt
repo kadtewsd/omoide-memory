@@ -90,4 +90,41 @@ class GoogleDriveService
                     }
                 }
             }
+
+        /**
+         * 端末側の ID に基づいて Google Drive 上のファイルを削除します。
+         */
+        suspend fun deleteFileByLocalId(localId: Long): Boolean =
+            withContext(Dispatchers.IO) {
+                try {
+                    // 1. まず対象のファイルを探す
+                    // appProperties の検索クエリを作成 (デバイス ID も含めて確実に特定する)
+                    val query =
+                        "appProperties has { key='local_id' and value='$localId' } " +
+                            "and appProperties has { key='origin_device_id' and value='${Build.ID}' } " +
+                            "and trashed = false"
+                    val fileList =
+                        service
+                            .files()
+                            .list()
+                            .setQ(query)
+                            .setSpaces("drive")
+                            .setFields("files(id, name)")
+                            .execute()
+
+                    val fileId = fileList.files?.firstOrNull()?.id
+                    if (fileId != null) {
+                        // 2. 見つかったら削除（ゴミ箱へ移動）
+                        service.files().delete(fileId).execute()
+                        Log.i("Drive", "Deleted file from Drive: $fileId (localId: $localId)")
+                        return@withContext true
+                    } else {
+                        Log.w("Drive", "File not found on Drive for localId: $localId")
+                        return@withContext false
+                    }
+                } catch (e: Exception) {
+                    Log.e("Drive", "Failed to delete file from Drive for localId: $localId", e)
+                    return@withContext false
+                }
+            }
     }

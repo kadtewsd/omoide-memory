@@ -67,6 +67,7 @@ import com.kasakaid.omoidememory.data.totalSize
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.enqueueWManualUpload
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeProgressByManual
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeUploadingStateByManualTag
+import com.kasakaid.omoidememory.network.GoogleDriveService
 import com.kasakaid.omoidememory.ui.AppBarWithBackIcon
 import com.kasakaid.omoidememory.ui.MySwitch
 import com.kasakaid.omoidememory.ui.OnOff
@@ -103,6 +104,7 @@ class FileSelectionViewModel
     constructor(
         private val localFileRepository: OmoideMemoryRepository,
         private val excludeOmoideRepository: ExcludeOmoideRepository,
+        private val driveService: GoogleDriveService,
         application: Application,
     ) : ViewModel() {
         /**
@@ -122,6 +124,10 @@ class FileSelectionViewModel
         fun setSelectionMode(mode: SelectionMode) {
             _selectionMode.value = mode
             selectedIds.clear()
+        }
+
+        fun initMode(mode: SelectionMode) {
+            _selectionMode.value = mode
         }
 
         // 削除確認ダイアログ（OS側）を起動するためのイベント
@@ -257,13 +263,30 @@ class FileSelectionViewModel
                 selectedIds.clear()
             }
         }
+
+        fun deleteFromDrive(ids: List<Long>) {
+            viewModelScope.launch {
+                val targets = pendingFiles.value.filter { it.id in ids }
+                targets.forEach { item ->
+                    val success = driveService.deleteFileByLocalId(item.id)
+                    if (success) {
+                        localFileRepository.update(listOf(item.driveDeleted()))
+                    }
+                }
+                selectedIds.clear()
+            }
+        }
     }
 
 @Composable
 fun FileSelectionRoute(
     viewModel: FileSelectionViewModel = hiltViewModel(),
+    initialMode: SelectionMode = SelectionMode.TARGET,
     toMainScreen: () -> Unit,
 ) {
+    LaunchedEffect(initialMode) {
+        viewModel.initMode(initialMode)
+    }
     val pendingFiles by viewModel.pendingFiles.collectAsState()
     val onOff by viewModel.onOff.collectAsState()
     val isUploading by viewModel.isUploading.collectAsState()
@@ -340,6 +363,9 @@ fun FileSelectionRoute(
         onDeletePhysically = { items ->
             viewModel.deletePhysically(items)
         },
+        onDeleteFromDrive = { ids ->
+            viewModel.deleteFromDrive(ids)
+        },
     )
 }
 
@@ -360,6 +386,7 @@ fun FileSelectionScreen(
     onRevive: (ids: List<Long>) -> Unit,
     onCancelUpload: () -> Unit,
     onDeletePhysically: (items: List<OmoideMemory>) -> Unit,
+    onDeleteFromDrive: (ids: List<Long>) -> Unit,
 ) {
     val context = LocalContext.current
     val imageLoader = remember(context) { context.imageLoader() }
@@ -419,19 +446,20 @@ fun FileSelectionScreen(
                                     onRevive(selectedFiles.map { it.id })
                                 }
 
-                                SelectionMode.DONE -> {}
+                                SelectionMode.DONE -> {
+                                    onDeleteFromDrive(selectedFiles.map { it.id })
+                                }
                             }
                         },
                         modifier = Modifier.weight(1f),
                         enabled =
                             !isUploading && selectedFiles.isNotEmpty() &&
-                                (selectionMode != SelectionMode.TARGET || !isOverLimit) &&
-                                selectionMode != SelectionMode.DONE,
+                                (selectionMode != SelectionMode.TARGET || !isOverLimit),
                     ) {
                         when (selectionMode) {
                             SelectionMode.TARGET -> Text("送信")
                             SelectionMode.EXCLUDED -> Text("復活")
-                            SelectionMode.DONE -> Text("完了")
+                            SelectionMode.DONE -> Text("ドライブから削除")
                         }
                     }
 
@@ -495,19 +523,28 @@ fun FileSelectionScreen(
                     fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                     modifier = Modifier.padding(end = 4.dp),
                 )
-                SelectionMode.entries.forEach { mode ->
-                    androidx.compose.foundation.layout.Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        androidx.compose.material3.RadioButton(
-                            selected = selectionMode == mode,
-                            onClick = { onSelectionModeChanged(mode) },
-                        )
-                        Text(
-                            text = mode.label,
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.clickable { onSelectionModeChanged(mode) },
-                        )
+                // DONE モードの時は、他のモードに切り替えさせない
+                if (selectionMode == SelectionMode.DONE) {
+                    Text(
+                        text = SelectionMode.DONE.label,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                    )
+                } else {
+                    SelectionMode.entries.filter { it != SelectionMode.DONE }.forEach { mode ->
+                        androidx.compose.foundation.layout.Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            androidx.compose.material3.RadioButton(
+                                selected = selectionMode == mode,
+                                onClick = { onSelectionModeChanged(mode) },
+                            )
+                            Text(
+                                text = mode.label,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.clickable { onSelectionModeChanged(mode) },
+                            )
+                        }
                     }
                 }
             }

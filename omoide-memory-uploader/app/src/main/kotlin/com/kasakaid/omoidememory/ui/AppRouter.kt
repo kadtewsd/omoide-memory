@@ -6,6 +6,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.kasakaid.omoidememory.ui.fileselection.FileSelectionRoute
+import com.kasakaid.omoidememory.ui.fileselection.SelectionMode
 import com.kasakaid.omoidememory.ui.maintenance.CrashDetailScreen
 import com.kasakaid.omoidememory.ui.maintenance.CrashReportViewerScreen
 import com.kasakaid.omoidememory.ui.maintenance.DbMaintenanceScreen
@@ -25,11 +26,19 @@ fun AppRouter() {
             MainScreen(
                 onNavigateToSelection = { navController.navigate("selection") },
                 onNavigateToMaintenance = { navController.navigate("maintenance") },
+                onNavigateToUploadedMaintenance = { navController.navigate("uploaded_maintenance") },
             )
         }
         composable("selection") {
             FileSelectionRoute(
+                initialMode = SelectionMode.TARGET,
                 // navController.popBackStack で ジェスチャ対応もしている
+                toMainScreen = { navController.popBackStack() },
+            )
+        }
+        composable("uploaded_maintenance") {
+            FileSelectionRoute(
+                initialMode = SelectionMode.DONE,
                 toMainScreen = { navController.popBackStack() },
             )
         }
