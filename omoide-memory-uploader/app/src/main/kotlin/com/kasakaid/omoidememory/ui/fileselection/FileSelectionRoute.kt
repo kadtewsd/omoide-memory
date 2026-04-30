@@ -83,6 +83,7 @@ fun FileSelectionRoute(
             onSelectionModeChanged = { viewModel.setSelectionMode(it) },
             onContentFixed = { viewModel.startManualUpload(it) },
             onRevive = { viewModel.revive(it) },
+            onExclude = { viewModel.markAsRemoved(it) },
             onToggle = { viewModel.toggleSelection(it) },
             toMainScreen = toMainScreen,
             onOff = onOff,

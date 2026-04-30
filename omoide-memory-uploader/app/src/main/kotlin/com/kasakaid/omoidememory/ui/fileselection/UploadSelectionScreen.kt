@@ -21,6 +21,7 @@ fun UploadSelectionScreen(
     onSelectionModeChanged: (SelectionMode) -> Unit,
     onContentFixed: (List<Long>) -> Unit,
     onRevive: (List<Long>) -> Unit,
+    onExclude: (List<Long>) -> Unit,
     onToggle: (Long) -> Unit,
     toMainScreen: () -> Unit,
     onOff: OnOff,
@@ -61,17 +62,40 @@ fun UploadSelectionScreen(
                 )
             }
 
-            Button(
-                onClick = {
-                    val ids = selectedFiles.map { it.id }
-                    if (selectionMode == SelectionMode.TARGET) onContentFixed(ids) else onRevive(ids)
-                },
+            androidx.compose.foundation.layout.Row(
                 modifier = Modifier.fillMaxWidth(),
-                enabled =
-                    !isUploading && !isDeleting && selectedFiles.isNotEmpty() &&
-                        (selectionMode != SelectionMode.TARGET || !isOverLimit),
+                horizontalArrangement =
+                    androidx.compose.foundation.layout.Arrangement
+                        .spacedBy(8.dp),
             ) {
-                Text(if (selectionMode == SelectionMode.TARGET) "送信" else "復活")
+                Button(
+                    onClick = {
+                        val ids = selectedFiles.map { it.id }
+                        if (selectionMode == SelectionMode.TARGET) onContentFixed(ids) else onRevive(ids)
+                    },
+                    modifier = Modifier.weight(1f),
+                    enabled =
+                        !isUploading && !isDeleting && selectedFiles.isNotEmpty() &&
+                            (selectionMode != SelectionMode.TARGET || !isOverLimit),
+                ) {
+                    Text(if (selectionMode == SelectionMode.TARGET) "送信" else "復活")
+                }
+
+                if (selectionMode == SelectionMode.TARGET) {
+                    Button(
+                        onClick = {
+                            onExclude(selectedFiles.map { it.id })
+                        },
+                        modifier = Modifier.weight(1f),
+                        enabled = !isUploading && !isDeleting && selectedFiles.isNotEmpty(),
+                        colors =
+                            androidx.compose.material3.ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.secondary,
+                            ),
+                    ) {
+                        Text("除外")
+                    }
+                }
             }
         },
         pendingFiles = pendingFiles,
