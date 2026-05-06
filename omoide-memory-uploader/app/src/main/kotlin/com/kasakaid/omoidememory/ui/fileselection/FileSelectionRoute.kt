@@ -1,5 +1,6 @@
 package com.kasakaid.omoidememory.ui.fileselection
 
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -8,17 +9,21 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.kasakaid.omoidememory.data.OmoideMemory
+import com.kasakaid.omoidememory.data.UploadState
 
 @Composable
 fun FileSelectionRoute(
     viewModel: FileSelectionViewModel = hiltViewModel(),
-    initialMode: SelectionMode = SelectionMode.TARGET,
+    title: String,
+    selectionMode: SelectionMode,
+    subHeader: @Composable ColumnScope.() -> Unit = {},
+    bottomBarAction: @Composable (selectedFiles: List<OmoideMemory>) -> Unit,
     toMainScreen: () -> Unit,
 ) {
-    LaunchedEffect(initialMode) {
-        viewModel.initMode(initialMode)
+    LaunchedEffect(selectionMode) {
+        viewModel.initMode(selectionMode)
     }
-    val selectionMode by viewModel.selectionMode.collectAsState()
     val pendingFiles by viewModel.pendingFiles.collectAsState()
     val onOff by viewModel.onOff.collectAsState()
     val isUploading by viewModel.isUploading.collectAsState()
@@ -57,43 +62,22 @@ fun FileSelectionRoute(
         }
     }
 
-    if (initialMode == SelectionMode.DONE || selectionMode == SelectionMode.DONE) {
-        UploadedListScreen(
-            pendingFiles = pendingFiles,
-            selectedIds = viewModel.selectedIds,
-            doneFilter = viewModel.doneFilter.collectAsState().value,
-            onDoneFilterChanged = { viewModel.setDoneFilter(it) },
-            onDeleteFromDrive = { viewModel.deleteFromDrive(it) },
-            onToggle = { viewModel.toggleSelection(it) },
-            toMainScreen = toMainScreen,
-            onOff = onOff,
-            onSwitchChanged = { viewModel.toggleAll(it) },
-            isUploading = isUploading,
-            progress = progress,
-            onCancelUpload = { viewModel.cancelManualUpload() },
-            isDeleting = isDeleting,
-            deleteProgress = deleteProgress,
-            onCancelDelete = { viewModel.cancelDelete() },
-        )
-    } else {
-        UploadSelectionScreen(
-            pendingFiles = pendingFiles,
-            selectedIds = viewModel.selectedIds,
-            selectionMode = selectionMode,
-            onSelectionModeChanged = { viewModel.setSelectionMode(it) },
-            onContentFixed = { viewModel.startManualUpload(it) },
-            onRevive = { viewModel.revive(it) },
-            onExclude = { viewModel.markAsRemoved(it) },
-            onToggle = { viewModel.toggleSelection(it) },
-            toMainScreen = toMainScreen,
-            onOff = onOff,
-            onSwitchChanged = { viewModel.toggleAll(it) },
-            isUploading = isUploading,
-            progress = progress,
-            onCancelUpload = { viewModel.cancelManualUpload() },
-            isDeleting = isDeleting,
-            deleteProgress = deleteProgress,
-            onCancelDelete = { viewModel.cancelDelete() },
-        )
-    }
+    FileSelectionScreen(
+        title = title,
+        onBack = toMainScreen,
+        subHeader = subHeader,
+        bottomBarAction = bottomBarAction,
+        pendingFiles = pendingFiles,
+        selectedIds = viewModel.selectedIds,
+        onToggle = { viewModel.toggleSelection(it) },
+        isSelectable = { selectionMode != SelectionMode.DONE || it.state == UploadState.DONE },
+        onOff = onOff,
+        onSwitchChanged = { viewModel.toggleAll(it) },
+        isUploading = isUploading,
+        progress = progress,
+        onCancelUpload = { viewModel.cancelManualUpload() },
+        isDeleting = isDeleting,
+        deleteProgress = deleteProgress,
+        onCancelDelete = { viewModel.cancelDelete() },
+    )
 }
