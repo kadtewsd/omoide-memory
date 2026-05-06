@@ -1,11 +1,14 @@
 package com.kasakaid.omoidememory.ui
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.kasakaid.omoidememory.ui.fileselection.FileSelectionRoute
+import com.kasakaid.omoidememory.ui.fileselection.DoneFileSelectionRoute
+import com.kasakaid.omoidememory.ui.fileselection.ExcludedFileSelectionRoute
+import com.kasakaid.omoidememory.ui.fileselection.LimitFileSelectionRoute
 import com.kasakaid.omoidememory.ui.fileselection.SelectionMode
 import com.kasakaid.omoidememory.ui.maintenance.CrashDetailScreen
 import com.kasakaid.omoidememory.ui.maintenance.CrashReportViewerScreen
@@ -30,16 +33,31 @@ fun AppRouter() {
             )
         }
         composable("selection") {
-            FileSelectionRoute(
-                initialMode = SelectionMode.TARGET,
-                // navController.popBackStack で ジェスチャ対応もしている
-                toMainScreen = { navController.popBackStack() },
+            LimitFileSelectionRoute(
+                title = "アップロードする写真を選択",
+                onBack = { navController.popBackStack() },
+                onNavigateToExcluded = {
+                    navController.navigate("excluded") {
+                        popUpTo("selection") { inclusive = true }
+                    }
+                },
+            )
+        }
+        composable("excluded") {
+            ExcludedFileSelectionRoute(
+                title = "除外した写真",
+                onBack = { navController.popBackStack() },
+                onNavigateToTarget = {
+                    navController.navigate("selection") {
+                        popUpTo("excluded") { inclusive = true }
+                    }
+                },
             )
         }
         composable("uploaded_maintenance") {
-            FileSelectionRoute(
-                initialMode = SelectionMode.DONE,
-                toMainScreen = { navController.popBackStack() },
+            DoneFileSelectionRoute(
+                title = "アップロード済みの写真",
+                onBack = { navController.popBackStack() },
             )
         }
         composable("maintenance") {

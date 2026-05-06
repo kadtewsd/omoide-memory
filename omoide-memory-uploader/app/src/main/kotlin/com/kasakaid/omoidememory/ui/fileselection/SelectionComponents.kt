@@ -3,9 +3,12 @@ package com.kasakaid.omoidememory.ui.fileselection
 import android.content.Context
 import android.os.Build
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -33,17 +36,19 @@ import coil.decode.GifDecoder
 import coil.decode.ImageDecoderDecoder
 import coil.decode.VideoFrameDecoder
 import com.kasakaid.omoidememory.data.OmoideMemory
+import com.kasakaid.omoidememory.data.isOverLimit
+import com.kasakaid.omoidememory.data.totalSize
 import com.kasakaid.omoidememory.ui.AppBarWithBackIcon
 import com.kasakaid.omoidememory.ui.MySwitch
 import com.kasakaid.omoidememory.ui.OnOff
 import com.kasakaid.omoidememory.ui.UploadIndicator
 
 @Composable
-fun BaseFileSelectionScreen(
+fun FileSelectionScreen(
     title: String,
     onBack: () -> Unit,
     subHeader: @Composable ColumnScope.() -> Unit,
-    bottomBarAction: @Composable ColumnScope.(selectedFiles: List<OmoideMemory>) -> Unit,
+    bottomBarAction: @Composable (selectedFiles: List<OmoideMemory>) -> Unit,
     pendingFiles: List<OmoideMemory>,
     selectedIds: Map<Long, Boolean>,
     onToggle: (Long) -> Unit,
@@ -245,4 +250,70 @@ fun formatSize(bytes: Long): String {
     } else {
         "%.2f MB".format(bytes.toDouble() / mb)
     }
+}
+
+@Composable
+fun SelectedFilesInfo(
+    selectedFiles: List<OmoideMemory>,
+    modifier: Modifier = Modifier,
+) {
+    val totalSize = selectedFiles.totalSize()
+    Text(
+        text = "選択中: ${selectedFiles.size} 件 (${formatSize(totalSize)})",
+        style = MaterialTheme.typography.bodySmall,
+        modifier = modifier.padding(bottom = 8.dp),
+    )
+}
+
+@Composable
+fun SelectionActionRow(
+    info: @Composable () -> Unit,
+    actions: @Composable RowScope.() -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        info()
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            actions()
+        }
+    }
+}
+
+@Composable
+fun StandardFileSelection(
+    selectedFiles: List<OmoideMemory>,
+    bottomButton: @Composable RowScope.() -> Unit,
+) {
+    SelectionActionRow(
+        info = { SelectedFilesInfo(selectedFiles = selectedFiles) },
+        actions = bottomButton,
+    )
+}
+
+@Composable
+fun LimitFileSelection(
+    selectedFiles: List<OmoideMemory>,
+    bottomButton: @Composable RowScope.() -> Unit,
+) {
+    val isOverLimit = selectedFiles.isOverLimit()
+    SelectionActionRow(
+        info = {
+            if (isOverLimit) {
+                Text(
+                    text = "10GB を超えるアップロードはできません",
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+            } else {
+                SelectedFilesInfo(selectedFiles = selectedFiles)
+            }
+        },
+        actions = bottomButton,
+    )
 }

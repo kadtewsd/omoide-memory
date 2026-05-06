@@ -185,6 +185,7 @@ class FileSelectionViewModel
                 val targets = pendingFiles.value.filter { it.id in ids }.map { it.exclude() }
                 if (targets.isNotEmpty()) {
                     localFileRepository.add(targets)
+                    selectedIds.clear()
                 }
             }
         }
