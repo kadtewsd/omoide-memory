@@ -12,7 +12,6 @@ import com.kasakaid.omoidememory.downloader.domain.SaDriveService
 import com.kasakaid.omoidememory.downloader.service.DownloadFileBackUpService
 import com.kasakaid.omoidememory.r2dbc.transaction.RollbackException
 import com.kasakaid.omoidememory.utility.CoroutineHelper.mapWithCoroutine
-import com.kasakaid.omoidememory.utility.OneLineLogFormatter
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.slf4j.MDCContext
@@ -23,9 +22,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.stereotype.Component
 import org.springframework.transaction.reactive.TransactionalOperator
 import org.springframework.transaction.reactive.executeAndAwait
-import java.nio.file.Files
 import java.nio.file.Path
-import java.nio.file.StandardOpenOption
 
 private val logger = KotlinLogging.logger {}
 
@@ -55,7 +52,7 @@ class DownloadFromGDrive(
                 throw IllegalArgumentException("絶対パスを指定してください。")
             }
 
-            val saPath = System.getenv("GOOGLE_SA_CREDENTIAL_PATHS")
+            val saPath = System.getenv("GOOGLE_SA_CREDENTIAL_PATH")
             val (accessInfos, driveService) =
                 if (!saPath.isNullOrBlank()) {
                     logger.info { "Service Account モードで起動します。" }
@@ -81,6 +78,8 @@ class DownloadFromGDrive(
                 DownloadFileBackUpService(
                     syncedMemoryRepository = syncedMemoryRepository,
                     omoideMemoryExportService = omoideMemoryExportService,
+                    driveService = driveService,
+                    omoideBackupPath = Path.of(destination),
                 )
 
             logger.info { "Google Drive からのダウンロード処理を開始します (対象ドライブ数: ${accessInfos.size})" }
@@ -97,23 +96,9 @@ class DownloadFromGDrive(
                     try {
                         transactionalOperator.executeAndAwait {
                             kotlinx.coroutines.withContext(MDCContext(mapOf("requestId" to "${googleFile.name}:${googleFile.id}"))) {
-                                // 1. Download to temp file
-                                val tempPath = Files.createTempFile("omoide_", "_${googleFile.name}")
-                                logger.debug { "Gdrive からのダウンロード開始 ->  $tempPath" }
-                                Files
-                                    .newOutputStream(tempPath, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)
-                                    .use { outputStream ->
-                                        driveService.download(googleFile.id, outputStream).onLeft {
-                                            throw it
-                                        }
-                                    }
-
                                 downloadFileBackUpService
                                     .execute(
-                                        tempPath = tempPath,
-                                        fileName = googleFile.name,
                                         sourceFile = SourceFile.fromGoogleDrive(googleFile),
-                                        omoideBackupPath = Path.of(destination),
                                         familyId = familyId,
                                     ).onRight {
 //                                        GoogleDriveToTrash.finalize(googleFile.id, accessInfo).onLeft {
@@ -121,7 +106,6 @@ class DownloadFromGDrive(
 //                                        }
                                         PostProcess.onSuccess(it)
                                     }.onLeft {
-                                        Files.deleteIfExists(tempPath)
                                         throw RollbackException(it)
                                     }
                             }
@@ -137,6 +121,7 @@ class DownloadFromGDrive(
                     }
                 }
             }
+            downloadFileBackUpService.finalize()
             PostProcess.finish()
             logger.info { "Google Drive からのダウンロード処理をすべて終了。" }
         }

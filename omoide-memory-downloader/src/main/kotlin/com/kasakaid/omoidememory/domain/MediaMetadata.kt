@@ -33,7 +33,7 @@ class SourceFile(
     val name: String,
     val mimeType: String,
     val size: Long,
-    val driveFileId: String?, // Google Drive由来の場合のみ
+    val googleFileId: String?, // Google Drive由来の場合のみ
 ) {
     companion object {
         /**
@@ -44,7 +44,7 @@ class SourceFile(
                 name = googleFile.name,
                 mimeType = googleFile.mimeType,
                 size = googleFile.size.toLong(),
-                driveFileId = googleFile.id,
+                googleFileId = googleFile.id,
             )
 
         /**
@@ -57,7 +57,7 @@ class SourceFile(
                 size =
                     java.nio.file.Files
                         .size(localPath),
-                driveFileId = null, // ローカルファイルはnull
+                googleFileId = null, // ローカルファイルはnull
             )
     }
 }
@@ -77,7 +77,7 @@ class VideoMetadata(
                 name = sourceFile.name,
                 familyId = familyId,
                 mediaType = sourceFile.mimeType,
-                driveFileId = sourceFile.driveFileId,
+                driveFileId = sourceFile.googleFileId,
                 fileSize = sourceFile.size,
                 captureTime = capturedTime,
                 metadata =
@@ -122,7 +122,7 @@ class PhotoMetadata(
                     name = sourceFile.name,
                     familyId = familyId,
                     mediaType = sourceFile.mimeType,
-                    driveFileId = sourceFile.driveFileId,
+                    driveFileId = sourceFile.googleFileId,
                     fileSize = sourceFile.size,
                     locationName = locationName,
                     aperture = exifSubIFD?.valueAsDouble(ExifSubIFDDirectory.TAG_FNUMBER)?.toFloat(),
