@@ -1,6 +1,10 @@
 package com.kasakaid.omoidememory.ui.fileselection
 
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -8,9 +12,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.kasakaid.omoidememory.data.OmoideMemory
 import com.kasakaid.omoidememory.data.UploadState
+import com.kasakaid.omoidememory.data.isOverLimit
 
 @Composable
 fun FileSelectionRoute(
@@ -79,5 +85,172 @@ fun FileSelectionRoute(
         isDeleting = isDeleting,
         deleteProgress = deleteProgress,
         onCancelDelete = { viewModel.cancelDelete() },
+    )
+}
+
+/**
+ * 除外リスト画面のファサードコンポーネント。
+ * 除外されたファイルを一覧表示し、復活させることができる。
+ * AppRouter の記述をシンプルに保つため、内部でサブヘッダーやアクション行のロジックを保持する。
+ *
+ * @param title 画面タイトル
+ * @param onBack 戻るボタン押下時のコールバック
+ * @param onNavigateToTarget アップロード対象選択画面への遷移コールバック
+ */
+@Composable
+fun ExcludedFileSelectionRoute(
+    title: String,
+    onBack: () -> Unit,
+    onNavigateToTarget: () -> Unit,
+    viewModel: FileSelectionViewModel = hiltViewModel(),
+) {
+    val isUploading by viewModel.isUploading.collectAsState()
+    val isDeleting by viewModel.isDeleting.collectAsState()
+
+    FileSelectionRoute(
+        viewModel = viewModel,
+        title = title,
+        selectionMode = SelectionMode.EXCLUDED,
+        subHeader = {
+            SelectionModeRow(
+                selectionMode = SelectionMode.EXCLUDED,
+                onSelectionModeChanged = { mode ->
+                    if (mode == SelectionMode.TARGET) {
+                        onNavigateToTarget()
+                    }
+                },
+                filterDone = true,
+            )
+        },
+        bottomBarAction = { selectedFiles ->
+            StandardFileSelection(selectedFiles = selectedFiles) {
+                Button(
+                    onClick = { viewModel.revive(selectedFiles.map { it.id }) },
+                    modifier = Modifier.weight(1f),
+                    enabled = !isUploading && !isDeleting && selectedFiles.isNotEmpty(),
+                ) {
+                    Text("復活")
+                }
+            }
+        },
+        toMainScreen = onBack,
+    )
+}
+
+/**
+ * アップロード済みファイルのメンテナンス画面のファサードコンポーネント。
+ * アップロード済みのファイルを一覧表示し、ドライブからの削除などを行うことができる。
+ * AppRouter の記述をシンプルに保つため、内部でサブヘッダーやアクション行のロジックを保持する。
+ *
+ * @param title 画面タイトル
+ * @param onBack 戻るボタン押下時のコールバック
+ */
+@Composable
+fun DoneFileSelectionRoute(
+    title: String,
+    onBack: () -> Unit,
+    viewModel: FileSelectionViewModel = hiltViewModel(),
+) {
+    val isUploading by viewModel.isUploading.collectAsState()
+    val isDeleting by viewModel.isDeleting.collectAsState()
+    val doneFilter by viewModel.doneFilter.collectAsState()
+
+    FileSelectionRoute(
+        viewModel = viewModel,
+        title = title,
+        selectionMode = SelectionMode.DONE,
+        subHeader = {
+            SelectionModeRow(
+                selectionMode = SelectionMode.DONE,
+                onSelectionModeChanged = {},
+                filterDone = false,
+            )
+            DoneFilterRow(
+                doneFilter = doneFilter,
+                onDoneFilterChanged = { viewModel.setDoneFilter(it) },
+            )
+        },
+        bottomBarAction = { selectedFiles ->
+            StandardFileSelection(selectedFiles = selectedFiles) {
+                if (doneFilter != DoneFilter.DELETED) {
+                    Button(
+                        onClick = {
+                            viewModel.deleteFromDrive(
+                                selectedFiles.filter { it.state == UploadState.DONE }.map { it.id },
+                            )
+                        },
+                        modifier = Modifier.weight(1f),
+                        enabled =
+                            !isUploading && !isDeleting &&
+                                selectedFiles.any { it.state == UploadState.DONE },
+                    ) {
+                        Text("ドライブから削除")
+                    }
+                }
+            }
+        },
+        toMainScreen = onBack,
+    )
+}
+
+/**
+ * 上限チェック機能付きのファイル選択画面のファサードコンポーネント。
+ * 新規アップロード対象の選択を目的とする。
+ * AppRouter の記述をシンプルに保つため、内部でサブヘッダーやアクション行のロジックを保持する。
+ *
+ * @param title 画面タイトル
+ * @param onBack 戻るボタン押下時のコールバック
+ * @param onNavigateToExcluded 除外リスト画面への遷移コールバック
+ */
+@Composable
+fun LimitFileSelectionRoute(
+    title: String,
+    onBack: () -> Unit,
+    onNavigateToExcluded: () -> Unit,
+    viewModel: FileSelectionViewModel = hiltViewModel(),
+) {
+    val isUploading by viewModel.isUploading.collectAsState()
+    val isDeleting by viewModel.isDeleting.collectAsState()
+
+    FileSelectionRoute(
+        viewModel = viewModel,
+        title = title,
+        selectionMode = SelectionMode.TARGET,
+        subHeader = {
+            SelectionModeRow(
+                selectionMode = SelectionMode.TARGET,
+                onSelectionModeChanged = { mode ->
+                    if (mode == SelectionMode.EXCLUDED) {
+                        onNavigateToExcluded()
+                    }
+                },
+                filterDone = true,
+            )
+        },
+        bottomBarAction = { selectedFiles ->
+            LimitFileSelection(selectedFiles = selectedFiles) {
+                Button(
+                    onClick = { viewModel.startManualUpload(selectedFiles.map { it.id }) },
+                    modifier = Modifier.weight(1f),
+                    enabled =
+                        !isUploading && !isDeleting &&
+                            selectedFiles.isNotEmpty() && !selectedFiles.isOverLimit(),
+                ) {
+                    Text("送信")
+                }
+                Button(
+                    onClick = { viewModel.markAsRemoved(selectedFiles.map { it.id }) },
+                    modifier = Modifier.weight(1f),
+                    enabled = !isUploading && !isDeleting && selectedFiles.isNotEmpty(),
+                    colors =
+                        ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.secondary,
+                        ),
+                ) {
+                    Text("除外")
+                }
+            }
+        },
+        toMainScreen = onBack,
     )
 }

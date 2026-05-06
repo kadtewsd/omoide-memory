@@ -253,32 +253,28 @@ fun formatSize(bytes: Long): String {
 }
 
 @Composable
-fun SelectionActionRow(
+fun SelectedFilesInfo(
     selectedFiles: List<OmoideMemory>,
-    showOverLimitError: Boolean = false,
-    actions: @Composable RowScope.() -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val totalSize = selectedFiles.totalSize()
-    val isOverLimit = selectedFiles.isOverLimit()
+    Text(
+        text = "選択中: ${selectedFiles.size} 件 (${formatSize(totalSize)})",
+        style = MaterialTheme.typography.bodySmall,
+        modifier = modifier.padding(bottom = 8.dp),
+    )
+}
 
+@Composable
+fun SelectionActionRow(
+    info: @Composable () -> Unit,
+    actions: @Composable RowScope.() -> Unit,
+) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        if (showOverLimitError && isOverLimit) {
-            Text(
-                text = "10GB を超えるアップロードはできません",
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(bottom = 8.dp),
-            )
-        } else {
-            Text(
-                text = "選択中: ${selectedFiles.size} 件 (${formatSize(totalSize)})",
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(bottom = 8.dp),
-            )
-        }
+        info()
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -286,4 +282,38 @@ fun SelectionActionRow(
             actions()
         }
     }
+}
+
+@Composable
+fun StandardFileSelection(
+    selectedFiles: List<OmoideMemory>,
+    bottomButton: @Composable RowScope.() -> Unit,
+) {
+    SelectionActionRow(
+        info = { SelectedFilesInfo(selectedFiles = selectedFiles) },
+        actions = bottomButton,
+    )
+}
+
+@Composable
+fun LimitFileSelection(
+    selectedFiles: List<OmoideMemory>,
+    bottomButton: @Composable RowScope.() -> Unit,
+) {
+    val isOverLimit = selectedFiles.isOverLimit()
+    SelectionActionRow(
+        info = {
+            if (isOverLimit) {
+                Text(
+                    text = "10GB を超えるアップロードはできません",
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+            } else {
+                SelectedFilesInfo(selectedFiles = selectedFiles)
+            }
+        },
+        actions = bottomButton,
+    )
 }
