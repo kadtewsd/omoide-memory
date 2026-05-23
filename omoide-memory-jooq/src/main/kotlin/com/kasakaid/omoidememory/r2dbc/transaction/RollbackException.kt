@@ -5,4 +5,4 @@ package com.kasakaid.omoidememory.r2dbc.transaction
  */
 class RollbackException(
     val leftValue: Any,
-) : RuntimeException("トランザクション例外が発生しました")
+) : RuntimeException("トランザクション例外が発生しました : $leftValue")
