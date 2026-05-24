@@ -10,6 +10,9 @@ import com.kasakaid.omoidememory.downloader.domain.OmoideMemoryExportService
 import com.kasakaid.omoidememory.downloader.domain.RefreshTokenDriveService
 import com.kasakaid.omoidememory.downloader.domain.SaDriveService
 import com.kasakaid.omoidememory.downloader.service.DownloadFileBackUpService
+import com.kasakaid.omoidememory.infrastructure.DownloadErrorDao
+import com.kasakaid.omoidememory.infrastructure.ErrorLog
+import com.kasakaid.omoidememory.infrastructure.toErrorLog
 import com.kasakaid.omoidememory.r2dbc.transaction.RollbackException
 import com.kasakaid.omoidememory.utility.CoroutineHelper.mapWithCoroutine
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -32,6 +35,7 @@ class DownloadFromGDrive(
     private val locationService: LocationService,
     private val syncedMemoryRepository: OmoideMemoryRepository,
     private val transactionalOperator: TransactionalOperator,
+    private val downloadErrorDao: DownloadErrorDao,
 ) : ApplicationRunner {
     override fun run(args: ApplicationArguments): Unit =
         runBlocking {
@@ -104,6 +108,7 @@ class DownloadFromGDrive(
 //                                        GoogleDriveToTrash.finalize(googleFile.id, accessInfo).onLeft {
 //                                            logger.error { OneLineLogFormatter.format(it) }
 //                                        }
+                                        downloadErrorDao.delete(googleFile.name)
                                         PostProcess.onSuccess(it)
                                     }.onLeft {
                                         throw RollbackException(it)
@@ -112,12 +117,17 @@ class DownloadFromGDrive(
                         }
                     } catch (e: RollbackException) {
                         val error = e.leftValue
+                        downloadErrorDao.save(
+                            googleFile.name,
+                            e.toErrorLog(),
+                        )
                         when (error) {
                             is DriveService.WriteError -> PostProcess.onFailure(error)
                             else -> PostProcess.onUnmanaged(e)
                         }
                     } catch (e: Throwable) {
                         logger.error(e) { "予期せぬエラーが発生しました: ${googleFile.name}" }
+                        downloadErrorDao.save(googleFile.name, e.toErrorLog())
                     }
                 }
             }
