@@ -64,11 +64,14 @@ class FileSelectionViewModel
 
         fun setSelectionMode(mode: SelectionMode) {
             _selectionMode.value = mode
+            _onOff.value = OnOff.Off
             selectedIds.clear()
         }
 
         fun initMode(mode: SelectionMode) {
             _selectionMode.value = mode
+            _onOff.value = OnOff.Off
+            selectedIds.clear()
         }
 
         private val _doneFilter = MutableStateFlow(DoneFilter.ALL)
@@ -76,6 +79,7 @@ class FileSelectionViewModel
 
         fun setDoneFilter(filter: DoneFilter) {
             _doneFilter.value = filter
+            _onOff.value = OnOff.Off
             selectedIds.clear()
         }
 
@@ -133,21 +137,8 @@ class FileSelectionViewModel
 
         fun toggleAll(onOff: OnOff) {
             _onOff.value = onOff
-            val selectableIds =
-                if (selectionMode.value == SelectionMode.DONE) {
-                    pendingFiles.value
-                        .filter { it.state == UploadState.DONE }
-                        .map { it.id }
-                        .toSet()
-                } else {
-                    selectedIds.keys
-                }
-            selectedIds.forEach { (hash, _) ->
-                if (hash in selectableIds) {
-                    selectedIds[hash] = onOff.isChecked
-                } else {
-                    selectedIds[hash] = false
-                }
+            pendingFiles.value.forEach { file ->
+                selectedIds[file.id] = onOff.isChecked
             }
         }
 
