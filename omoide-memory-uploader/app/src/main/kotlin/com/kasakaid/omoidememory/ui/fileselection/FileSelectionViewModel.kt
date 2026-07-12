@@ -45,7 +45,6 @@ enum class SelectionMode(
 enum class DoneFilter(
     val label: String,
 ) {
-    ALL("すべて"),
     NOT_DELETED("未削除"),
     DELETED("削除済み"),
 }
@@ -74,7 +73,7 @@ class FileSelectionViewModel
             selectedIds.clear()
         }
 
-        private val _doneFilter = MutableStateFlow(DoneFilter.ALL)
+        private val _doneFilter = MutableStateFlow(DoneFilter.NOT_DELETED)
         val doneFilter: StateFlow<DoneFilter> = _doneFilter.asStateFlow()
 
         fun setDoneFilter(filter: DoneFilter) {
@@ -113,7 +112,6 @@ class FileSelectionViewModel
                             .findByAsFlow(listOf(UploadState.DONE, UploadState.DRIVE_DELETED))
                             .combine(doneFilter) { files, f ->
                                 when (f) {
-                                    DoneFilter.ALL -> files
                                     DoneFilter.NOT_DELETED -> files.filter { it.state == UploadState.DONE }
                                     DoneFilter.DELETED -> files.filter { it.state == UploadState.DRIVE_DELETED }
                                 }
