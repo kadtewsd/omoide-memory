@@ -126,9 +126,14 @@ class GoogleDriveService
                         }
                     }
 
-                    if (driveFiles.isEmpty()) return@withContext emptyList<Long>()
+                    val foundLocalIds = driveFiles.map { it.first }.toSet()
+                    val deletedLocalIds = (localIds.toSet() - foundLocalIds).toMutableList()
 
-                    val deletedLocalIds = mutableListOf<Long>()
+                    if (driveFiles.isEmpty()) {
+                        onProgress(0, 0)
+                        return@withContext deletedLocalIds
+                    }
+
                     val total = driveFiles.size
 
                     // 2. 見つかったファイルを順次削除 (429 対策で delay を入れる)
@@ -141,7 +146,12 @@ class GoogleDriveService
                             // 🚀 429 対策: 削除の間に少し待機
                             delay(500)
                         } catch (e: Exception) {
-                            Log.e("Drive", "Failed to delete file from Drive: $driveId (localId: $lid)", e)
+                            if (e is GoogleJsonResponseException && e.statusCode == 404) {
+                                Log.i("Drive", "File not found on Drive during delete, treating as deleted: $driveId (localId: $lid)")
+                                deletedLocalIds.add(lid)
+                            } else {
+                                Log.e("Drive", "Failed to delete file from Drive: $driveId (localId: $lid)", e)
+                            }
                         }
                     }
                     onProgress(total, total)
