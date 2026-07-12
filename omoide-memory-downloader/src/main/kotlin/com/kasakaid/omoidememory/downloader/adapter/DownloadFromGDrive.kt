@@ -15,6 +15,7 @@ import com.kasakaid.omoidememory.infrastructure.ErrorLog
 import com.kasakaid.omoidememory.infrastructure.toErrorLog
 import com.kasakaid.omoidememory.r2dbc.transaction.RollbackException
 import com.kasakaid.omoidememory.utility.CoroutineHelper.mapWithCoroutine
+import com.kasakaid.omoidememory.utility.OneLineLogFormatter
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.slf4j.MDCContext
@@ -91,7 +92,7 @@ class DownloadFromGDrive(
             accessInfos.forEach { accessInfo ->
                 logger.info { "[$accessInfo] のファイルをスキャン中..." }
 
-                // 1. Google Driveから対象のアクセス情報に基づいてファイルを取得
+                // 1. Google Driveから対象 of アクセス情報に基づいてファイルを取得
                 val googleFiles = driveService.listFiles(accessInfo)
                 logger.info { "[$accessInfo] で ${googleFiles.size} 件のファイルが見つかりました。" }
 
@@ -105,9 +106,9 @@ class DownloadFromGDrive(
                                         sourceFile = SourceFile.fromGoogleDrive(googleFile),
                                         familyId = familyId,
                                     ).onRight {
-//                                        GoogleDriveToTrash.finalize(googleFile.id, accessInfo).onLeft {
-//                                            logger.error { OneLineLogFormatter.format(it) }
-//                                        }
+                                        driveService.finalize(googleFile.id, accessInfo).onLeft {
+                                            logger.error { OneLineLogFormatter.format(it) }
+                                        }
                                         downloadErrorDao.delete(googleFile.name)
                                         PostProcess.onSuccess(it)
                                     }.onLeft {
