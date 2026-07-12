@@ -36,6 +36,7 @@ fun FileSelectionRoute(
     val progress by viewModel.progress.collectAsState()
     val isDeleting by viewModel.isDeleting.collectAsState()
     val deleteProgress by viewModel.deleteProgress.collectAsState()
+    val isProcessing by viewModel.isProcessing.collectAsState()
 
     val launcher =
         androidx.activity.compose.rememberLauncherForActivityResult(
@@ -58,13 +59,15 @@ fun FileSelectionRoute(
         }
     }
 
-    var hasStartedUploading by remember { mutableStateOf(false) }
-    LaunchedEffect(isUploading) {
-        if (!isUploading && hasStartedUploading) {
+    var hasStartedProcessing by remember { mutableStateOf(false) }
+    LaunchedEffect(isProcessing) {
+        if (!isProcessing && hasStartedProcessing) {
+            // サーバーサイドの重たい処理が終わったのでコールバック的に画面の選択状態を解除
+            viewModel.clearSelection()
             toMainScreen()
         }
-        if (isUploading) {
-            hasStartedUploading = true
+        if (isProcessing) {
+            hasStartedProcessing = true
         }
     }
 
@@ -104,8 +107,7 @@ fun ExcludedFileSelectionRoute(
     onNavigateToTarget: () -> Unit,
     viewModel: FileSelectionViewModel = hiltViewModel(),
 ) {
-    val isUploading by viewModel.isUploading.collectAsState()
-    val isDeleting by viewModel.isDeleting.collectAsState()
+    val isProcessing by viewModel.isProcessing.collectAsState()
 
     FileSelectionRoute(
         viewModel = viewModel,
@@ -127,7 +129,7 @@ fun ExcludedFileSelectionRoute(
                 Button(
                     onClick = { viewModel.revive(selectedFiles.map { it.id }) },
                     modifier = Modifier.weight(1f),
-                    enabled = !isUploading && !isDeleting && selectedFiles.isNotEmpty(),
+                    enabled = !isProcessing && selectedFiles.isNotEmpty(),
                 ) {
                     Text("復活")
                 }
@@ -151,8 +153,7 @@ fun DoneFileSelectionRoute(
     onBack: () -> Unit,
     viewModel: FileSelectionViewModel = hiltViewModel(),
 ) {
-    val isUploading by viewModel.isUploading.collectAsState()
-    val isDeleting by viewModel.isDeleting.collectAsState()
+    val isProcessing by viewModel.isProcessing.collectAsState()
     val doneFilter by viewModel.doneFilter.collectAsState()
 
     FileSelectionRoute(
@@ -181,7 +182,7 @@ fun DoneFileSelectionRoute(
                         },
                         modifier = Modifier.weight(1f),
                         enabled =
-                            !isUploading && !isDeleting &&
+                            !isProcessing &&
                                 selectedFiles.any { it.state == UploadState.DONE },
                     ) {
                         Text("ドライブから削除")
@@ -209,8 +210,7 @@ fun LimitFileSelectionRoute(
     onNavigateToExcluded: () -> Unit,
     viewModel: FileSelectionViewModel = hiltViewModel(),
 ) {
-    val isUploading by viewModel.isUploading.collectAsState()
-    val isDeleting by viewModel.isDeleting.collectAsState()
+    val isProcessing by viewModel.isProcessing.collectAsState()
 
     FileSelectionRoute(
         viewModel = viewModel,
@@ -233,7 +233,7 @@ fun LimitFileSelectionRoute(
                     onClick = { viewModel.startManualUpload(selectedFiles.map { it.id }) },
                     modifier = Modifier.weight(1f),
                     enabled =
-                        !isUploading && !isDeleting &&
+                        !isProcessing &&
                             selectedFiles.isNotEmpty() && !selectedFiles.isOverLimit(),
                 ) {
                     Text("送信")
@@ -241,7 +241,7 @@ fun LimitFileSelectionRoute(
                 Button(
                     onClick = { viewModel.markAsRemoved(selectedFiles.map { it.id }) },
                     modifier = Modifier.weight(1f),
-                    enabled = !isUploading && !isDeleting && selectedFiles.isNotEmpty(),
+                    enabled = !isProcessing && selectedFiles.isNotEmpty(),
                     colors =
                         ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.secondary,
