@@ -89,7 +89,7 @@ class FileSelectionViewModel
 
         @OptIn(ExperimentalCoroutinesApi::class)
         val pendingFiles: StateFlow<List<OmoideMemory>> =
-            combine(selectionMode, doneFilter, localFileRepository.getAllUploadedIdsAsFlow()) { mode, filter, _ ->
+            combine(selectionMode, doneFilter) { mode, filter ->
                 mode to filter
             }.flatMapLatest { (mode, filter) ->
                 when (mode) {
@@ -149,6 +149,14 @@ class FileSelectionViewModel
             workManager.observeDeletingStateByManualTag(viewModelScope = viewModelScope)
         val deleteProgress: StateFlow<Pair<Int, Int>?> =
             workManager.observeProgressByManualDelete(viewModelScope = viewModelScope)
+        val isProcessing: StateFlow<Boolean> =
+            combine(isUploading, isDeleting) { uploading, deleting ->
+                uploading || deleting
+            }.stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5000),
+                initialValue = false,
+            )
 
         fun startManualUpload(ids: List<Long>) {
             viewModelScope.launch {
@@ -159,10 +167,16 @@ class FileSelectionViewModel
                         .map { it.ready() }
                 if (targets.isNotEmpty()) {
                     localFileRepository.add(targets)
-                    selectedIds.clear()
                     workManager.enqueueWManualUpload()
                 }
             }
+        }
+
+        /**
+         * 画面上で選択されたコンテンツの操作が完了した際にコールバックとしてコールされる選択状態解除メソッド
+         */
+        fun clearSelection() {
+            selectedIds.clear()
         }
 
         fun cancelManualUpload() {
@@ -209,7 +223,6 @@ class FileSelectionViewModel
             viewModelScope.launch {
                 if (ids.isNotEmpty()) {
                     workManager.enqueueManualDelete(ids)
-                    selectedIds.clear()
                 }
             }
         }
