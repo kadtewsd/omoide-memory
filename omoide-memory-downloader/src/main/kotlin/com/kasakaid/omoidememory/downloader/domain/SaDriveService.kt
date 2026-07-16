@@ -42,7 +42,7 @@ class SaDriveService(
     override suspend fun listFiles(folderId: FolderId): List<File> =
         withContext(Dispatchers.IO) {
             val allFiles = mutableMapOf<String, File>()
-            val fields = "nextPageToken, files(id, name, mimeType, createdTime, size, imageMediaMetadata, videoMediaMetadata)"
+            val fields = "nextPageToken, files(id, name, mimeType, createdTime, size, imageMediaMetadata, videoMediaMetadata, properties)"
 
             var pageToken: String? = null
             logger.info { "Processing folder: $folderId using Service Account" }
@@ -56,11 +56,13 @@ class SaDriveService(
                         .setPageToken(pageToken)
                         .execute()
 
-                result.files?.forEach { file ->
-                    if (!allFiles.containsKey(file.name)) {
-                        allFiles[file.name] = file
+                result.files
+                    ?.filter { file -> file.properties?.get(DOWNLOADED_PROPERTY_KEY) != "true" }
+                    ?.forEach { file ->
+                        if (!allFiles.containsKey(file.name)) {
+                            allFiles[file.name] = file
+                        }
                     }
-                }
                 pageToken = result.nextPageToken
             } while (pageToken != null)
             allFiles.values.toList()
@@ -77,4 +79,42 @@ class SaDriveService(
                 driverService.files().get(fileId).executeMediaAndDownloadTo(outputStream)
             }
         }
+
+    /**
+     * ダウンロード完了後の後処理として、指定された Google Drive 上のファイルに対して
+     * 「ダウンロード済み」のカスタムプロパティを付与します。
+     *
+     * @param fileId 後処理対象のファイル ID
+     * @param accessInfo 使用しない（インターフェース互換性のため）
+     * @return 処理結果を表す Either
+     */
+    override suspend fun finalize(
+        fileId: String,
+        accessInfo: String,
+    ): Either<Throwable, Unit> =
+        withContext(Dispatchers.IO) {
+            Either.catch {
+                val metadata =
+                    File().apply {
+                        properties =
+                            mapOf(
+                                DOWNLOADED_PROPERTY_KEY to "true",
+                                "downloadedAt" to
+                                    java.time.Instant
+                                        .now()
+                                        .toString(),
+                            )
+                    }
+
+                driverService
+                    .files()
+                    .update(fileId, metadata)
+                    .setFields("properties")
+                    .execute()
+
+                Unit
+            }
+        }
 }
+
+private const val DOWNLOADED_PROPERTY_KEY = "downloaded"

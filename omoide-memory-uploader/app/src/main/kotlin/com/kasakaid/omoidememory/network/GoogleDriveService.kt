@@ -91,6 +91,12 @@ class GoogleDriveService
                 }
             }
 
+        private class DeleteCandidate(
+            val lid: Long,
+            val fileId: String,
+            val isDownloaded: Boolean,
+        )
+
         /**
          * 端末側の ID に基づいて Google Drive 上のファイルを削除します。
          */
@@ -100,6 +106,7 @@ class GoogleDriveService
         ): List<Long> =
             withContext(Dispatchers.IO) {
                 val driveFiles = mutableListOf<Pair<Long, String>>() // localId to driveFileId
+                val allFoundLocalIds = mutableSetOf<Long>()
                 try {
                     // 1. 対象のファイルをまとめて探す (N+1 解消)
                     // 30件ずつバッチ処理してクエリ長制限を回避
@@ -115,30 +122,47 @@ class GoogleDriveService
                                 .list()
                                 .setQ(query)
                                 .setSpaces("drive")
-                                .setFields("files(id, appProperties)")
+                                .setFields("files(id, appProperties, properties)")
                                 .execute()
 
-                        fileList.files?.forEach { file ->
-                            val lid = file.appProperties?.get("local_id")?.toLongOrNull()
-                            if (lid != null) {
-                                driveFiles.add(lid to file.id)
-                            }
+                        if (fileList.files == null) return@forEach
+                        val (downloaded, not) =
+                            fileList.files
+                                .asSequence()
+                                .mapNotNull { file ->
+                                    val lid = file.appProperties?.get("local_id")?.toLongOrNull() ?: return@mapNotNull null
+                                    DeleteCandidate(
+                                        lid = lid,
+                                        isDownloaded = file.properties?.get("downloaded") == "true",
+                                        fileId = file.id,
+                                    )
+                                }.partition { it.isDownloaded }
+
+                        downloaded.forEach { candidate ->
+                            allFoundLocalIds.add(candidate.lid)
+                            driveFiles.add(candidate.lid to candidate.fileId)
+                        }
+
+                        not.forEach { candidate ->
+                            allFoundLocalIds.add(candidate.lid)
+                            Log.i(
+                                "Drive",
+                                "File ${candidate.lid} (Drive ID: ${candidate.fileId}) is not yet marked as downloaded; skipping deletion",
+                            )
                         }
                     }
 
-                    val foundLocalIds = driveFiles.map { it.first }.toSet()
-                    val deletedLocalIds = (localIds.toSet() - foundLocalIds).toMutableList()
+                    // ローカルの中でサーバー上に見つからなかったものは「削除済み扱い」
+                    val deletedLocalIds = (localIds.toSet() - allFoundLocalIds).toMutableList()
 
                     if (driveFiles.isEmpty()) {
                         onProgress(0, 0)
                         return@withContext deletedLocalIds
                     }
 
-                    val total = driveFiles.size
-
                     // 2. 見つかったファイルを順次削除 (429 対策で delay を入れる)
                     driveFiles.forEachIndexed { index, (lid, driveId) ->
-                        onProgress(index, total)
+                        onProgress(index, driveFiles.size)
                         try {
                             service.files().delete(driveId).execute()
                             deletedLocalIds.add(lid)
@@ -154,7 +178,7 @@ class GoogleDriveService
                             }
                         }
                     }
-                    onProgress(total, total)
+                    onProgress(driveFiles.size, driveFiles.size)
                     return@withContext deletedLocalIds
                 } catch (e: Exception) {
                     Log.e("Drive", "Failed in batch delete process", e)
