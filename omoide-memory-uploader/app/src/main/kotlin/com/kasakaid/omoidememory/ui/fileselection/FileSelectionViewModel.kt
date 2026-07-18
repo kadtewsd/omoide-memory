@@ -1,9 +1,11 @@
 package com.kasakaid.omoidememory.ui.fileselection
 
 import android.app.Application
+import android.util.Log
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.kasakaid.omoidememory.data.ExcludeOmoideRepository
 import com.kasakaid.omoidememory.data.OmoideMemory
@@ -17,8 +19,10 @@ import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeProgressB
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeUploadingStateByManualTag
 import com.kasakaid.omoidememory.network.GoogleDriveService
 import com.kasakaid.omoidememory.ui.OnOff
+import com.kasakaid.omoidememory.worker.WorkManagerTag
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -29,6 +33,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.scan
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -71,6 +76,46 @@ class FileSelectionViewModel
             _selectionMode.value = mode
             _onOff.value = OnOff.Off
             selectedIds.clear()
+        }
+
+        private val workManager = WorkManager.getInstance(application)
+
+        private val deleteResultChannel = Channel<List<Long>>(Channel.BUFFERED)
+        val deleteResultEvent = deleteResultChannel.receiveAsFlow()
+
+        private var deleteStarted = false
+
+        init {
+            viewModelScope.launch {
+                workManager
+                    .getWorkInfosForUniqueWorkFlow(WorkManagerTag.ManualDelete.value)
+                    .collect { workInfos ->
+                        val workInfo = workInfos.firstOrNull() ?: return@collect
+                        Log.d("FileSelectionViewModel", "WorkInfo state: ${workInfo.state}, deleteStarted: $deleteStarted")
+                        if (!deleteStarted) return@collect
+
+                        when (workInfo.state) {
+                            WorkInfo.State.SUCCEEDED -> {
+                                deleteStarted = false
+                                val deletedIds = workInfo.outputData.getLongArray("DELETED_IDS")?.toList() ?: emptyList()
+                                if (deletedIds.isNotEmpty()) {
+                                    val targets = localFileRepository.findBy(deletedIds)
+                                    localFileRepository.update(targets.map { it.driveDeleted() })
+                                }
+                                val notDeletedIds = workInfo.outputData.getLongArray("NOT_DELETED_IDS")?.toList() ?: emptyList()
+                                deleteResultChannel.send(notDeletedIds)
+                            }
+
+                            WorkInfo.State.FAILED, WorkInfo.State.CANCELLED -> {
+                                deleteStarted = false
+                                deleteResultChannel.send(emptyList())
+                            }
+
+                            WorkInfo.State.ENQUEUED, WorkInfo.State.RUNNING, WorkInfo.State.BLOCKED -> {
+                            }
+                        }
+                    }
+            }
         }
 
         private val _doneFilter = MutableStateFlow(DoneFilter.NOT_DELETED)
@@ -140,7 +185,6 @@ class FileSelectionViewModel
             }
         }
 
-        private val workManager = WorkManager.getInstance(application)
         val isUploading: StateFlow<Boolean> =
             workManager.observeUploadingStateByManualTag(viewModelScope = viewModelScope)
         val progress: StateFlow<Pair<Int, Int>?> =
@@ -222,6 +266,7 @@ class FileSelectionViewModel
         fun deleteFromDrive(ids: List<Long>) {
             viewModelScope.launch {
                 if (ids.isNotEmpty()) {
+                    deleteStarted = true
                     workManager.enqueueManualDelete(ids)
                 }
             }

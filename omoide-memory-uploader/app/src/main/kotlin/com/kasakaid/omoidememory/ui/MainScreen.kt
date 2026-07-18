@@ -1,6 +1,8 @@
 package com.kasakaid.omoidememory.ui
 
 import android.Manifest
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -28,12 +30,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.kasakaid.omoidememory.ui.snakbar.StandardSnakbar
+import kotlinx.coroutines.delay
 
 // 1. 判定用の小さな関数を定義（MainScreen 内、または companion 内）
 fun isWifiPermissionGranted(state: GrantPermissionState): Boolean = state is GrantPermissionState.Granted
@@ -41,6 +48,8 @@ fun isWifiPermissionGranted(state: GrantPermissionState): Boolean = state is Gra
 @Composable
 fun MainScreen(
     viewModel: MainViewModel = hiltViewModel(),
+    skippedIds: List<Long>? = null,
+    onClearSkippedIds: () -> Unit = {},
     onNavigateToMaintenance: () -> Unit,
     onNavigateToSelection: () -> Unit,
     onNavigateToUploadedMaintenance: () -> Unit,
@@ -215,6 +224,11 @@ fun MainScreen(
             }
         }
     }
+
+    StandardSnakbar(
+        message = skippedIds?.let { "${it.size}個のコンテンツがダウンロード前であったので削除されてません。" },
+        onDismiss = onClearSkippedIds,
+    )
 
     // 🚀 アップロード中のみ表示されるロック層
     if (isUploading) {

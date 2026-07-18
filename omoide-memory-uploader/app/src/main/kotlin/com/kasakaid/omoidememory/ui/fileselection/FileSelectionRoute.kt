@@ -25,7 +25,7 @@ fun FileSelectionRoute(
     selectionMode: SelectionMode,
     subHeader: @Composable ColumnScope.() -> Unit = {},
     bottomBarAction: @Composable (selectedFiles: List<OmoideMemory>) -> Unit,
-    toMainScreen: () -> Unit,
+    toMainScreen: (List<Long>) -> Unit,
 ) {
     LaunchedEffect(selectionMode) {
         viewModel.initMode(selectionMode)
@@ -59,12 +59,19 @@ fun FileSelectionRoute(
         }
     }
 
+    LaunchedEffect(Unit) {
+        viewModel.deleteResultEvent.collect { notDeletedIds ->
+            viewModel.clearSelection()
+            toMainScreen(notDeletedIds)
+        }
+    }
+
     var hasStartedProcessing by remember { mutableStateOf(false) }
     LaunchedEffect(isProcessing) {
-        if (!isProcessing && hasStartedProcessing) {
+        if (!isProcessing && hasStartedProcessing && selectionMode != SelectionMode.DONE) {
             // サーバーサイドの重たい処理が終わったのでコールバック的に画面の選択状態を解除
             viewModel.clearSelection()
-            toMainScreen()
+            toMainScreen(emptyList())
         }
         if (isProcessing) {
             hasStartedProcessing = true
@@ -73,7 +80,7 @@ fun FileSelectionRoute(
 
     FileSelectionScreen(
         title = title,
-        onBack = toMainScreen,
+        onBack = { toMainScreen(emptyList()) },
         subHeader = subHeader,
         bottomBarAction = bottomBarAction,
         pendingFiles = pendingFiles,
@@ -135,7 +142,7 @@ fun ExcludedFileSelectionRoute(
                 }
             }
         },
-        toMainScreen = onBack,
+        toMainScreen = { onBack() },
     )
 }
 
@@ -150,7 +157,7 @@ fun ExcludedFileSelectionRoute(
 @Composable
 fun DoneFileSelectionRoute(
     title: String,
-    onBack: () -> Unit,
+    onBack: (List<Long>) -> Unit,
     viewModel: FileSelectionViewModel = hiltViewModel(),
 ) {
     val isProcessing by viewModel.isProcessing.collectAsState()
@@ -251,6 +258,6 @@ fun LimitFileSelectionRoute(
                 }
             }
         },
-        toMainScreen = onBack,
+        toMainScreen = { onBack() },
     )
 }

@@ -6,7 +6,6 @@ import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
-import com.kasakaid.omoidememory.data.OmoideMemoryRepository
 import com.kasakaid.omoidememory.network.GoogleDriveService
 import com.kasakaid.omoidememory.worker.WorkerHelper.createForegroundInfo
 import dagger.assisted.Assisted
@@ -24,7 +23,6 @@ class GdriveDeleteWorker
         @Assisted private val appContext: Context,
         @Assisted workerParams: WorkerParameters,
         private val driveService: GoogleDriveService,
-        private val omoideMemoryRepository: OmoideMemoryRepository,
     ) : CoroutineWorker(appContext, workerParams) {
         companion object {
             const val TAG = "ManualDeleteWorker"
@@ -43,7 +41,7 @@ class GdriveDeleteWorker
 
                 Log.d(TAG, "Starting batch delete for ${selectedIds.size} files")
 
-                val deletedLocalIds =
+                val deleteResult =
                     driveService.deleteFilesByLocalIds(selectedIds) { current, total ->
                         // 🚀 進捗を通知
                         setProgress(
@@ -54,14 +52,13 @@ class GdriveDeleteWorker
                         )
                     }
 
-                if (deletedLocalIds.isNotEmpty()) {
-                    // DB の状態を更新 (DRIVE_DELETED にする)
-                    val targets = omoideMemoryRepository.findBy(deletedLocalIds)
-                    omoideMemoryRepository.update(targets.map { it.driveDeleted() })
-                    Log.i(TAG, "Successfully deleted ${deletedLocalIds.size} files and updated DB")
-                }
-
-                Result.success()
+                Log.d(TAG, "Worker completed. deleted: ${deleteResult.deleted.size}, notDeleted: ${deleteResult.notDeleted.size}")
+                val outputData =
+                    workDataOf(
+                        "NOT_DELETED_IDS" to deleteResult.notDeleted.toLongArray(),
+                        "DELETED_IDS" to deleteResult.deleted.toLongArray(),
+                    )
+                Result.success(outputData)
             }
         }
     }
