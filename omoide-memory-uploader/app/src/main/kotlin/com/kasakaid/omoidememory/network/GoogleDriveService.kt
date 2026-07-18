@@ -99,14 +99,18 @@ class GoogleDriveService
 
         /**
          * 端末側の ID に基づいて Google Drive 上のファイルを削除します。
+         *
+         * @return 削除結果 (削除されたIDリストと削除されなかったIDリスト)
          */
         suspend fun deleteFilesByLocalIds(
             localIds: List<Long>,
             onProgress: suspend (Int, Int) -> Unit,
-        ): List<Long> =
+        ): DeleteResult =
             withContext(Dispatchers.IO) {
                 val driveFiles = mutableListOf<Pair<Long, String>>() // localId to driveFileId
                 val allFoundLocalIds = mutableSetOf<Long>()
+                val notDeletedLocalIds = mutableListOf<Long>()
+                val deletedLocalIds = mutableListOf<Long>()
                 try {
                     // 1. 対象のファイルをまとめて探す (N+1 解消)
                     // 30件ずつバッチ処理してクエリ長制限を回避
@@ -145,6 +149,7 @@ class GoogleDriveService
 
                         not.forEach { candidate ->
                             allFoundLocalIds.add(candidate.lid)
+                            notDeletedLocalIds.add(candidate.lid)
                             Log.i(
                                 "Drive",
                                 "File ${candidate.lid} (Drive ID: ${candidate.fileId}) is not yet marked as downloaded; skipping deletion",
@@ -152,12 +157,16 @@ class GoogleDriveService
                         }
                     }
 
-                    // ローカルの中でサーバー上に見つからなかったものは「削除済み扱い」
-                    val deletedLocalIds = (localIds.toSet() - allFoundLocalIds).toMutableList()
+                    // ローカルの中でサーバー上に見つからなかったものは「削除成功扱い」
+                    val notFoundLocalIds = localIds.toSet() - allFoundLocalIds
+                    deletedLocalIds.addAll(notFoundLocalIds)
 
                     if (driveFiles.isEmpty()) {
                         onProgress(0, 0)
-                        return@withContext deletedLocalIds
+                        return@withContext DeleteResult(
+                            deleted = deletedLocalIds,
+                            notDeleted = notDeletedLocalIds,
+                        )
                     }
 
                     // 2. 見つかったファイルを順次削除 (429 対策で delay を入れる)
@@ -175,19 +184,34 @@ class GoogleDriveService
                                 deletedLocalIds.add(lid)
                             } else {
                                 Log.e("Drive", "Failed to delete file from Drive: $driveId (localId: $lid)", e)
+                                notDeletedLocalIds.add(lid)
                             }
                         }
                     }
                     onProgress(driveFiles.size, driveFiles.size)
-                    return@withContext deletedLocalIds
+                    return@withContext DeleteResult(
+                        deleted = deletedLocalIds,
+                        notDeleted = notDeletedLocalIds,
+                    )
                 } catch (e: Exception) {
                     Log.e("Drive", "Failed in batch delete process", e)
-                    return@withContext emptyList<Long>()
+                    return@withContext DeleteResult(
+                        deleted = emptyList(),
+                        notDeleted = localIds,
+                    )
                 }
             }
 
         /**
          * 端末側の ID に基づいて Google Drive 上のファイルを削除します。
          */
-        suspend fun deleteFileByLocalId(localId: Long): Boolean = deleteFilesByLocalIds(listOf(localId)) { _, _ -> }.isNotEmpty()
+        suspend fun deleteFileByLocalId(localId: Long): Boolean {
+            val result = deleteFilesByLocalIds(listOf(localId)) { _, _ -> }
+            return result.notDeleted.isEmpty()
+        }
     }
+
+data class DeleteResult(
+    val deleted: List<Long>,
+    val notDeleted: List<Long>,
+)

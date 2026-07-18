@@ -1,6 +1,7 @@
 package com.kasakaid.omoidememory.ui
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -25,8 +26,13 @@ fun AppRouter() {
         // main が画面の最初になる、と言う設定
         startDestination = "main",
     ) {
-        composable("main") {
+        composable("main") { backStackEntry ->
+            val savedStateHandle = backStackEntry.savedStateHandle
+            val skippedIdsState = savedStateHandle.getStateFlow<List<Long>?>("skipped_ids", null).collectAsState()
+
             MainScreen(
+                skippedIds = skippedIdsState.value,
+                onClearSkippedIds = { savedStateHandle.set<List<Long>?>("skipped_ids", null) },
                 onNavigateToSelection = { navController.navigate("selection") },
                 onNavigateToMaintenance = { navController.navigate("maintenance") },
                 onNavigateToUploadedMaintenance = { navController.navigate("uploaded_maintenance") },
@@ -57,7 +63,10 @@ fun AppRouter() {
         composable("uploaded_maintenance") {
             DoneFileSelectionRoute(
                 title = "アップロード済みの写真",
-                onBack = { navController.popBackStack() },
+                onBack = { skippedIds ->
+                    navController.previousBackStackEntry?.savedStateHandle?.set("skipped_ids", skippedIds)
+                    navController.popBackStack()
+                },
             )
         }
         composable("maintenance") {
