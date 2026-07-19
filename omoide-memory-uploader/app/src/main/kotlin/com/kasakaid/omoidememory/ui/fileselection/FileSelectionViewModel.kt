@@ -19,6 +19,7 @@ import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeProgressB
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeUploadingStateByManualTag
 import com.kasakaid.omoidememory.network.GoogleDriveService
 import com.kasakaid.omoidememory.ui.OnOff
+import com.kasakaid.omoidememory.worker.LocalFileCleaner
 import com.kasakaid.omoidememory.worker.WorkManagerTag
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -32,6 +33,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.scan
@@ -61,6 +63,7 @@ class FileSelectionViewModel
         private val localFileRepository: OmoideMemoryRepository,
         private val excludeOmoideRepository: ExcludeOmoideRepository,
         private val driveService: GoogleDriveService,
+        private val localFileCleaner: LocalFileCleaner,
         application: Application,
     ) : ViewModel() {
         private val _selectionMode = MutableStateFlow(SelectionMode.TARGET)
@@ -137,31 +140,38 @@ class FileSelectionViewModel
             combine(selectionMode, doneFilter) { mode, filter ->
                 mode to filter
             }.flatMapLatest { (mode, filter) ->
-                when (mode) {
-                    SelectionMode.TARGET -> {
-                        localFileRepository
-                            .getPotentialPendingFiles()
-                            .onEach { file ->
-                                if (selectedIds[file.id] == null) {
-                                    selectedIds[file.id] = _onOff.value.isChecked
-                                }
-                            }.scan(emptyList()) { acc, value -> acc + value }
-                    }
+                val flow =
+                    when (mode) {
+                        SelectionMode.TARGET -> {
+                            localFileRepository
+                                .getPotentialPendingFiles()
+                                .onEach { file ->
+                                    if (selectedIds[file.id] == null) {
+                                        selectedIds[file.id] = _onOff.value.isChecked
+                                    }
+                                }.scan(emptyList()) { acc, value -> acc + value }
+                        }
 
-                    SelectionMode.EXCLUDED -> {
-                        localFileRepository.findByAsFlow(UploadState.EXCLUDED)
-                    }
+                        SelectionMode.EXCLUDED -> {
+                            localFileRepository.findByAsFlow(UploadState.EXCLUDED)
+                        }
 
-                    SelectionMode.DONE -> {
-                        localFileRepository
-                            .findByAsFlow(listOf(UploadState.DONE, UploadState.DRIVE_DELETED))
-                            .combine(doneFilter) { files, f ->
-                                when (f) {
-                                    DoneFilter.NOT_DELETED -> files.filter { it.state == UploadState.DONE }
-                                    DoneFilter.DELETED -> files.filter { it.state == UploadState.DRIVE_DELETED }
+                        SelectionMode.DONE -> {
+                            localFileRepository
+                                .findByAsFlow(listOf(UploadState.DONE, UploadState.DRIVE_DELETED))
+                                .combine(doneFilter) { files, f ->
+                                    when (f) {
+                                        DoneFilter.NOT_DELETED -> files.filter { it.state == UploadState.DONE }
+                                        DoneFilter.DELETED -> files.filter { it.state == UploadState.DRIVE_DELETED }
+                                    }
                                 }
-                            }
+                        }
                     }
+                flow.map { files ->
+                    localFileCleaner.cleanUpAndFilter(
+                        files = files,
+                        currentMode = mode,
+                    )
                 }
             }.stateIn(
                 scope = viewModelScope,
