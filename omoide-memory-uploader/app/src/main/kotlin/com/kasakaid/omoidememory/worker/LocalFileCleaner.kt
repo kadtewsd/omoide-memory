@@ -2,7 +2,7 @@ package com.kasakaid.omoidememory.worker
 
 import com.kasakaid.omoidememory.data.OmoideMemory
 import com.kasakaid.omoidememory.data.OmoideMemoryRepository
-import com.kasakaid.omoidememory.ui.fileselection.SelectionMode
+import com.kasakaid.omoidememory.ui.fileselection.FileUploadState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -23,21 +23,24 @@ class LocalFileCleaner
          */
         suspend fun cleanUpAndFilter(
             files: List<OmoideMemory>,
-            currentMode: SelectionMode,
+            currentMode: FileUploadState,
         ): List<OmoideMemory> =
-            when (currentMode) {
-                SelectionMode.TARGET -> cleanUp(files)
-                SelectionMode.EXCLUDED, SelectionMode.DONE -> emptyList()
-            }
-
-        private suspend fun cleanUp(files: List<OmoideMemory>): List<OmoideMemory> =
             withContext(Dispatchers.IO) {
                 val (existing, missing) =
                     files.partition { file ->
                         file.filePath?.let { File(it).exists() } == true
                     }
+
                 if (missing.isNotEmpty()) {
-                    localFileRepository.delete(missing.map { it.id })
+                    when (currentMode) {
+                        FileUploadState.WAITING_FOR_UPLOAD -> {
+                            // アップロード待ち モードの時はDBにレコードが存在しないため、DB削除は行わずリスト除外のみとします。
+                        }
+
+                        FileUploadState.UPLOAD_EXCLUDED, FileUploadState.UPLOAD_DONE -> {
+                            localFileRepository.delete(missing.map { it.id })
+                        }
+                    }
                 }
                 existing
             }

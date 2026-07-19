@@ -2,7 +2,6 @@ package com.kasakaid.omoidememory.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
-import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -10,7 +9,6 @@ import androidx.navigation.navArgument
 import com.kasakaid.omoidememory.ui.fileselection.DoneFileSelectionRoute
 import com.kasakaid.omoidememory.ui.fileselection.ExcludedFileSelectionRoute
 import com.kasakaid.omoidememory.ui.fileselection.LimitFileSelectionRoute
-import com.kasakaid.omoidememory.ui.fileselection.SelectionMode
 import com.kasakaid.omoidememory.ui.maintenance.CrashDetailScreen
 import com.kasakaid.omoidememory.ui.maintenance.CrashReportViewerScreen
 import com.kasakaid.omoidememory.ui.maintenance.DbMaintenanceScreen

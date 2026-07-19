@@ -144,8 +144,8 @@ fun FileSelectionScreen(
 
 @Composable
 fun SelectionModeRow(
-    selectionMode: SelectionMode,
-    onSelectionModeChanged: (SelectionMode) -> Unit,
+    fileUploadState: FileUploadState,
+    onSelectionModeChanged: (FileUploadState) -> Unit,
     filterDone: Boolean,
 ) {
     androidx.compose.foundation.layout.Row(
@@ -166,17 +166,17 @@ fun SelectionModeRow(
         )
         if (!filterDone) {
             Text(
-                text = SelectionMode.DONE.label,
+                text = FileUploadState.UPLOAD_DONE.label,
                 style = MaterialTheme.typography.bodySmall,
                 fontWeight = FontWeight.Bold,
             )
         } else {
-            SelectionMode.entries.filter { it != SelectionMode.DONE }.forEach { mode ->
+            FileUploadState.entries.filter { it != FileUploadState.UPLOAD_DONE }.forEach { mode ->
                 androidx.compose.foundation.layout.Row(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     RadioButton(
-                        selected = selectionMode == mode,
+                        selected = fileUploadState == mode,
                         onClick = { onSelectionModeChanged(mode) },
                     )
                     Text(

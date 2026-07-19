@@ -41,12 +41,12 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-enum class SelectionMode(
+enum class FileUploadState(
     val label: String,
 ) {
-    TARGET("待ち"),
-    EXCLUDED("除外"),
-    DONE("完了"),
+    WAITING_FOR_UPLOAD("待ち"),
+    UPLOAD_EXCLUDED("除外"),
+    UPLOAD_DONE("完了"),
 }
 
 enum class DoneFilter(
@@ -66,17 +66,17 @@ class FileSelectionViewModel
         private val localFileCleaner: LocalFileCleaner,
         application: Application,
     ) : ViewModel() {
-        private val _selectionMode = MutableStateFlow(SelectionMode.TARGET)
-        val selectionMode: StateFlow<SelectionMode> = _selectionMode.asStateFlow()
+        private val _fileUploadState = MutableStateFlow(FileUploadState.WAITING_FOR_UPLOAD)
+        val fileUploadState: StateFlow<FileUploadState> = _fileUploadState.asStateFlow()
 
-        fun setSelectionMode(mode: SelectionMode) {
-            _selectionMode.value = mode
+        fun setSelectionMode(mode: FileUploadState) {
+            _fileUploadState.value = mode
             _onOff.value = OnOff.Off
             selectedIds.clear()
         }
 
-        fun initMode(mode: SelectionMode) {
-            _selectionMode.value = mode
+        fun initMode(mode: FileUploadState) {
+            _fileUploadState.value = mode
             _onOff.value = OnOff.Off
             selectedIds.clear()
         }
@@ -137,12 +137,12 @@ class FileSelectionViewModel
 
         @OptIn(ExperimentalCoroutinesApi::class)
         val pendingFiles: StateFlow<List<OmoideMemory>> =
-            combine(selectionMode, doneFilter) { mode, filter ->
+            combine(fileUploadState, doneFilter) { mode, filter ->
                 mode to filter
             }.flatMapLatest { (mode, filter) ->
                 val flow =
                     when (mode) {
-                        SelectionMode.TARGET -> {
+                        FileUploadState.WAITING_FOR_UPLOAD -> {
                             localFileRepository
                                 .getPotentialPendingFiles()
                                 .onEach { file ->
@@ -152,11 +152,11 @@ class FileSelectionViewModel
                                 }.scan(emptyList()) { acc, value -> acc + value }
                         }
 
-                        SelectionMode.EXCLUDED -> {
+                        FileUploadState.UPLOAD_EXCLUDED -> {
                             localFileRepository.findByAsFlow(UploadState.EXCLUDED)
                         }
 
-                        SelectionMode.DONE -> {
+                        FileUploadState.UPLOAD_DONE -> {
                             localFileRepository
                                 .findByAsFlow(listOf(UploadState.DONE, UploadState.DRIVE_DELETED))
                                 .combine(doneFilter) { files, f ->
