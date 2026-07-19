@@ -22,13 +22,13 @@ import com.kasakaid.omoidememory.data.isOverLimit
 fun FileSelectionRoute(
     viewModel: FileSelectionViewModel = hiltViewModel(),
     title: String,
-    selectionMode: SelectionMode,
+    fileUploadState: FileUploadState,
     subHeader: @Composable ColumnScope.() -> Unit = {},
     bottomBarAction: @Composable (selectedFiles: List<OmoideMemory>) -> Unit,
     toMainScreen: (List<Long>) -> Unit,
 ) {
-    LaunchedEffect(selectionMode) {
-        viewModel.initMode(selectionMode)
+    LaunchedEffect(fileUploadState) {
+        viewModel.initMode(fileUploadState)
     }
     val pendingFiles by viewModel.pendingFiles.collectAsState()
     val onOff by viewModel.onOff.collectAsState()
@@ -68,7 +68,7 @@ fun FileSelectionRoute(
 
     var hasStartedProcessing by remember { mutableStateOf(false) }
     LaunchedEffect(isProcessing) {
-        if (!isProcessing && hasStartedProcessing && selectionMode != SelectionMode.DONE) {
+        if (!isProcessing && hasStartedProcessing && fileUploadState != FileUploadState.UPLOAD_DONE) {
             // サーバーサイドの重たい処理が終わったのでコールバック的に画面の選択状態を解除
             viewModel.clearSelection()
             toMainScreen(emptyList())
@@ -86,7 +86,7 @@ fun FileSelectionRoute(
         pendingFiles = pendingFiles,
         selectedIds = viewModel.selectedIds,
         onToggle = { viewModel.toggleSelection(it) },
-        isSelectable = { selectionMode != SelectionMode.DONE || it.state == UploadState.DONE },
+        isSelectable = { fileUploadState != FileUploadState.UPLOAD_DONE || it.state == UploadState.DONE },
         onOff = onOff,
         onSwitchChanged = { viewModel.toggleAll(it) },
         isUploading = isUploading,
@@ -119,12 +119,12 @@ fun ExcludedFileSelectionRoute(
     FileSelectionRoute(
         viewModel = viewModel,
         title = title,
-        selectionMode = SelectionMode.EXCLUDED,
+        fileUploadState = FileUploadState.UPLOAD_EXCLUDED,
         subHeader = {
             SelectionModeRow(
-                selectionMode = SelectionMode.EXCLUDED,
+                fileUploadState = FileUploadState.UPLOAD_EXCLUDED,
                 onSelectionModeChanged = { mode ->
-                    if (mode == SelectionMode.TARGET) {
+                    if (mode == FileUploadState.WAITING_FOR_UPLOAD) {
                         onNavigateToTarget()
                     }
                 },
@@ -166,10 +166,10 @@ fun DoneFileSelectionRoute(
     FileSelectionRoute(
         viewModel = viewModel,
         title = title,
-        selectionMode = SelectionMode.DONE,
+        fileUploadState = FileUploadState.UPLOAD_DONE,
         subHeader = {
             SelectionModeRow(
-                selectionMode = SelectionMode.DONE,
+                fileUploadState = FileUploadState.UPLOAD_DONE,
                 onSelectionModeChanged = {},
                 filterDone = false,
             )
@@ -222,12 +222,12 @@ fun LimitFileSelectionRoute(
     FileSelectionRoute(
         viewModel = viewModel,
         title = title,
-        selectionMode = SelectionMode.TARGET,
+        fileUploadState = FileUploadState.WAITING_FOR_UPLOAD,
         subHeader = {
             SelectionModeRow(
-                selectionMode = SelectionMode.TARGET,
+                fileUploadState = FileUploadState.WAITING_FOR_UPLOAD,
                 onSelectionModeChanged = { mode ->
-                    if (mode == SelectionMode.EXCLUDED) {
+                    if (mode == FileUploadState.UPLOAD_EXCLUDED) {
                         onNavigateToExcluded()
                     }
                 },
