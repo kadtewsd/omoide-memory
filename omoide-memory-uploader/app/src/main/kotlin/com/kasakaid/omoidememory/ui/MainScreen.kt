@@ -226,7 +226,7 @@ fun MainScreen(
     }
 
     StandardSnakbar(
-        message = skippedIds?.let { "${it.size}個のコンテンツがダウンロード前であったので削除されてません。" },
+        message = skippedIds?.takeIf { it.isNotEmpty() }?.let { "${it.size}個のコンテンツがダウンロード前であったので削除されてません。" },
         onDismiss = onClearSkippedIds,
     )
 
