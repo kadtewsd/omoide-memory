@@ -43,6 +43,7 @@ class GdriveUploadWorker
 
             class Fail(
                 val omoideMemoryId: Long,
+                val error: WorkerExecutionError,
             ) : OmoideUploadResult
         }
 
@@ -62,7 +63,7 @@ class GdriveUploadWorker
                 var successCount = 0
 
                 // 🚀 最初に 0 件目の進捗を出すことで、UI の「準備中」を早く終わらせる
-                val pendingCount =
+                val results =
                     targets
                         .mapIndexed { index, omoideMemory ->
                             setProgress(
@@ -78,7 +79,7 @@ class GdriveUploadWorker
                                     pendingFile = omoideMemory,
                                 ).fold(
                                     ifLeft = { error ->
-                                        OmoideUploadResult.Fail(omoideMemory.id).also {
+                                        OmoideUploadResult.Fail(omoideMemory.id, error).also {
                                             Log.e(TAG, "アップロード失敗: ${error.message}")
                                         }
                                     },
@@ -89,17 +90,28 @@ class GdriveUploadWorker
                                         }
                                     },
                                 )
-                        }.let { results: List<OmoideUploadResult> ->
-                            omoideMemoryRepository.update(results.filterIsInstance<OmoideUploadResult.Success>().map { it.omoideMemory })
-                            val failedResults = results.filterIsInstance<OmoideUploadResult.Fail>()
-                            if (failedResults.isNotEmpty()) {
-                                Log.e(TAG, "${failedResults.size} 件のアップロードに失敗しました。失敗分を UPLOAD_PENDING に更新")
-                                val failedEntities = omoideMemoryRepository.findBy(failedResults.map { it.omoideMemoryId })
-                                omoideMemoryRepository.update(failedEntities.map { it.pending() })
-                            }
-                            failedResults.size
                         }
-                Result.success(workDataOf("PENDING_COUNT" to pendingCount))
+
+                omoideMemoryRepository.update(results.filterIsInstance<OmoideUploadResult.Success>().map { it.omoideMemory })
+                val failedResults = results.filterIsInstance<OmoideUploadResult.Fail>()
+                if (failedResults.isNotEmpty()) {
+                    Log.e(TAG, "${failedResults.size} 件のアップロードに失敗しました。失敗分を UPLOAD_PENDING に更新")
+                    val failedEntities = omoideMemoryRepository.findBy(failedResults.map { it.omoideMemoryId })
+                    omoideMemoryRepository.update(failedEntities.map { it.pending() })
+                }
+
+                val storageFullCount = failedResults.count { it.error is WorkerExecutionError.StorageFull }
+                val authErrorCount = failedResults.count { it.error is WorkerExecutionError.AuthError }
+                val otherErrorCount = failedResults.size - storageFullCount - authErrorCount
+
+                Result.success(
+                    workDataOf(
+                        "PENDING_COUNT" to failedResults.size,
+                        "STORAGE_FULL_COUNT" to storageFullCount,
+                        "AUTH_ERROR_COUNT" to authErrorCount,
+                        "OTHER_ERROR_COUNT" to otherErrorCount,
+                    ),
+                )
             }
         }
     }

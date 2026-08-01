@@ -11,6 +11,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.kasakaid.omoidememory.OmoideMemory
 import com.kasakaid.omoidememory.ui.AppBarWithBackIcon
 
 @Composable
@@ -18,7 +19,6 @@ fun MaintenanceScreen(
     onBack: () -> Unit,
     onNavigateToCrashReport: () -> Unit,
     onNavigateToDbMaintenance: () -> Unit,
-    appVersion: String = "1.7.3",
 ) {
     Scaffold(
         topBar = {
@@ -27,7 +27,7 @@ fun MaintenanceScreen(
                 onFinished = onBack,
                 actions = {
                     Text(
-                        text = "v$appVersion",
+                        text = "v${OmoideMemory.VERSION}",
                         modifier = Modifier.padding(end = 16.dp),
                     )
                 },

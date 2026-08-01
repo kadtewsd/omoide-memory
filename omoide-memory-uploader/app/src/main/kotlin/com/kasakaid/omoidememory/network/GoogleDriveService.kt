@@ -86,7 +86,7 @@ class GoogleDriveService
                         )
                     } else {
                         Log.e("Drive", "All attempts failed for ${omoideMemory.name}", e)
-                        return@withContext null
+                        throw e
                     }
                 }
             }

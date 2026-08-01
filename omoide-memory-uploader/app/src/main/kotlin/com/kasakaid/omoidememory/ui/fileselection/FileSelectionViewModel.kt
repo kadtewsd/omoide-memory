@@ -92,6 +92,13 @@ enum class DoneFilter(
     DELETED(label = "削除済み"),
 }
 
+data class UploadResultSummary(
+    val pendingCount: Int,
+    val storageFullCount: Int,
+    val authErrorCount: Int,
+    val otherErrorCount: Int,
+)
+
 @HiltViewModel
 class FileSelectionViewModel
     @Inject
@@ -121,7 +128,7 @@ class FileSelectionViewModel
         private val deleteResultChannel = Channel<List<Long>>(Channel.BUFFERED)
         val deleteResultEvent = deleteResultChannel.receiveAsFlow()
 
-        private val uploadResultChannel = Channel<Int>(Channel.BUFFERED)
+        private val uploadResultChannel = Channel<UploadResultSummary>(Channel.BUFFERED)
         val uploadResultEvent = uploadResultChannel.receiveAsFlow()
 
         private var deleteStarted = false
@@ -170,12 +177,22 @@ class FileSelectionViewModel
                             WorkInfo.State.SUCCEEDED -> {
                                 uploadStarted = false
                                 val pendingCount = workInfo.outputData.getInt("PENDING_COUNT", 0)
-                                uploadResultChannel.send(pendingCount)
+                                val storageFullCount = workInfo.outputData.getInt("STORAGE_FULL_COUNT", 0)
+                                val authErrorCount = workInfo.outputData.getInt("AUTH_ERROR_COUNT", 0)
+                                val otherErrorCount = workInfo.outputData.getInt("OTHER_ERROR_COUNT", 0)
+                                uploadResultChannel.send(
+                                    UploadResultSummary(
+                                        pendingCount = pendingCount,
+                                        storageFullCount = storageFullCount,
+                                        authErrorCount = authErrorCount,
+                                        otherErrorCount = otherErrorCount,
+                                    ),
+                                )
                             }
 
                             WorkInfo.State.FAILED, WorkInfo.State.CANCELLED -> {
                                 uploadStarted = false
-                                uploadResultChannel.send(0)
+                                uploadResultChannel.send(UploadResultSummary(0, 0, 0, 0))
                             }
 
                             WorkInfo.State.ENQUEUED, WorkInfo.State.RUNNING, WorkInfo.State.BLOCKED -> {

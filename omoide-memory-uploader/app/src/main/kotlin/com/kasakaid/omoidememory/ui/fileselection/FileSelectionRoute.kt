@@ -67,9 +67,23 @@ fun FileSelectionRoute(
 
     var pendingMessage by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) {
-        viewModel.uploadResultEvent.collect { pendingCount ->
-            if (pendingCount > 0) {
-                pendingMessage = "${pendingCount}件のコンテンツが保留で終了しました。ドライブ削除後に再実行してください"
+        viewModel.uploadResultEvent.collect { summary ->
+            if (summary.pendingCount > 0) {
+                val lines = mutableListOf<String>()
+                if (summary.storageFullCount > 0) {
+                    lines.add("${summary.storageFullCount} 件のコンテンツが Google Drive のアップロード上限のため失敗")
+                }
+                if (summary.authErrorCount > 0) {
+                    lines.add("${summary.authErrorCount} 件のコンテンツが認証エラーでアップロード失敗")
+                }
+                if (summary.otherErrorCount > 0) {
+                    lines.add("${summary.otherErrorCount} 件が何らかのエラーでアップロード失敗")
+                }
+
+                if (lines.isNotEmpty()) {
+                    lines.add("アップロード対象に設定済みですので再度アップロードしてください")
+                }
+                pendingMessage = lines.joinToString("\n")
             } else {
                 viewModel.clearSelection()
                 toMainScreen(emptyList())
@@ -106,6 +120,15 @@ fun FileSelectionRoute(
         isDeleting = isDeleting,
         deleteProgress = deleteProgress,
         onCancelDelete = { viewModel.cancelDelete() },
+    )
+
+    com.kasakaid.omoidememory.ui.snakbar.StandardSnakbar(
+        message = pendingMessage,
+        onDismiss = {
+            pendingMessage = null
+            viewModel.clearSelection()
+            toMainScreen(emptyList())
+        },
     )
 }
 
