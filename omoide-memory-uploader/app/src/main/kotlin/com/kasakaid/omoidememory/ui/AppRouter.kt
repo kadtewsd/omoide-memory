@@ -8,6 +8,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.kasakaid.omoidememory.ui.fileselection.DoneFileSelectionRoute
 import com.kasakaid.omoidememory.ui.fileselection.ExcludedFileSelectionRoute
+import com.kasakaid.omoidememory.ui.fileselection.FileUploadState
 import com.kasakaid.omoidememory.ui.fileselection.PendingFileSelectionRoute
 import com.kasakaid.omoidememory.ui.fileselection.TargetFileSelectionRoute
 import com.kasakaid.omoidememory.ui.maintenance.CrashDetailScreen
@@ -32,60 +33,33 @@ fun AppRouter() {
             MainScreen(
                 skippedIds = skippedIdsState.value,
                 onClearSkippedIds = { savedStateHandle.set<List<Long>?>("skipped_ids", null) },
-                onNavigateToSelection = { navController.navigate("selection") },
+                onNavigateToSelection = { navController.navigate(FileUploadState.WAITING_FOR_UPLOAD.route) },
                 onNavigateToMaintenance = { navController.navigate("maintenance") },
-                onNavigateToUploadedMaintenance = { navController.navigate("uploaded_maintenance") },
+                onNavigateToUploadedMaintenance = { navController.navigate(FileUploadState.UPLOAD_DONE.route) },
             )
         }
-        composable("selection") {
+        composable(FileUploadState.WAITING_FOR_UPLOAD.route) {
             TargetFileSelectionRoute(
                 title = "アップロードする写真を選択",
                 onBack = { navController.popBackStack() },
-                onNavigateToExcluded = {
-                    navController.navigate("excluded") {
-                        popUpTo("selection") { inclusive = true }
-                    }
-                },
-                onNavigateToPending = {
-                    navController.navigate("pending") {
-                        popUpTo("selection") { inclusive = true }
-                    }
-                },
+                navController = navController,
             )
         }
-        composable("pending") {
+        composable(FileUploadState.UPLOAD_PENDING.route) {
             PendingFileSelectionRoute(
                 title = "アップロード選択済",
                 onBack = { navController.popBackStack() },
-                onNavigateToTarget = {
-                    navController.navigate("selection") {
-                        popUpTo("pending") { inclusive = true }
-                    }
-                },
-                onNavigateToExcluded = {
-                    navController.navigate("excluded") {
-                        popUpTo("pending") { inclusive = true }
-                    }
-                },
+                navController = navController,
             )
         }
-        composable("excluded") {
+        composable(FileUploadState.UPLOAD_EXCLUDED.route) {
             ExcludedFileSelectionRoute(
                 title = "除外した写真",
                 onBack = { navController.popBackStack() },
-                onNavigateToTarget = {
-                    navController.navigate("selection") {
-                        popUpTo("excluded") { inclusive = true }
-                    }
-                },
-                onNavigateToPending = {
-                    navController.navigate("pending") {
-                        popUpTo("excluded") { inclusive = true }
-                    }
-                },
+                navController = navController,
             )
         }
-        composable("uploaded_maintenance") {
+        composable(FileUploadState.UPLOAD_DONE.route) {
             DoneFileSelectionRoute(
                 title = "アップロード済みの写真",
                 onBack = { skippedIds ->

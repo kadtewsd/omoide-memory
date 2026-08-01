@@ -116,14 +116,12 @@ fun FileSelectionRoute(
  *
  * @param title 画面タイトル
  * @param onBack 戻るボタン押下時のコールバック
- * @param onNavigateToTarget アップロード対象選択画面への遷移コールバック
  */
 @Composable
 fun ExcludedFileSelectionRoute(
     title: String,
     onBack: () -> Unit,
-    onNavigateToTarget: () -> Unit,
-    onNavigateToPending: () -> Unit = {},
+    navController: androidx.navigation.NavController,
     viewModel: FileSelectionViewModel = hiltViewModel(),
 ) {
     val isProcessing by viewModel.isProcessing.collectAsState()
@@ -135,21 +133,7 @@ fun ExcludedFileSelectionRoute(
         subHeader = {
             SelectionModeRow(
                 fileUploadState = FileUploadState.UPLOAD_EXCLUDED,
-                onSelectionModeChanged = { mode ->
-                    when (mode) {
-                        FileUploadState.WAITING_FOR_UPLOAD -> {
-                            onNavigateToTarget()
-                        }
-
-                        FileUploadState.UPLOAD_PENDING -> {
-                            onNavigateToPending()
-                        }
-
-                        FileUploadState.UPLOAD_EXCLUDED, FileUploadState.UPLOAD_DONE -> {
-                            println("このタイプはここにはこないことが想定されてる。else で潰すと影響がわかりずらくなるので便宜的にここに全部かく")
-                        }
-                    }
-                },
+                navController = navController,
                 filterDone = true,
             )
         },
@@ -176,8 +160,7 @@ fun ExcludedFileSelectionRoute(
 fun PendingFileSelectionRoute(
     title: String,
     onBack: () -> Unit,
-    onNavigateToTarget: () -> Unit,
-    onNavigateToExcluded: () -> Unit,
+    navController: androidx.navigation.NavController,
     viewModel: FileSelectionViewModel = hiltViewModel(),
 ) {
     val isProcessing by viewModel.isProcessing.collectAsState()
@@ -189,21 +172,7 @@ fun PendingFileSelectionRoute(
         subHeader = {
             SelectionModeRow(
                 fileUploadState = FileUploadState.UPLOAD_PENDING,
-                onSelectionModeChanged = { mode ->
-                    when (mode) {
-                        FileUploadState.WAITING_FOR_UPLOAD -> {
-                            onNavigateToTarget()
-                        }
-
-                        FileUploadState.UPLOAD_EXCLUDED -> {
-                            onNavigateToExcluded()
-                        }
-
-                        FileUploadState.UPLOAD_DONE, FileUploadState.UPLOAD_PENDING -> {
-                            println("ここに来ることはないが Exhaustive にする")
-                        }
-                    }
-                },
+                navController = navController,
                 filterDone = true,
             )
         },
@@ -257,7 +226,7 @@ fun DoneFileSelectionRoute(
         subHeader = {
             SelectionModeRow(
                 fileUploadState = FileUploadState.UPLOAD_DONE,
-                onSelectionModeChanged = {},
+                navController = null,
                 filterDone = false,
             )
             DoneFilterRow(
@@ -295,15 +264,12 @@ fun DoneFileSelectionRoute(
  *
  * @param title 画面タイトル
  * @param onBack 戻るボタン押下時のコールバック
- * @param onNavigateToExcluded 除外リスト画面への遷移コールバック
- * @param onNavigateToPending アップロード選択済画面への遷移コールバック
  */
 @Composable
 fun TargetFileSelectionRoute(
     title: String,
     onBack: () -> Unit,
-    onNavigateToExcluded: () -> Unit,
-    onNavigateToPending: () -> Unit = {},
+    navController: androidx.navigation.NavController,
     viewModel: FileSelectionViewModel = hiltViewModel(),
 ) {
     val isProcessing by viewModel.isProcessing.collectAsState()
@@ -315,21 +281,7 @@ fun TargetFileSelectionRoute(
         subHeader = {
             SelectionModeRow(
                 fileUploadState = FileUploadState.WAITING_FOR_UPLOAD,
-                onSelectionModeChanged = { mode ->
-                    when (mode) {
-                        FileUploadState.UPLOAD_EXCLUDED -> {
-                            onNavigateToExcluded()
-                        }
-
-                        FileUploadState.UPLOAD_PENDING -> {
-                            onNavigateToPending()
-                        }
-
-                        FileUploadState.UPLOAD_DONE, FileUploadState.WAITING_FOR_UPLOAD -> {
-                            println("ここに来ることはないが exhaustive にするためかく")
-                        }
-                    }
-                },
+                navController = navController,
                 filterDone = true,
             )
         },

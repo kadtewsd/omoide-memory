@@ -40,27 +40,63 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/**
+ * ファイルアップロードに関連する画面と
+ * - ドメイン上のステータス
+ * - 遷移仕様
+ * をまとめる
+ */
 enum class FileUploadState(
     val label: String,
+    val targetStates: List<UploadState>,
+    val route: String,
 ) {
-    WAITING_FOR_UPLOAD("待ち"),
-    UPLOAD_PENDING("アップロード選択済"),
-    UPLOAD_EXCLUDED("除外"),
-    UPLOAD_DONE("完了"),
+    WAITING_FOR_UPLOAD(
+        label = "待ち",
+        targetStates = emptyList(),
+        route = "selection",
+    ),
+    UPLOAD_PENDING(
+        label = "アップロード選択済",
+        targetStates = listOf(UploadState.UPLOAD_PENDING),
+        route = "pending",
+    ),
+    UPLOAD_EXCLUDED(
+        label = "除外",
+        targetStates = listOf(UploadState.EXCLUDED),
+        route = "excluded",
+    ),
+    UPLOAD_DONE(
+        label = "完了",
+        targetStates = listOf(UploadState.DONE, UploadState.DRIVE_DELETED),
+        route = "uploaded_maintenance",
+    ),
+    ;
+
+    fun navigate(
+        navController: androidx.navigation.NavController,
+        currentRoute: String,
+    ) {
+        if (route != currentRoute) {
+            navController.navigate(route) {
+                popUpTo(currentRoute) { inclusive = true }
+            }
+        }
+    }
 }
 
 enum class DoneFilter(
     val label: String,
 ) {
-    NOT_DELETED("未削除"),
-    DELETED("削除済み"),
+    NOT_DELETED(label = "未削除"),
+    DELETED(label = "削除済み"),
 }
 
 @HiltViewModel
 class FileSelectionViewModel
     @Inject
     constructor(
-        private val localFileRepository: OmoideMemoryRepository,
+        private val omoideMemoryRepository: OmoideMemoryRepository,
         private val excludeOmoideRepository: ExcludeOmoideRepository,
         private val localFileCleaner: LocalFileCleaner,
         application: Application,
@@ -105,8 +141,8 @@ class FileSelectionViewModel
                                 deleteStarted = false
                                 val deletedIds = workInfo.outputData.getLongArray("DELETED_IDS")?.toList() ?: emptyList()
                                 if (deletedIds.isNotEmpty()) {
-                                    val targets = localFileRepository.findBy(deletedIds)
-                                    localFileRepository.update(targets.map { it.driveDeleted() })
+                                    val targets = omoideMemoryRepository.findBy(deletedIds)
+                                    omoideMemoryRepository.update(targets.map { it.driveDeleted() })
                                 }
                                 val notDeletedIds = workInfo.outputData.getLongArray("NOT_DELETED_IDS")?.toList() ?: emptyList()
                                 deleteResultChannel.send(notDeletedIds)
@@ -171,7 +207,7 @@ class FileSelectionViewModel
                 val flow =
                     when (mode) {
                         FileUploadState.WAITING_FOR_UPLOAD -> {
-                            localFileRepository
+                            omoideMemoryRepository
                                 .getPotentialPendingFiles()
                                 .onEach { file ->
                                     if (selectedIds[file.id] == null) {
@@ -181,8 +217,8 @@ class FileSelectionViewModel
                         }
 
                         FileUploadState.UPLOAD_PENDING -> {
-                            localFileRepository
-                                .findByAsFlow(UploadState.UPLOAD_PENDING)
+                            omoideMemoryRepository
+                                .findByAsFlow(mode.targetStates)
                                 .onEach { files ->
                                     files.forEach { file ->
                                         if (selectedIds[file.id] == null) {
@@ -193,12 +229,12 @@ class FileSelectionViewModel
                         }
 
                         FileUploadState.UPLOAD_EXCLUDED -> {
-                            localFileRepository.findByAsFlow(UploadState.EXCLUDED)
+                            omoideMemoryRepository.findByAsFlow(mode.targetStates)
                         }
 
                         FileUploadState.UPLOAD_DONE -> {
-                            localFileRepository
-                                .findByAsFlow(listOf(UploadState.DONE, UploadState.DRIVE_DELETED))
+                            omoideMemoryRepository
+                                .findByAsFlow(mode.targetStates)
                                 .combine(doneFilter) { files, f ->
                                     when (f) {
                                         DoneFilter.NOT_DELETED -> files.filter { it.state == UploadState.DONE }
@@ -261,7 +297,7 @@ class FileSelectionViewModel
                         .map { it.ready() }
                 if (targets.isNotEmpty()) {
                     uploadStarted = true
-                    localFileRepository.upsert(targets)
+                    omoideMemoryRepository.upsert(targets)
                     workManager.enqueueWManualUpload()
                 }
             }
@@ -282,7 +318,7 @@ class FileSelectionViewModel
             viewModelScope.launch {
                 val targets = pendingFiles.value.filter { it.id in ids }.map { it.exclude() }
                 if (targets.isNotEmpty()) {
-                    localFileRepository.upsert(targets)
+                    omoideMemoryRepository.upsert(targets)
                     selectedIds.clear()
                 }
             }
@@ -290,7 +326,7 @@ class FileSelectionViewModel
 
         fun unpending(ids: List<Long>) {
             viewModelScope.launch {
-                localFileRepository.delete(ids)
+                omoideMemoryRepository.delete(ids)
                 selectedIds.clear()
             }
         }
@@ -303,7 +339,7 @@ class FileSelectionViewModel
 
         fun deletePhysically(items: List<OmoideMemory>) {
             viewModelScope.launch {
-                val pendingIntent = localFileRepository.deletePhysically(items)
+                val pendingIntent = omoideMemoryRepository.deletePhysically(items)
                 if (pendingIntent != null) {
                     pendingDeleteEntities = items
                     _deleteRequestEvent.emit(pendingIntent)
@@ -315,7 +351,7 @@ class FileSelectionViewModel
 
         fun deleteAfterPermission() {
             viewModelScope.launch {
-                localFileRepository.delete(pendingDeleteEntities.map { it.id })
+                omoideMemoryRepository.delete(pendingDeleteEntities.map { it.id })
                 pendingDeleteEntities = emptyList()
                 selectedIds.clear()
             }
