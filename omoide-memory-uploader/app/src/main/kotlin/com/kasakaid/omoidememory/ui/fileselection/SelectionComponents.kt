@@ -145,7 +145,7 @@ fun FileSelectionScreen(
 @Composable
 fun SelectionModeRow(
     fileUploadState: FileUploadState,
-    onSelectionModeChanged: (FileUploadState) -> Unit,
+    navController: androidx.navigation.NavController?,
     filterDone: Boolean,
 ) {
     androidx.compose.foundation.layout.Row(
@@ -177,12 +177,17 @@ fun SelectionModeRow(
                 ) {
                     RadioButton(
                         selected = fileUploadState == mode,
-                        onClick = { onSelectionModeChanged(mode) },
+                        onClick = {
+                            navController?.let { mode.navigate(navController = it, currentRoute = fileUploadState.route) }
+                        },
                     )
                     Text(
                         text = mode.label,
                         style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.clickable { onSelectionModeChanged(mode) },
+                        modifier =
+                            Modifier.clickable {
+                                navController?.let { mode.navigate(navController = it, currentRoute = fileUploadState.route) }
+                            },
                     )
                 }
             }
