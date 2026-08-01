@@ -18,12 +18,19 @@ fun MaintenanceScreen(
     onBack: () -> Unit,
     onNavigateToCrashReport: () -> Unit,
     onNavigateToDbMaintenance: () -> Unit,
+    appVersion: String = "1.7.3",
 ) {
     Scaffold(
         topBar = {
             AppBarWithBackIcon(
                 title = "メンテナンス",
                 onFinished = onBack,
+                actions = {
+                    Text(
+                        text = "v$appVersion",
+                        modifier = Modifier.padding(end = 16.dp),
+                    )
+                },
             )
         },
     ) { padding ->

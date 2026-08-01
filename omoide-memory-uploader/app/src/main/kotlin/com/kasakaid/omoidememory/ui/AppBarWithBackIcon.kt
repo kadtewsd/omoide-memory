@@ -18,11 +18,13 @@ import androidx.compose.runtime.Composable
 fun AppBarWithBackIcon(
     title: String,
     onFinished: () -> Unit,
+    actions: @Composable RowScope.() -> Unit = {},
 ) {
     TopAppBar(
         title = { Text(title) },
         // 🚀 左端にアイコンを置くスロット
         navigationIcon = { NavigationIcon(onFinished) },
+        actions = actions,
     )
 }
 
