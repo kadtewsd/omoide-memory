@@ -40,7 +40,7 @@ interface OmoideMemoryDao {
     @Query("SELECT * FROM uploaded_memories WHERE id IN (:ids)")
     suspend fun findBy(ids: List<Long>): List<OmoideMemory>
 
-    @Insert(onConflict = OnConflictStrategy.ABORT)
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertUploadedFiles(omoideMemories: List<OmoideMemory>)
 
     @Query("UPDATE uploaded_memories SET state = :state WHERE id IN (:ids)")

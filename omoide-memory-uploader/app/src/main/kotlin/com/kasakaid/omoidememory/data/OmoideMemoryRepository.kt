@@ -182,6 +182,11 @@ class OmoideMemoryRepository
             omoideMemoryDao.insertUploadedFiles(entities)
         }
 
+        suspend fun upsert(entities: List<OmoideMemory>) {
+            if (entities.isEmpty()) return
+            omoideMemoryDao.insertUploadedFiles(entities)
+        }
+
         suspend fun update(entities: List<OmoideMemory>) {
             if (entities.isEmpty()) return
             entities.groupBy { it.state }.forEach { (state, list) ->

@@ -28,6 +28,11 @@ class OmoideMemory(
             this.state = UploadState.READY
         }
 
+    fun pending(): OmoideMemory =
+        apply {
+            this.state = UploadState.UPLOAD_PENDING
+        }
+
     fun done(): OmoideMemory =
         apply {
             this.state = UploadState.DONE
@@ -61,6 +66,7 @@ enum class UploadState(
     FAILED("失敗"),
     EXCLUDED("除外"),
     DRIVE_DELETED("ドライブ削除済み"),
+    UPLOAD_PENDING("アップロード選択済"),
 }
 
 class ExcludeOmoide(

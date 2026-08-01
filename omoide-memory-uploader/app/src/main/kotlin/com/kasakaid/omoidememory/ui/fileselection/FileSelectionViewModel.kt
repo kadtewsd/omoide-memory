@@ -17,7 +17,6 @@ import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeDeletingS
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeProgressByManual
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeProgressByManualDelete
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeUploadingStateByManualTag
-import com.kasakaid.omoidememory.network.GoogleDriveService
 import com.kasakaid.omoidememory.ui.OnOff
 import com.kasakaid.omoidememory.worker.LocalFileCleaner
 import com.kasakaid.omoidememory.worker.WorkManagerTag
@@ -45,6 +44,7 @@ enum class FileUploadState(
     val label: String,
 ) {
     WAITING_FOR_UPLOAD("待ち"),
+    UPLOAD_PENDING("アップロード選択済"),
     UPLOAD_EXCLUDED("除外"),
     UPLOAD_DONE("完了"),
 }
@@ -62,7 +62,6 @@ class FileSelectionViewModel
     constructor(
         private val localFileRepository: OmoideMemoryRepository,
         private val excludeOmoideRepository: ExcludeOmoideRepository,
-        private val driveService: GoogleDriveService,
         private val localFileCleaner: LocalFileCleaner,
         application: Application,
     ) : ViewModel() {
@@ -86,7 +85,11 @@ class FileSelectionViewModel
         private val deleteResultChannel = Channel<List<Long>>(Channel.BUFFERED)
         val deleteResultEvent = deleteResultChannel.receiveAsFlow()
 
+        private val uploadResultChannel = Channel<Int>(Channel.BUFFERED)
+        val uploadResultEvent = uploadResultChannel.receiveAsFlow()
+
         private var deleteStarted = false
+        private var uploadStarted = false
 
         init {
             viewModelScope.launch {
@@ -112,6 +115,31 @@ class FileSelectionViewModel
                             WorkInfo.State.FAILED, WorkInfo.State.CANCELLED -> {
                                 deleteStarted = false
                                 deleteResultChannel.send(emptyList())
+                            }
+
+                            WorkInfo.State.ENQUEUED, WorkInfo.State.RUNNING, WorkInfo.State.BLOCKED -> {
+                            }
+                        }
+                    }
+            }
+            viewModelScope.launch {
+                workManager
+                    .getWorkInfosForUniqueWorkFlow(WorkManagerTag.Manual.value)
+                    .collect { workInfos ->
+                        val workInfo = workInfos.firstOrNull() ?: return@collect
+                        Log.d("FileSelectionViewModel", "ManualUpload WorkInfo state: ${workInfo.state}, uploadStarted: $uploadStarted")
+                        if (!uploadStarted) return@collect
+
+                        when (workInfo.state) {
+                            WorkInfo.State.SUCCEEDED -> {
+                                uploadStarted = false
+                                val pendingCount = workInfo.outputData.getInt("PENDING_COUNT", 0)
+                                uploadResultChannel.send(pendingCount)
+                            }
+
+                            WorkInfo.State.FAILED, WorkInfo.State.CANCELLED -> {
+                                uploadStarted = false
+                                uploadResultChannel.send(0)
                             }
 
                             WorkInfo.State.ENQUEUED, WorkInfo.State.RUNNING, WorkInfo.State.BLOCKED -> {
@@ -150,6 +178,18 @@ class FileSelectionViewModel
                                         selectedIds[file.id] = _onOff.value.isChecked
                                     }
                                 }.scan(emptyList()) { acc, value -> acc + value }
+                        }
+
+                        FileUploadState.UPLOAD_PENDING -> {
+                            localFileRepository
+                                .findByAsFlow(UploadState.UPLOAD_PENDING)
+                                .onEach { files ->
+                                    files.forEach { file ->
+                                        if (selectedIds[file.id] == null) {
+                                            selectedIds[file.id] = true
+                                        }
+                                    }
+                                }
                         }
 
                         FileUploadState.UPLOAD_EXCLUDED -> {
@@ -220,7 +260,8 @@ class FileSelectionViewModel
                         .filter { it.id in idSet }
                         .map { it.ready() }
                 if (targets.isNotEmpty()) {
-                    localFileRepository.add(targets)
+                    uploadStarted = true
+                    localFileRepository.upsert(targets)
                     workManager.enqueueWManualUpload()
                 }
             }
@@ -241,9 +282,16 @@ class FileSelectionViewModel
             viewModelScope.launch {
                 val targets = pendingFiles.value.filter { it.id in ids }.map { it.exclude() }
                 if (targets.isNotEmpty()) {
-                    localFileRepository.add(targets)
+                    localFileRepository.upsert(targets)
                     selectedIds.clear()
                 }
+            }
+        }
+
+        fun unpending(ids: List<Long>) {
+            viewModelScope.launch {
+                localFileRepository.delete(ids)
+                selectedIds.clear()
             }
         }
 

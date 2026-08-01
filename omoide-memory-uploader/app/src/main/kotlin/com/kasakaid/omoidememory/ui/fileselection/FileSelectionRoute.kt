@@ -16,7 +16,6 @@ import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.kasakaid.omoidememory.data.OmoideMemory
 import com.kasakaid.omoidememory.data.UploadState
-import com.kasakaid.omoidememory.data.isOverLimit
 
 @Composable
 fun FileSelectionRoute(
@@ -66,6 +65,18 @@ fun FileSelectionRoute(
         }
     }
 
+    var pendingMessage by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        viewModel.uploadResultEvent.collect { pendingCount ->
+            if (pendingCount > 0) {
+                pendingMessage = "${pendingCount}件のコンテンツが保留で終了しました。ドライブ削除後に再実行してください"
+            } else {
+                viewModel.clearSelection()
+                toMainScreen(emptyList())
+            }
+        }
+    }
+
     var hasStartedProcessing by remember { mutableStateOf(false) }
     LaunchedEffect(isProcessing) {
         if (!isProcessing && hasStartedProcessing && fileUploadState != FileUploadState.UPLOAD_DONE) {
@@ -112,6 +123,7 @@ fun ExcludedFileSelectionRoute(
     title: String,
     onBack: () -> Unit,
     onNavigateToTarget: () -> Unit,
+    onNavigateToPending: () -> Unit = {},
     viewModel: FileSelectionViewModel = hiltViewModel(),
 ) {
     val isProcessing by viewModel.isProcessing.collectAsState()
@@ -124,8 +136,18 @@ fun ExcludedFileSelectionRoute(
             SelectionModeRow(
                 fileUploadState = FileUploadState.UPLOAD_EXCLUDED,
                 onSelectionModeChanged = { mode ->
-                    if (mode == FileUploadState.WAITING_FOR_UPLOAD) {
-                        onNavigateToTarget()
+                    when (mode) {
+                        FileUploadState.WAITING_FOR_UPLOAD -> {
+                            onNavigateToTarget()
+                        }
+
+                        FileUploadState.UPLOAD_PENDING -> {
+                            onNavigateToPending()
+                        }
+
+                        FileUploadState.UPLOAD_EXCLUDED, FileUploadState.UPLOAD_DONE -> {
+                            println("このタイプはここにはこないことが想定されてる。else で潰すと影響がわかりずらくなるので便宜的にここに全部かく")
+                        }
                     }
                 },
                 filterDone = true,
@@ -139,6 +161,71 @@ fun ExcludedFileSelectionRoute(
                     enabled = !isProcessing && selectedFiles.isNotEmpty(),
                 ) {
                     Text("復活")
+                }
+            }
+        },
+        toMainScreen = { onBack() },
+    )
+}
+
+/**
+ * アップロード保留・再開画面のファサードコンポーネント。
+ * 保留されたファイルの一覧を表示し、再実行（アップロード再開）や選択解除を行う。
+ */
+@Composable
+fun PendingFileSelectionRoute(
+    title: String,
+    onBack: () -> Unit,
+    onNavigateToTarget: () -> Unit,
+    onNavigateToExcluded: () -> Unit,
+    viewModel: FileSelectionViewModel = hiltViewModel(),
+) {
+    val isProcessing by viewModel.isProcessing.collectAsState()
+
+    FileSelectionRoute(
+        viewModel = viewModel,
+        title = title,
+        fileUploadState = FileUploadState.UPLOAD_PENDING,
+        subHeader = {
+            SelectionModeRow(
+                fileUploadState = FileUploadState.UPLOAD_PENDING,
+                onSelectionModeChanged = { mode ->
+                    when (mode) {
+                        FileUploadState.WAITING_FOR_UPLOAD -> {
+                            onNavigateToTarget()
+                        }
+
+                        FileUploadState.UPLOAD_EXCLUDED -> {
+                            onNavigateToExcluded()
+                        }
+
+                        FileUploadState.UPLOAD_DONE, FileUploadState.UPLOAD_PENDING -> {
+                            println("ここに来ることはないが Exhaustive にする")
+                        }
+                    }
+                },
+                filterDone = true,
+            )
+        },
+        bottomBarAction = { selectedFiles ->
+            StandardFileSelection(selectedFiles = selectedFiles) {
+                Button(
+                    onClick = { viewModel.startManualUpload(selectedFiles.map { it.id }) },
+                    modifier = Modifier.weight(1f),
+                    enabled = !isProcessing && selectedFiles.isNotEmpty(),
+                ) {
+                    Text("再実行")
+                }
+                Button(
+                    onClick = { viewModel.unpending(selectedFiles.map { it.id }) },
+                    modifier = Modifier.weight(1f),
+                    enabled = !isProcessing && selectedFiles.isNotEmpty(),
+                    colors =
+                        ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.secondary,
+                        ),
+                ) {
+                    Text("解除")
                 }
             }
         },
@@ -202,19 +289,21 @@ fun DoneFileSelectionRoute(
 }
 
 /**
- * 上限チェック機能付きのファイル選択画面のファサードコンポーネント。
+ * アップロード対象選択画面のファサードコンポーネント。
  * 新規アップロード対象の選択を目的とする。
  * AppRouter の記述をシンプルに保つため、内部でサブヘッダーやアクション行のロジックを保持する。
  *
  * @param title 画面タイトル
  * @param onBack 戻るボタン押下時のコールバック
  * @param onNavigateToExcluded 除外リスト画面への遷移コールバック
+ * @param onNavigateToPending アップロード選択済画面への遷移コールバック
  */
 @Composable
-fun LimitFileSelectionRoute(
+fun TargetFileSelectionRoute(
     title: String,
     onBack: () -> Unit,
     onNavigateToExcluded: () -> Unit,
+    onNavigateToPending: () -> Unit = {},
     viewModel: FileSelectionViewModel = hiltViewModel(),
 ) {
     val isProcessing by viewModel.isProcessing.collectAsState()
@@ -227,21 +316,29 @@ fun LimitFileSelectionRoute(
             SelectionModeRow(
                 fileUploadState = FileUploadState.WAITING_FOR_UPLOAD,
                 onSelectionModeChanged = { mode ->
-                    if (mode == FileUploadState.UPLOAD_EXCLUDED) {
-                        onNavigateToExcluded()
+                    when (mode) {
+                        FileUploadState.UPLOAD_EXCLUDED -> {
+                            onNavigateToExcluded()
+                        }
+
+                        FileUploadState.UPLOAD_PENDING -> {
+                            onNavigateToPending()
+                        }
+
+                        FileUploadState.UPLOAD_DONE, FileUploadState.WAITING_FOR_UPLOAD -> {
+                            println("ここに来ることはないが exhaustive にするためかく")
+                        }
                     }
                 },
                 filterDone = true,
             )
         },
         bottomBarAction = { selectedFiles ->
-            LimitFileSelection(selectedFiles = selectedFiles) {
+            StandardFileSelection(selectedFiles = selectedFiles) {
                 Button(
                     onClick = { viewModel.startManualUpload(selectedFiles.map { it.id }) },
                     modifier = Modifier.weight(1f),
-                    enabled =
-                        !isProcessing &&
-                            selectedFiles.isNotEmpty() && !selectedFiles.isOverLimit(),
+                    enabled = !isProcessing && selectedFiles.isNotEmpty(),
                 ) {
                     Text("送信")
                 }

@@ -8,7 +8,8 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.kasakaid.omoidememory.ui.fileselection.DoneFileSelectionRoute
 import com.kasakaid.omoidememory.ui.fileselection.ExcludedFileSelectionRoute
-import com.kasakaid.omoidememory.ui.fileselection.LimitFileSelectionRoute
+import com.kasakaid.omoidememory.ui.fileselection.PendingFileSelectionRoute
+import com.kasakaid.omoidememory.ui.fileselection.TargetFileSelectionRoute
 import com.kasakaid.omoidememory.ui.maintenance.CrashDetailScreen
 import com.kasakaid.omoidememory.ui.maintenance.CrashReportViewerScreen
 import com.kasakaid.omoidememory.ui.maintenance.DbMaintenanceScreen
@@ -37,12 +38,33 @@ fun AppRouter() {
             )
         }
         composable("selection") {
-            LimitFileSelectionRoute(
+            TargetFileSelectionRoute(
                 title = "アップロードする写真を選択",
                 onBack = { navController.popBackStack() },
                 onNavigateToExcluded = {
                     navController.navigate("excluded") {
                         popUpTo("selection") { inclusive = true }
+                    }
+                },
+                onNavigateToPending = {
+                    navController.navigate("pending") {
+                        popUpTo("selection") { inclusive = true }
+                    }
+                },
+            )
+        }
+        composable("pending") {
+            PendingFileSelectionRoute(
+                title = "アップロード選択済",
+                onBack = { navController.popBackStack() },
+                onNavigateToTarget = {
+                    navController.navigate("selection") {
+                        popUpTo("pending") { inclusive = true }
+                    }
+                },
+                onNavigateToExcluded = {
+                    navController.navigate("excluded") {
+                        popUpTo("pending") { inclusive = true }
                     }
                 },
             )
@@ -53,6 +75,11 @@ fun AppRouter() {
                 onBack = { navController.popBackStack() },
                 onNavigateToTarget = {
                     navController.navigate("selection") {
+                        popUpTo("excluded") { inclusive = true }
+                    }
+                },
+                onNavigateToPending = {
+                    navController.navigate("pending") {
                         popUpTo("excluded") { inclusive = true }
                     }
                 },
