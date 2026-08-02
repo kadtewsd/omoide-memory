@@ -17,4 +17,8 @@ sealed interface WorkerExecutionError {
     class AuthError(
         override val message: String,
     ) : WorkerExecutionError
+
+    class StorageFull(
+        override val message: String,
+    ) : WorkerExecutionError
 }

@@ -7,6 +7,7 @@ import android.util.Log
 import arrow.core.Either
 import arrow.core.left
 import arrow.core.right
+import com.google.api.client.googleapis.json.GoogleJsonResponseException
 import com.kasakaid.omoidememory.data.OmoideMemory
 import com.kasakaid.omoidememory.data.OmoideMemoryRepository
 import com.kasakaid.omoidememory.data.OmoideUploadPrefsRepository
@@ -81,6 +82,13 @@ class GdriveUploader
             } catch (e: SecurityException) {
                 Log.e(tag, "Auth Error: ${e.message}")
                 WorkerExecutionError.AuthError(e.message ?: "SecurityException during upload").left()
+            } catch (e: GoogleJsonResponseException) {
+                Log.e(tag, "GoogleJsonResponseException (${e.statusCode}): ${e.message}")
+                when (e.statusCode) {
+                    507 -> WorkerExecutionError.StorageFull(e.message ?: "Storage full").left()
+                    401 -> WorkerExecutionError.AuthError(e.message ?: "Auth error").left()
+                    else -> WorkerExecutionError.UploadFailed(e.message ?: "Upload failed").left()
+                }
             } catch (e: Exception) {
                 Log.e(tag, "Upload Failed for ${pendingFile.name}: ${e.message}")
                 WorkerExecutionError.UploadFailed(e.message ?: "Unknown error during upload").left()
