@@ -31,25 +31,10 @@ class GdriveUploadWorker
             const val TAG = "ManualUploadWorker"
         }
 
-        sealed interface OmoideUploadResult {
-            class Success private constructor(
-                val omoideMemory: OmoideMemory,
-            ) : OmoideUploadResult {
-                companion object {
-                    operator fun invoke(omoideMemory: OmoideMemory) = Success(omoideMemory.done())
-                }
-            }
-
-            class Fail(
-                val omoideMemoryId: Long,
-                val error: WorkerExecutionError,
-            ) : OmoideUploadResult
-        }
-
         override suspend fun doWork(): Result {
             setForeground(appContext.createForegroundInfo("ManualUpload"))
             return withContext(Dispatchers.IO) {
-                // UPLOAD_TRIGGERED のものを DB から取得
+                Log.d(TAG, "UPLOAD_TRIGGERED のものを DB から取得")
                 val targets = omoideMemoryRepository.findBy(UploadState.UPLOAD_TRIGGERED)
 
                 if (targets.isEmpty()) {
@@ -62,7 +47,7 @@ class GdriveUploadWorker
                 var successCount = 0
 
                 // 🚀 最初に 0 件目の進捗を出すことで、UI の「準備中」を早く終わらせる
-                val successResults = mutableListOf<OmoideUploadResult.Success>()
+                val successResults = mutableListOf<OmoideMemory>()
 
                 for ((index, omoideMemory) in targets.withIndex()) {
                     setProgress(
@@ -82,7 +67,7 @@ class GdriveUploadWorker
                         ifLeft = { error ->
                             Log.e(TAG, "アップロード失敗: ${error.message}")
                             if (successResults.isNotEmpty()) {
-                                omoideMemoryRepository.upsert(successResults.map { it.omoideMemory })
+                                omoideMemoryRepository.upsert(successResults)
                             }
                             val pendingCount = totalCount - successResults.size
                             Log.i(TAG, "処理対象前の UPLOAD_TRIGGERED となっているレコード $pendingCount 件は何もせず次回に回します ")
@@ -93,14 +78,15 @@ class GdriveUploadWorker
                             )
                         },
                         ifRight = { _ ->
-                            successResults.add(OmoideUploadResult.Success(omoideMemory = omoideMemory))
+                            successResults.add(omoideMemory.done())
                             successCount++
                             Log.i(TAG, "$successCount / $totalCount アップロード試行完了")
                         },
                     )
                 }
 
-                omoideMemoryRepository.upsert(successResults.map { it.omoideMemory })
+                Log.d(TAG, "すべて成功になるので UPLOAD_TRIGGERED のレコードが消える")
+                omoideMemoryRepository.upsert(successResults)
                 Result.success(
                     workDataOf(
                         "PENDING_COUNT" to 0,
