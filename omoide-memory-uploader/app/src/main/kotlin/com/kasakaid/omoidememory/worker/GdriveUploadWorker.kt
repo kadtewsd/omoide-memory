@@ -62,53 +62,48 @@ class GdriveUploadWorker
                 var successCount = 0
 
                 // 🚀 最初に 0 件目の進捗を出すことで、UI の「準備中」を早く終わらせる
-                val results =
-                    targets
-                        .mapIndexed { index, omoideMemory ->
-                            setProgress(
+                val successResults = mutableListOf<OmoideUploadResult.Success>()
+
+                for ((index, omoideMemory) in targets.withIndex()) {
+                    setProgress(
+                        workDataOf(
+                            "PROGRESS_CURRENT" to index,
+                            "PROGRESS_TOTAL" to totalCount,
+                        ),
+                    )
+                    Log.d(TAG, "手動アップロード開始 ${omoideMemory.name}")
+                    val result =
+                        gdriveUploader.upload(
+                            sourceWorker = WorkManagerTag.Manual,
+                            pendingFile = omoideMemory,
+                        )
+
+                    result.fold(
+                        ifLeft = { error ->
+                            Log.e(TAG, "アップロード失敗: ${error.message}")
+                            if (successResults.isNotEmpty()) {
+                                omoideMemoryRepository.upsert(successResults.map { it.omoideMemory })
+                            }
+                            val pendingCount = totalCount - successResults.size
+                            Log.i(TAG, "処理対象前の UPLOAD_TRIGGERED となっているレコード $pendingCount 件は何もせず次回に回します ")
+                            return@withContext Result.success(
                                 workDataOf(
-                                    "PROGRESS_CURRENT" to index,
-                                    "PROGRESS_TOTAL" to totalCount,
+                                    "PENDING_COUNT" to pendingCount,
                                 ),
                             )
-                            Log.d(TAG, "手動アップロード開始 ${omoideMemory.name}")
-                            gdriveUploader
-                                .upload(
-                                    sourceWorker = WorkManagerTag.Manual,
-                                    pendingFile = omoideMemory,
-                                ).fold(
-                                    ifLeft = { error ->
-                                        OmoideUploadResult.Fail(omoideMemory.id, error).also {
-                                            Log.e(TAG, "アップロード失敗: ${error.message}")
-                                        }
-                                    },
-                                    ifRight = { _ ->
-                                        OmoideUploadResult.Success(omoideMemory = omoideMemory).also {
-                                            successCount++
-                                            Log.i(TAG, "$successCount / $totalCount アップロード試行完了")
-                                        }
-                                    },
-                                )
-                        }
-
-                omoideMemoryRepository.update(results.filterIsInstance<OmoideUploadResult.Success>().map { it.omoideMemory })
-                val failedResults = results.filterIsInstance<OmoideUploadResult.Fail>()
-                if (failedResults.isNotEmpty()) {
-                    Log.e(TAG, "${failedResults.size} 件のアップロードに失敗しました。失敗分を UPLOAD_PENDING に更新")
-                    val failedEntities = omoideMemoryRepository.findBy(failedResults.map { it.omoideMemoryId })
-                    omoideMemoryRepository.update(failedEntities.map { it.triggered() })
+                        },
+                        ifRight = { _ ->
+                            successResults.add(OmoideUploadResult.Success(omoideMemory = omoideMemory))
+                            successCount++
+                            Log.i(TAG, "$successCount / $totalCount アップロード試行完了")
+                        },
+                    )
                 }
 
-                val storageFullCount = failedResults.count { it.error is WorkerExecutionError.StorageFull }
-                val authErrorCount = failedResults.count { it.error is WorkerExecutionError.AuthError }
-                val otherErrorCount = failedResults.size - storageFullCount - authErrorCount
-
+                omoideMemoryRepository.upsert(successResults.map { it.omoideMemory })
                 Result.success(
                     workDataOf(
-                        "PENDING_COUNT" to failedResults.size,
-                        "STORAGE_FULL_COUNT" to storageFullCount,
-                        "AUTH_ERROR_COUNT" to authErrorCount,
-                        "OTHER_ERROR_COUNT" to otherErrorCount,
+                        "PENDING_COUNT" to 0,
                     ),
                 )
             }
