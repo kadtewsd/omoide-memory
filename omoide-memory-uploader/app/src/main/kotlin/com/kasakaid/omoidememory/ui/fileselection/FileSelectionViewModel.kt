@@ -77,9 +77,6 @@ enum class DoneFilter(
 
 data class UploadResultSummary(
     val pendingCount: Int,
-    val storageFullCount: Int,
-    val authErrorCount: Int,
-    val otherErrorCount: Int,
 )
 
 @HiltViewModel
@@ -160,22 +157,16 @@ class FileSelectionViewModel
                             WorkInfo.State.SUCCEEDED -> {
                                 uploadStarted = false
                                 val pendingCount = workInfo.outputData.getInt("PENDING_COUNT", 0)
-                                val storageFullCount = workInfo.outputData.getInt("STORAGE_FULL_COUNT", 0)
-                                val authErrorCount = workInfo.outputData.getInt("AUTH_ERROR_COUNT", 0)
-                                val otherErrorCount = workInfo.outputData.getInt("OTHER_ERROR_COUNT", 0)
                                 uploadResultChannel.send(
                                     UploadResultSummary(
                                         pendingCount = pendingCount,
-                                        storageFullCount = storageFullCount,
-                                        authErrorCount = authErrorCount,
-                                        otherErrorCount = otherErrorCount,
                                     ),
                                 )
                             }
 
                             WorkInfo.State.FAILED, WorkInfo.State.CANCELLED -> {
                                 uploadStarted = false
-                                uploadResultChannel.send(UploadResultSummary(0, 0, 0, 0))
+                                uploadResultChannel.send(UploadResultSummary(0))
                             }
 
                             WorkInfo.State.ENQUEUED, WorkInfo.State.RUNNING, WorkInfo.State.BLOCKED -> {

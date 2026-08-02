@@ -66,8 +66,7 @@ fun FileSelectionRoute(
             if (hasNavigated) return@collect
             hasNavigated = true
             viewModel.clearSelection()
-            val msg = notDeletedIds.takeIf { it.isNotEmpty() }?.let { "${it.size}個のコンテンツがダウンロード前であったので削除されてません。" }
-            toMainScreen(msg)
+            toMainScreen(notDeletedIds.takeIf { it.isNotEmpty() }?.let { "${it.size}個のコンテンツがダウンロード前であったので削除されてません。" })
         }
     }
 
@@ -77,29 +76,13 @@ fun FileSelectionRoute(
             hasNavigated = true
             viewModel.clearSelection()
 
-            if (summary.pendingCount == 0) {
-                toMainScreen(null)
-                return@collect
-            }
-
-            val lines =
-                buildList {
-                    if (summary.storageFullCount > 0) {
-                        add("${summary.storageFullCount} 件のコンテンツが Google Drive のアップロード上限のため失敗")
-                    }
-                    if (summary.authErrorCount > 0) {
-                        add("${summary.authErrorCount} 件のコンテンツが認証エラーでアップロード失敗")
-                    }
-                    if (summary.otherErrorCount > 0) {
-                        add("${summary.otherErrorCount} 件が何らかのエラーでアップロード失敗")
-                    }
-
-                    if (isNotEmpty()) {
-                        add("アップロード対象に設定済みですので再度アップロードしてください")
-                    }
-                }
-
-            toMainScreen(lines.joinToString("\n"))
+            toMainScreen(
+                if (summary.pendingCount > 0) {
+                    "${summary.pendingCount}件のエラーが発生したので再度アップロードしてください"
+                } else {
+                    null
+                },
+            )
         }
     }
 
