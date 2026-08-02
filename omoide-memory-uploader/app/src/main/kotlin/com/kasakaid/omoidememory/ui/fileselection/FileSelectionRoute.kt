@@ -191,10 +191,10 @@ fun PendingFileSelectionRoute(
     FileSelectionRoute(
         viewModel = viewModel,
         title = title,
-        fileUploadState = FileUploadState.UPLOAD_PENDING,
+        fileUploadState = FileUploadState.UPLOAD_TRIGGERED,
         subHeader = {
             SelectionModeRow(
-                fileUploadState = FileUploadState.UPLOAD_PENDING,
+                fileUploadState = FileUploadState.UPLOAD_TRIGGERED,
                 navController = navController,
                 filterDone = true,
             )

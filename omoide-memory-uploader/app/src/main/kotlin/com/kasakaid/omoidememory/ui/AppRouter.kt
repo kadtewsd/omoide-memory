@@ -45,7 +45,7 @@ fun AppRouter() {
                 navController = navController,
             )
         }
-        composable(FileUploadState.UPLOAD_PENDING.route) {
+        composable(FileUploadState.UPLOAD_TRIGGERED.route) {
             PendingFileSelectionRoute(
                 title = "アップロード選択済",
                 onBack = { navController.popBackStack() },

@@ -37,7 +37,7 @@ class LocalFileCleaner
                             // アップロード待ち モードの時はDBにレコードが存在しないため、DB削除は行わずリスト除外のみとします。
                         }
 
-                        FileUploadState.UPLOAD_PENDING, FileUploadState.UPLOAD_EXCLUDED, FileUploadState.UPLOAD_DONE -> {
+                        FileUploadState.UPLOAD_TRIGGERED, FileUploadState.UPLOAD_EXCLUDED, FileUploadState.UPLOAD_DONE -> {
                             localFileRepository.delete(missing.map { it.id })
                         }
                     }

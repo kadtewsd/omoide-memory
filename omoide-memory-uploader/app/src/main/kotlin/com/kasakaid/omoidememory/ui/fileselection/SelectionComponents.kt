@@ -38,6 +38,7 @@ import coil.decode.VideoFrameDecoder
 import com.kasakaid.omoidememory.data.OmoideMemory
 import com.kasakaid.omoidememory.data.isOverLimit
 import com.kasakaid.omoidememory.data.totalSize
+import com.kasakaid.omoidememory.extension.navigate
 import com.kasakaid.omoidememory.ui.AppBarWithBackIcon
 import com.kasakaid.omoidememory.ui.MySwitch
 import com.kasakaid.omoidememory.ui.OnOff
@@ -178,7 +179,7 @@ fun SelectionModeRow(
                     RadioButton(
                         selected = fileUploadState == mode,
                         onClick = {
-                            navController?.let { mode.navigate(navController = it, currentRoute = fileUploadState.route) }
+                            navController?.navigate(state = mode, currentRoute = fileUploadState.route)
                         },
                     )
                     Text(
@@ -186,7 +187,7 @@ fun SelectionModeRow(
                         style = MaterialTheme.typography.bodySmall,
                         modifier =
                             Modifier.clickable {
-                                navController?.let { mode.navigate(navController = it, currentRoute = fileUploadState.route) }
+                                navController?.navigate(state = mode, currentRoute = fileUploadState.route)
                             },
                     )
                 }

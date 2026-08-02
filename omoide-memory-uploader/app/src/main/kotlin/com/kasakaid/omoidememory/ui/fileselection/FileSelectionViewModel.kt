@@ -56,9 +56,9 @@ enum class FileUploadState(
         targetStates = emptyList(),
         route = "selection",
     ),
-    UPLOAD_PENDING(
+    UPLOAD_TRIGGERED(
         label = "アップロード選択済",
-        targetStates = listOf(UploadState.UPLOAD_PENDING),
+        targetStates = listOf(UploadState.UPLOAD_TRIGGERED),
         route = "pending",
     ),
     UPLOAD_EXCLUDED(
@@ -71,18 +71,6 @@ enum class FileUploadState(
         targetStates = listOf(UploadState.DONE, UploadState.DRIVE_DELETED),
         route = "uploaded_maintenance",
     ),
-    ;
-
-    fun navigate(
-        navController: androidx.navigation.NavController,
-        currentRoute: String,
-    ) {
-        if (route != currentRoute) {
-            navController.navigate(route) {
-                popUpTo(currentRoute) { inclusive = true }
-            }
-        }
-    }
 }
 
 enum class DoneFilter(
@@ -233,7 +221,7 @@ class FileSelectionViewModel
                                 }.scan(emptyList()) { acc, value -> acc + value }
                         }
 
-                        FileUploadState.UPLOAD_PENDING -> {
+                        FileUploadState.UPLOAD_TRIGGERED -> {
                             omoideMemoryRepository
                                 .findByAsFlow(mode.targetStates)
                                 .onEach { files ->

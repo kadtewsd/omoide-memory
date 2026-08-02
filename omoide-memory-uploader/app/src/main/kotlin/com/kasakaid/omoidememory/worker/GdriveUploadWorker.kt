@@ -4,7 +4,6 @@ import android.content.Context
 import android.util.Log
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
-import androidx.work.WorkManager.UpdateResult
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.kasakaid.omoidememory.data.OmoideMemory
@@ -97,7 +96,7 @@ class GdriveUploadWorker
                 if (failedResults.isNotEmpty()) {
                     Log.e(TAG, "${failedResults.size} 件のアップロードに失敗しました。失敗分を UPLOAD_PENDING に更新")
                     val failedEntities = omoideMemoryRepository.findBy(failedResults.map { it.omoideMemoryId })
-                    omoideMemoryRepository.update(failedEntities.map { it.pending() })
+                    omoideMemoryRepository.update(failedEntities.map { it.triggered() })
                 }
 
                 val storageFullCount = failedResults.count { it.error is WorkerExecutionError.StorageFull }
