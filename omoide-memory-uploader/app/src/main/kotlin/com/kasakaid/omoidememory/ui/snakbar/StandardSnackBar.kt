@@ -26,7 +26,7 @@ import androidx.compose.ui.unit.dp
  * なにかを表示するためのスナックバー
  */
 @Composable
-fun StandardSnakbar(
+fun StandardSnackBar(
     message: String?,
     onDismiss: () -> Unit,
     delayTime: DelayAndStep =
@@ -45,12 +45,13 @@ fun StandardSnakbar(
             showMessage = true
             alpha = 1f
             try {
-//                delay(delayTime)
+                kotlinx.coroutines.delay(delayTime.durationMillis.toLong())
                 val anim = Animatable(1f)
                 anim.animateTo(
                     targetValue = 0f,
-//                    animationSpec = tween(durationMillis = 2000),
-                    animationSpec = createFadeOutSpec(delayTime),
+                    animationSpec =
+                        androidx.compose.animation.core
+                            .tween(durationMillis = 1000),
                 ) {
                     alpha = value
                 }

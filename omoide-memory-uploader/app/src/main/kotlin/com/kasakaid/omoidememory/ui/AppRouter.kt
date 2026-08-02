@@ -6,6 +6,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.kasakaid.omoidememory.extension.popBackStackWithSnackMessage
 import com.kasakaid.omoidememory.ui.fileselection.DoneFileSelectionRoute
 import com.kasakaid.omoidememory.ui.fileselection.ExcludedFileSelectionRoute
 import com.kasakaid.omoidememory.ui.fileselection.FileUploadState
@@ -28,11 +29,11 @@ fun AppRouter() {
     ) {
         composable("main") { backStackEntry ->
             val savedStateHandle = backStackEntry.savedStateHandle
-            val skippedIdsState = savedStateHandle.getStateFlow<List<Long>?>("skipped_ids", null).collectAsState()
+            val snackMessageState = savedStateHandle.getStateFlow<String?>("snack_message", null).collectAsState()
 
             MainScreen(
-                skippedIds = skippedIdsState.value,
-                onClearSkippedIds = { savedStateHandle.set<List<Long>?>("skipped_ids", null) },
+                snackMessage = snackMessageState.value,
+                onClearSnackMessage = { savedStateHandle.set<String?>("snack_message", null) },
                 onNavigateToSelection = { navController.navigate(FileUploadState.WAITING_FOR_UPLOAD.route) },
                 onNavigateToResume = { navController.navigate("pending") },
                 onNavigateToMaintenance = { navController.navigate("maintenance") },
@@ -42,7 +43,7 @@ fun AppRouter() {
         composable(FileUploadState.WAITING_FOR_UPLOAD.route) {
             TargetFileSelectionRoute(
                 title = "アップロードする写真を選択",
-                onBack = { navController.popBackStack() },
+                onBack = { message -> navController.popBackStackWithSnackMessage(message) },
                 navController = navController,
             )
         }
@@ -54,17 +55,14 @@ fun AppRouter() {
         composable(FileUploadState.UPLOAD_EXCLUDED.route) {
             ExcludedFileSelectionRoute(
                 title = "除外した写真",
-                onBack = { navController.popBackStack() },
+                onBack = { message -> navController.popBackStackWithSnackMessage(message) },
                 navController = navController,
             )
         }
         composable(FileUploadState.UPLOAD_DONE.route) {
             DoneFileSelectionRoute(
                 title = "アップロード済みの写真",
-                onBack = { skippedIds ->
-                    navController.previousBackStackEntry?.savedStateHandle?.set("skipped_ids", skippedIds)
-                    navController.popBackStack()
-                },
+                onBack = { message -> navController.popBackStackWithSnackMessage(message) },
             )
         }
         composable("maintenance") {

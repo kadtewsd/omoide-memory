@@ -73,19 +73,16 @@ class GoogleDriveService
                     return@withContext uploadedFile.id
                 } catch (e: Exception) {
                     val isRateLimit = e is GoogleJsonResponseException && e.statusCode == 429
-
-                    if (attempt < maxAttempts) {
-                        val waitTime = if (isRateLimit) 5000L * attempt else 2000L * attempt
-                        Log.w("Drive", "Attempt $attempt failed. Retrying in ${waitTime}ms... Error: ${e.message}")
-
-                        delay(waitTime)
+                    if (isRateLimit && attempt < maxAttempts) {
+                        Log.w("Drive", "Attempt $attempt failed. Retrying in ${5000L * attempt}ms... Error: ${e.message}")
+                        delay(5000L * attempt)
                         return@withContext uploadFile(
                             omoideMemory = omoideMemory,
                             attempt =
                                 attempt + 1,
                         )
                     } else {
-                        Log.e("Drive", "All attempts failed for ${omoideMemory.name}", e)
+                        Log.e("Drive", "Upload failed permanently or max attempts reached for ${omoideMemory.name}", e)
                         throw e
                     }
                 }
