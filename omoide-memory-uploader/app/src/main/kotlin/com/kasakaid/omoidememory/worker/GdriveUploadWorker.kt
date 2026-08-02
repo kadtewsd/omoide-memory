@@ -49,8 +49,8 @@ class GdriveUploadWorker
         override suspend fun doWork(): Result {
             setForeground(appContext.createForegroundInfo("ManualUpload"))
             return withContext(Dispatchers.IO) {
-                // READY のものを DB から取得
-                val targets = omoideMemoryRepository.findBy(UploadState.READY)
+                // UPLOAD_TRIGGERED のものを DB から取得
+                val targets = omoideMemoryRepository.findBy(UploadState.UPLOAD_TRIGGERED)
 
                 if (targets.isEmpty()) {
                     Log.d(TAG, "アップロード対象がありません")

@@ -23,11 +23,6 @@ class OmoideMemory(
     @androidx.room.ColumnInfo(defaultValue = "DONE")
     var state: UploadState = UploadState.DONE,
 ) {
-    fun ready(): OmoideMemory =
-        apply {
-            this.state = UploadState.READY
-        }
-
     fun triggered(): OmoideMemory =
         apply {
             this.state = UploadState.UPLOAD_TRIGGERED
@@ -60,7 +55,6 @@ fun List<OmoideMemory>.isOverLimit(): Boolean = totalSize() > OmoideMemory.UPLOA
 enum class UploadState(
     override val label: String,
 ) : EnumWithLabel {
-    READY("アップロード待ち"),
     UPLOADING("実行中"),
     DONE("完了"),
     FAILED("失敗"),
