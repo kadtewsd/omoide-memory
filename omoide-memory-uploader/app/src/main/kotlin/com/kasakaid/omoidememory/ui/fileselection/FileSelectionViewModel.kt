@@ -56,11 +56,6 @@ enum class FileUploadState(
         targetStates = emptyList(),
         route = "selection",
     ),
-    UPLOAD_PENDING(
-        label = "アップロード選択済",
-        targetStates = listOf(UploadState.UPLOAD_PENDING),
-        route = "pending",
-    ),
     UPLOAD_EXCLUDED(
         label = "除外",
         targetStates = listOf(UploadState.EXCLUDED),
@@ -71,18 +66,6 @@ enum class FileUploadState(
         targetStates = listOf(UploadState.DONE, UploadState.DRIVE_DELETED),
         route = "uploaded_maintenance",
     ),
-    ;
-
-    fun navigate(
-        navController: androidx.navigation.NavController,
-        currentRoute: String,
-    ) {
-        if (route != currentRoute) {
-            navController.navigate(route) {
-                popUpTo(currentRoute) { inclusive = true }
-            }
-        }
-    }
 }
 
 enum class DoneFilter(
@@ -233,18 +216,6 @@ class FileSelectionViewModel
                                 }.scan(emptyList()) { acc, value -> acc + value }
                         }
 
-                        FileUploadState.UPLOAD_PENDING -> {
-                            omoideMemoryRepository
-                                .findByAsFlow(mode.targetStates)
-                                .onEach { files ->
-                                    files.forEach { file ->
-                                        if (selectedIds[file.id] == null) {
-                                            selectedIds[file.id] = true
-                                        }
-                                    }
-                                }
-                        }
-
                         FileUploadState.UPLOAD_EXCLUDED -> {
                             omoideMemoryRepository.findByAsFlow(mode.targetStates)
                         }
@@ -338,13 +309,6 @@ class FileSelectionViewModel
                     omoideMemoryRepository.upsert(targets)
                     selectedIds.clear()
                 }
-            }
-        }
-
-        fun unpending(ids: List<Long>) {
-            viewModelScope.launch {
-                omoideMemoryRepository.delete(ids)
-                selectedIds.clear()
             }
         }
 

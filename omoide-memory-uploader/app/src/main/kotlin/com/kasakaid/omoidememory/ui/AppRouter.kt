@@ -9,8 +9,8 @@ import androidx.navigation.navArgument
 import com.kasakaid.omoidememory.ui.fileselection.DoneFileSelectionRoute
 import com.kasakaid.omoidememory.ui.fileselection.ExcludedFileSelectionRoute
 import com.kasakaid.omoidememory.ui.fileselection.FileUploadState
-import com.kasakaid.omoidememory.ui.fileselection.PendingFileSelectionRoute
 import com.kasakaid.omoidememory.ui.fileselection.TargetFileSelectionRoute
+import com.kasakaid.omoidememory.ui.fileselection.upoadtriggered.UploadTriggeredSelectionRoute
 import com.kasakaid.omoidememory.ui.maintenance.CrashDetailScreen
 import com.kasakaid.omoidememory.ui.maintenance.CrashReportViewerScreen
 import com.kasakaid.omoidememory.ui.maintenance.DbMaintenanceScreen
@@ -34,6 +34,7 @@ fun AppRouter() {
                 skippedIds = skippedIdsState.value,
                 onClearSkippedIds = { savedStateHandle.set<List<Long>?>("skipped_ids", null) },
                 onNavigateToSelection = { navController.navigate(FileUploadState.WAITING_FOR_UPLOAD.route) },
+                onNavigateToResume = { navController.navigate("pending") },
                 onNavigateToMaintenance = { navController.navigate("maintenance") },
                 onNavigateToUploadedMaintenance = { navController.navigate(FileUploadState.UPLOAD_DONE.route) },
             )
@@ -45,11 +46,9 @@ fun AppRouter() {
                 navController = navController,
             )
         }
-        composable(FileUploadState.UPLOAD_PENDING.route) {
-            PendingFileSelectionRoute(
-                title = "アップロード選択済",
+        composable("pending") {
+            UploadTriggeredSelectionRoute(
                 onBack = { navController.popBackStack() },
-                navController = navController,
             )
         }
         composable(FileUploadState.UPLOAD_EXCLUDED.route) {

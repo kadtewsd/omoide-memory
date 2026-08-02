@@ -8,9 +8,12 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import com.kasakaid.omoidememory.data.OmoideMemoryRepository
 import com.kasakaid.omoidememory.data.OmoideUploadPrefsRepository
+import com.kasakaid.omoidememory.data.UploadState
 import com.kasakaid.omoidememory.data.WifiRepository
 import com.kasakaid.omoidememory.data.WifiSetting
+import com.kasakaid.omoidememory.extension.WorkManagerExtension.enqueueWManualUpload
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeProgressByManual
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeUploadingStateByManualTag
 import com.kasakaid.omoidememory.worker.AutoGDriveUploadWorker
@@ -29,6 +32,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -54,6 +58,7 @@ class MainViewModel
         application: Application,
         private val wifiRepository: WifiRepository,
         private val omoideUploadPrefsRepository: OmoideUploadPrefsRepository,
+        private val omoideMemoryRepository: OmoideMemoryRepository,
     ) : ViewModel() {
         // 一旦、自動アップロード機能は利用しないため false 固定とする。
         // 将来的な参照のためにコードは残しておくが、初期値は常に false。
@@ -193,6 +198,16 @@ class MainViewModel
             omoideUploadPrefsRepository.saveSecureWifiSsid(ssid)
         }
 
+        val isResumeEnabled: StateFlow<Boolean> =
+            omoideMemoryRepository
+                .findByAsFlow(UploadState.UPLOAD_TRIGGERED)
+                .map { it.isNotEmpty() }
+                .stateIn(
+                    scope = viewModelScope,
+                    started = SharingStarted.WhileSubscribed(5000),
+                    initialValue = false,
+                )
+
         private val workManager = WorkManager.getInstance(application)
         val isUploading: StateFlow<Boolean> =
             workManager.observeUploadingStateByManualTag(
@@ -202,6 +217,12 @@ class MainViewModel
             workManager.observeProgressByManual(
                 viewModelScope = viewModelScope,
             )
+
+        fun resumeUpload() {
+            viewModelScope.launch {
+                workManager.enqueueWManualUpload()
+            }
+        }
 
         fun toggleAutoUpload(enabled: Boolean) {
             // 自動アップロードは現在利用しないため、常に無効化する。

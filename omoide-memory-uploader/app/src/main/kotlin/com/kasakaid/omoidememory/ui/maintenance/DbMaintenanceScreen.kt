@@ -25,8 +25,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -48,7 +46,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.kasakaid.omoidememory.data.OmoideMemory
 import com.kasakaid.omoidememory.data.UploadState
 import com.kasakaid.omoidememory.ui.AppRowBarWithBackIcon
 import com.kasakaid.omoidememory.ui.EnumDropdown
@@ -312,7 +309,7 @@ private fun StateLabel(
 
             // Gray
 
-            UploadState.UPLOAD_PENDING -> Color(0xFF9C27B0) // Purple
+            UploadState.UPLOAD_TRIGGERED -> Color(0xFF9C27B0) // Purple
         }
 
     Surface(

@@ -176,56 +176,6 @@ fun ExcludedFileSelectionRoute(
 }
 
 /**
- * アップロード保留・再開画面のファサードコンポーネント。
- * 保留されたファイルの一覧を表示し、再実行（アップロード再開）や選択解除を行う。
- */
-@Composable
-fun PendingFileSelectionRoute(
-    title: String,
-    onBack: () -> Unit,
-    navController: androidx.navigation.NavController,
-    viewModel: FileSelectionViewModel = hiltViewModel(),
-) {
-    val isProcessing by viewModel.isProcessing.collectAsState()
-
-    FileSelectionRoute(
-        viewModel = viewModel,
-        title = title,
-        fileUploadState = FileUploadState.UPLOAD_PENDING,
-        subHeader = {
-            SelectionModeRow(
-                fileUploadState = FileUploadState.UPLOAD_PENDING,
-                navController = navController,
-                filterDone = true,
-            )
-        },
-        bottomBarAction = { selectedFiles ->
-            StandardFileSelection(selectedFiles = selectedFiles) {
-                Button(
-                    onClick = { viewModel.startManualUpload(selectedFiles.map { it.id }) },
-                    modifier = Modifier.weight(1f),
-                    enabled = !isProcessing && selectedFiles.isNotEmpty(),
-                ) {
-                    Text("再実行")
-                }
-                Button(
-                    onClick = { viewModel.unpending(selectedFiles.map { it.id }) },
-                    modifier = Modifier.weight(1f),
-                    enabled = !isProcessing && selectedFiles.isNotEmpty(),
-                    colors =
-                        ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.secondary,
-                        ),
-                ) {
-                    Text("解除")
-                }
-            }
-        },
-        toMainScreen = { onBack() },
-    )
-}
-
-/**
  * アップロード済みファイルのメンテナンス画面のファサードコンポーネント。
  * アップロード済みのファイルを一覧表示し、ドライブからの削除などを行うことができる。
  * AppRouter の記述をシンプルに保つため、内部でサブヘッダーやアクション行のロジックを保持する。
