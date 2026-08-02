@@ -83,10 +83,11 @@ class GdriveUploader
                 Log.e(tag, "Auth Error: ${e.message}")
                 WorkerExecutionError.AuthError(e.message ?: "SecurityException during upload").left()
             } catch (e: GoogleJsonResponseException) {
-                Log.e(tag, "GoogleJsonResponseException (${e.statusCode}): ${e.message}")
+                Log.e(tag, "${pendingFile.name} GoogleJsonResponseException (${e.statusCode}): ${e.message}")
                 when (e.statusCode) {
                     507 -> WorkerExecutionError.StorageFull(e.message ?: "Storage full").left()
                     401 -> WorkerExecutionError.AuthError(e.message ?: "Auth error").left()
+                    429 -> WorkerExecutionError.TooMuchRequest(e.message ?: "リクエスト回数のオーバー").left()
                     else -> WorkerExecutionError.UploadFailed(e.message ?: "Upload failed").left()
                 }
             } catch (e: Exception) {

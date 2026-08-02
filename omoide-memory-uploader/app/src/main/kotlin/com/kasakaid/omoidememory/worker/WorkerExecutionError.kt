@@ -21,4 +21,8 @@ sealed interface WorkerExecutionError {
     class StorageFull(
         override val message: String,
     ) : WorkerExecutionError
+
+    data class TooMuchRequest(
+        override val message: String,
+    ) : WorkerExecutionError
 }
