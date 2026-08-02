@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.kasakaid.omoidememory.data.OmoideMemory
 import com.kasakaid.omoidememory.data.UploadState
+import com.kasakaid.omoidememory.ui.snakbar.StandardSnackBar
 
 @Composable
 fun FileSelectionRoute(
@@ -122,7 +123,7 @@ fun FileSelectionRoute(
         onCancelDelete = { viewModel.cancelDelete() },
     )
 
-    com.kasakaid.omoidememory.ui.snakbar.StandardSnakbar(
+    StandardSnackBar(
         message = pendingMessage,
         onDismiss = {
             pendingMessage = null

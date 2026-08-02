@@ -26,7 +26,7 @@ import androidx.compose.ui.unit.dp
  * なにかを表示するためのスナックバー
  */
 @Composable
-fun StandardSnakbar(
+fun StandardSnackBar(
     message: String?,
     onDismiss: () -> Unit,
     delayTime: DelayAndStep =
