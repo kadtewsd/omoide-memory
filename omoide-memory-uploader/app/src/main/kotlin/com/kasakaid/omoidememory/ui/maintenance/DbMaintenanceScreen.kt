@@ -288,9 +288,6 @@ private fun StateLabel(
 ) {
     val color =
         when (state) {
-            UploadState.READY -> Color(0xFF2196F3)
-
-            // Blue
             UploadState.UPLOADING -> Color(0xFFFF9800)
 
             // Orange

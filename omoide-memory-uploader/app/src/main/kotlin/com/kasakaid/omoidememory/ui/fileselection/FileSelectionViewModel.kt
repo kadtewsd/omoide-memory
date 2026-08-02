@@ -282,7 +282,7 @@ class FileSelectionViewModel
                 val targets =
                     pendingFiles.value
                         .filter { it.id in idSet }
-                        .map { it.ready() }
+                        .map { it.triggered() }
                 if (targets.isNotEmpty()) {
                     uploadStarted = true
                     omoideMemoryRepository.upsert(targets)
