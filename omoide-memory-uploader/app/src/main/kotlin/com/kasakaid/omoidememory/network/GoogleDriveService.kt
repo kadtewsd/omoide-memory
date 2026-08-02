@@ -30,7 +30,8 @@ class GoogleDriveService
         omoideUploadPrefsRepository: OmoideUploadPrefsRepository,
         private val metadataProvider: DriveMetadataProvider,
     ) {
-        private val accountName: String = omoideUploadPrefsRepository.getAccountName() ?: throw SecurityException("共有したいフォルダを持つアカウントでログインしてください")
+        private val accountName: String =
+            omoideUploadPrefsRepository.getAccountName() ?: throw SecurityException("共有したいフォルダを持つアカウントでログインしてください")
         private val service: Drive =
             run {
                 val credentials =
@@ -50,42 +51,22 @@ class GoogleDriveService
         /**
          * ファイルをアップロードします
          */
-        suspend fun uploadFile(
-            omoideMemory: OmoideMemory,
-            attempt: Int = 1,
-        ): String? =
+        suspend fun uploadFile(omoideMemory: OmoideMemory): String? =
             withContext(Dispatchers.IO) {
-                val maxAttempts = 3
-                try {
-                    // 1. ファイル本体のアップロード
-                    val uploadedFile =
-                        service
-                            .files()
-                            .create(
-                                metadataProvider.createMetadata(omoideMemory),
-                                FileContent(omoideMemory.mimeType, File(omoideMemory.filePath)),
-                            ).setFields("id")
-                            .execute()
+                // 1. ファイル本体のアップロード
+                val uploadedFile =
+                    service
+                        .files()
+                        .create(
+                            metadataProvider.createMetadata(omoideMemory),
+                            FileContent(omoideMemory.mimeType, File(omoideMemory.filePath)),
+                        ).setFields("id")
+                        .execute()
 
-                    if (uploadedFile?.id == null) throw IOException("Upload failed: ID is null")
-                    // 全工程成功。次のファイル処理のために少し待機
-                    delay(800)
-                    return@withContext uploadedFile.id
-                } catch (e: Exception) {
-                    val isRateLimit = e is GoogleJsonResponseException && e.statusCode == 429
-                    if (isRateLimit && attempt < maxAttempts) {
-                        Log.w("Drive", "Attempt $attempt failed. Retrying in ${5000L * attempt}ms... Error: ${e.message}")
-                        delay(5000L * attempt)
-                        return@withContext uploadFile(
-                            omoideMemory = omoideMemory,
-                            attempt =
-                                attempt + 1,
-                        )
-                    } else {
-                        Log.e("Drive", "Upload failed permanently or max attempts reached for ${omoideMemory.name}", e)
-                        throw e
-                    }
-                }
+                if (uploadedFile?.id == null) throw IOException("Upload failed: ID is null")
+                // 全工程成功。次のファイル処理のために少し待機
+                delay(800)
+                return@withContext uploadedFile.id
             }
 
         private class DeleteCandidate(
