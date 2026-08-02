@@ -103,28 +103,14 @@ fun FileSelectionScreen(
 
             Spacer(Modifier.size(1.dp))
 
-            LazyVerticalGrid(
-                columns = GridCells.Adaptive(100.dp),
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(8.dp),
-                contentPadding = PaddingValues(4.dp),
-            ) {
-                items(
-                    items = pendingFiles,
-                    key = { it.id },
-                ) { item ->
-                    FileItemCard(
-                        item = item,
-                        imageLoader = imageLoader,
-                        isSelected = selectedIds[item.id] ?: false,
-                        isSelectable = isSelectable(item),
-                        onToggle = { onToggle(item.id) },
-                        onPreview = { previewingItem = item },
-                    )
-                }
-            }
+            FileGrid(
+                files = pendingFiles,
+                imageLoader = imageLoader,
+                selectedIds = selectedIds,
+                onToggle = onToggle,
+                isSelectable = isSelectable,
+                onPreview = { previewingItem = it },
+            )
         }
     }
     if (isUploading) {
@@ -140,6 +126,40 @@ fun FileSelectionScreen(
             label = "削除中...",
             onCancel = onCancelDelete,
         )
+    }
+}
+
+@Composable
+fun FileGrid(
+    files: List<OmoideMemory>,
+    imageLoader: ImageLoader,
+    selectedIds: Map<Long, Boolean> = emptyMap(),
+    onToggle: (Long) -> Unit = {},
+    isSelectable: (OmoideMemory) -> Boolean = { false },
+    onPreview: (OmoideMemory) -> Unit = {},
+    modifier: Modifier = Modifier,
+) {
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(100.dp),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .padding(8.dp),
+        contentPadding = PaddingValues(4.dp),
+    ) {
+        items(
+            items = files,
+            key = { it.id },
+        ) { item ->
+            FileItemCard(
+                item = item,
+                imageLoader = imageLoader,
+                isSelected = selectedIds[item.id] ?: false,
+                isSelectable = isSelectable(item),
+                onToggle = { onToggle(item.id) },
+                onPreview = { onPreview(item) },
+            )
+        }
     }
 }
 

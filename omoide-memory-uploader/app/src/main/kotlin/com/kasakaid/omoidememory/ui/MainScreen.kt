@@ -52,6 +52,7 @@ fun MainScreen(
     onClearSkippedIds: () -> Unit = {},
     onNavigateToMaintenance: () -> Unit,
     onNavigateToSelection: () -> Unit,
+    onNavigateToResume: () -> Unit = {},
     onNavigateToUploadedMaintenance: () -> Unit,
 ) {
     val uploadCondition by viewModel.uploadCondition.collectAsState()
@@ -210,6 +211,28 @@ fun MainScreen(
                 condition = uploadCondition,
                 onNavigateToContentSelection = onNavigateToSelection,
             )
+
+            // Resume Upload Card
+            val isResumeEnabled by viewModel.isResumeEnabled.collectAsState()
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("アップロード再開", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        text = "アップロードした時に Google Drive からエラーが返されてきたコンテンツの再アップロードをします。",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
+                    )
+                    Button(
+                        onClick = onNavigateToResume,
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = uploadCondition.canUpload && isResumeEnabled,
+                    ) {
+                        Text("アップロード再開")
+                    }
+                }
+            }
 
             // Uploaded Content Maintenance
             UploadedContentRoute(

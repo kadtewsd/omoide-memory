@@ -56,11 +56,6 @@ enum class FileUploadState(
         targetStates = emptyList(),
         route = "selection",
     ),
-    UPLOAD_TRIGGERED(
-        label = "アップロード選択済",
-        targetStates = listOf(UploadState.UPLOAD_TRIGGERED),
-        route = "pending",
-    ),
     UPLOAD_EXCLUDED(
         label = "除外",
         targetStates = listOf(UploadState.EXCLUDED),
@@ -221,18 +216,6 @@ class FileSelectionViewModel
                                 }.scan(emptyList()) { acc, value -> acc + value }
                         }
 
-                        FileUploadState.UPLOAD_TRIGGERED -> {
-                            omoideMemoryRepository
-                                .findByAsFlow(mode.targetStates)
-                                .onEach { files ->
-                                    files.forEach { file ->
-                                        if (selectedIds[file.id] == null) {
-                                            selectedIds[file.id] = true
-                                        }
-                                    }
-                                }
-                        }
-
                         FileUploadState.UPLOAD_EXCLUDED -> {
                             omoideMemoryRepository.findByAsFlow(mode.targetStates)
                         }
@@ -326,13 +309,6 @@ class FileSelectionViewModel
                     omoideMemoryRepository.upsert(targets)
                     selectedIds.clear()
                 }
-            }
-        }
-
-        fun unpending(ids: List<Long>) {
-            viewModelScope.launch {
-                omoideMemoryRepository.delete(ids)
-                selectedIds.clear()
             }
         }
 
