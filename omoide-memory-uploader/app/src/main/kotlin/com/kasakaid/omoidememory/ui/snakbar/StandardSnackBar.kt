@@ -45,12 +45,13 @@ fun StandardSnackBar(
             showMessage = true
             alpha = 1f
             try {
-//                delay(delayTime)
+                kotlinx.coroutines.delay(delayTime.durationMillis.toLong())
                 val anim = Animatable(1f)
                 anim.animateTo(
                     targetValue = 0f,
-//                    animationSpec = tween(durationMillis = 2000),
-                    animationSpec = createFadeOutSpec(delayTime),
+                    animationSpec =
+                        androidx.compose.animation.core
+                            .tween(durationMillis = 1000),
                 ) {
                     alpha = value
                 }

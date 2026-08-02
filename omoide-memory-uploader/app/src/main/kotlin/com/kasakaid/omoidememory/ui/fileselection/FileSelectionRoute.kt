@@ -25,7 +25,7 @@ fun FileSelectionRoute(
     fileUploadState: FileUploadState,
     subHeader: @Composable ColumnScope.() -> Unit = {},
     bottomBarAction: @Composable (selectedFiles: List<OmoideMemory>) -> Unit,
-    toMainScreen: (List<Long>) -> Unit,
+    toMainScreen: (String?) -> Unit,
 ) {
     LaunchedEffect(fileUploadState) {
         viewModel.initMode(fileUploadState)
@@ -59,45 +59,58 @@ fun FileSelectionRoute(
         }
     }
 
+    var hasNavigated by remember { mutableStateOf(false) }
+
     LaunchedEffect(Unit) {
         viewModel.deleteResultEvent.collect { notDeletedIds ->
+            if (hasNavigated) return@collect
+            hasNavigated = true
             viewModel.clearSelection()
-            toMainScreen(notDeletedIds)
+            val msg = notDeletedIds.takeIf { it.isNotEmpty() }?.let { "${it.size}個のコンテンツがダウンロード前であったので削除されてません。" }
+            toMainScreen(msg)
         }
     }
 
-    var pendingMessage by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) {
         viewModel.uploadResultEvent.collect { summary ->
-            if (summary.pendingCount > 0) {
-                val lines = mutableListOf<String>()
-                if (summary.storageFullCount > 0) {
-                    lines.add("${summary.storageFullCount} 件のコンテンツが Google Drive のアップロード上限のため失敗")
-                }
-                if (summary.authErrorCount > 0) {
-                    lines.add("${summary.authErrorCount} 件のコンテンツが認証エラーでアップロード失敗")
-                }
-                if (summary.otherErrorCount > 0) {
-                    lines.add("${summary.otherErrorCount} 件が何らかのエラーでアップロード失敗")
+            if (hasNavigated) return@collect
+            hasNavigated = true
+            viewModel.clearSelection()
+
+            if (summary.pendingCount == 0) {
+                toMainScreen(null)
+                return@collect
+            }
+
+            val lines =
+                buildList {
+                    if (summary.storageFullCount > 0) {
+                        add("${summary.storageFullCount} 件のコンテンツが Google Drive のアップロード上限のため失敗")
+                    }
+                    if (summary.authErrorCount > 0) {
+                        add("${summary.authErrorCount} 件のコンテンツが認証エラーでアップロード失敗")
+                    }
+                    if (summary.otherErrorCount > 0) {
+                        add("${summary.otherErrorCount} 件が何らかのエラーでアップロード失敗")
+                    }
+
+                    if (isNotEmpty()) {
+                        add("アップロード対象に設定済みですので再度アップロードしてください")
+                    }
                 }
 
-                if (lines.isNotEmpty()) {
-                    lines.add("アップロード対象に設定済みですので再度アップロードしてください")
-                }
-                pendingMessage = lines.joinToString("\n")
-            } else {
-                viewModel.clearSelection()
-                toMainScreen(emptyList())
-            }
+            toMainScreen(lines.joinToString("\n"))
         }
     }
 
     var hasStartedProcessing by remember { mutableStateOf(false) }
     LaunchedEffect(isProcessing) {
         if (!isProcessing && hasStartedProcessing && fileUploadState != FileUploadState.UPLOAD_DONE) {
+            if (hasNavigated) return@LaunchedEffect
+            hasNavigated = true
             // サーバーサイドの重たい処理が終わったのでコールバック的に画面の選択状態を解除
             viewModel.clearSelection()
-            toMainScreen(emptyList())
+            toMainScreen(null)
         }
         if (isProcessing) {
             hasStartedProcessing = true
@@ -106,7 +119,7 @@ fun FileSelectionRoute(
 
     FileSelectionScreen(
         title = title,
-        onBack = { toMainScreen(emptyList()) },
+        onBack = { toMainScreen(null) },
         subHeader = subHeader,
         bottomBarAction = bottomBarAction,
         pendingFiles = pendingFiles,
@@ -122,15 +135,6 @@ fun FileSelectionRoute(
         deleteProgress = deleteProgress,
         onCancelDelete = { viewModel.cancelDelete() },
     )
-
-    StandardSnackBar(
-        message = pendingMessage,
-        onDismiss = {
-            pendingMessage = null
-            viewModel.clearSelection()
-            toMainScreen(emptyList())
-        },
-    )
 }
 
 /**
@@ -144,7 +148,7 @@ fun FileSelectionRoute(
 @Composable
 fun ExcludedFileSelectionRoute(
     title: String,
-    onBack: () -> Unit,
+    onBack: (String?) -> Unit,
     navController: androidx.navigation.NavController,
     viewModel: FileSelectionViewModel = hiltViewModel(),
 ) {
@@ -172,7 +176,7 @@ fun ExcludedFileSelectionRoute(
                 }
             }
         },
-        toMainScreen = { onBack() },
+        toMainScreen = { onBack(it) },
     )
 }
 
@@ -187,7 +191,7 @@ fun ExcludedFileSelectionRoute(
 @Composable
 fun DoneFileSelectionRoute(
     title: String,
-    onBack: (List<Long>) -> Unit,
+    onBack: (String?) -> Unit,
     viewModel: FileSelectionViewModel = hiltViewModel(),
 ) {
     val isProcessing by viewModel.isProcessing.collectAsState()
@@ -242,7 +246,7 @@ fun DoneFileSelectionRoute(
 @Composable
 fun TargetFileSelectionRoute(
     title: String,
-    onBack: () -> Unit,
+    onBack: (String?) -> Unit,
     navController: androidx.navigation.NavController,
     viewModel: FileSelectionViewModel = hiltViewModel(),
 ) {
@@ -281,6 +285,6 @@ fun TargetFileSelectionRoute(
                 }
             }
         },
-        toMainScreen = { onBack() },
+        toMainScreen = { onBack(it) },
     )
 }

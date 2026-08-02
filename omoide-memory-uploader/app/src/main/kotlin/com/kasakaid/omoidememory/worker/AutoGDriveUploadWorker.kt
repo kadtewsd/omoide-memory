@@ -87,11 +87,11 @@ class AutoGDriveUploadWorker
                     } else if (uploadResult.isEmpty()) {
                         Result.success()
                     } else {
-                        Result.retry()
+                        Result.failure()
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "例外が発生", e)
-                    return@withContext Result.retry()
+                    return@withContext Result.failure()
                 }
             }
     }

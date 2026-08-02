@@ -42,8 +42,8 @@ fun isWifiPermissionGranted(state: GrantPermissionState): Boolean = state is Gra
 @Composable
 fun MainScreen(
     viewModel: MainViewModel = hiltViewModel(),
-    skippedIds: List<Long>? = null,
-    onClearSkippedIds: () -> Unit = {},
+    snackMessage: String? = null,
+    onClearSnackMessage: () -> Unit = {},
     onNavigateToMaintenance: () -> Unit,
     onNavigateToSelection: () -> Unit,
     onNavigateToResume: () -> Unit = {},
@@ -240,12 +240,12 @@ fun MainScreen(
                 Text("メンテナンス画面へ")
             }
         }
-    }
 
-    StandardSnackBar(
-        message = skippedIds?.takeIf { it.isNotEmpty() }?.let { "${it.size}個のコンテンツがダウンロード前であったので削除されてません。" },
-        onDismiss = onClearSkippedIds,
-    )
+        StandardSnackBar(
+            message = snackMessage,
+            onDismiss = onClearSnackMessage,
+        )
+    }
 
     // 🚀 アップロード中のみ表示されるロック層
     if (isUploading) {

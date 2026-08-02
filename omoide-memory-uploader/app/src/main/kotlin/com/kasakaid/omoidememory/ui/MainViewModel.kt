@@ -85,8 +85,6 @@ class MainViewModel
         @OptIn(ExperimentalCoroutinesApi::class)
         private val wifiState: StateFlow<WifiSetting> =
             combine(
-                hasPermission,
-                refreshTrigger,
                 /**
                  * 🚀 5秒おきの「つついて確認」 (Ticker)
                  * OS の NetworkCallback は稀にイベントを逃す（あるいは滞る）ことがあるため、
@@ -98,14 +96,12 @@ class MainViewModel
                         delay(5000)
                     }
                 },
-            ) { granted, trigger, _ -> granted to trigger }
-                // 🚀 Point: 権限、リフレッシュ要求、または 5秒タイマーのいずれかが動いた時に後続へ流す。
+                hasPermission,
+                refreshTrigger,
+            ) { _, granted, trigger -> granted to trigger }
                 .distinctUntilChanged()
                 .flatMapLatest { (granted, _) ->
                     if (granted) {
-                        // 🚀 WifiRepository.observeWifiSSID() は OS (ConnectivityManager) からの
-                        // リアルタイムな通知を callbackFlow で検知して emit してくれます。
-                        // そのため、ViewModel 側でループを回して自発的に再取得する必要はありません。
                         wifiRepository.observeWifiSSID()
                     } else {
                         flowOf(WifiSetting.Idle)
