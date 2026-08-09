@@ -19,7 +19,7 @@ enum class FilterMode {
 }
 
 @RestController
-@RequestMapping("/api")
+@CrossOrigin
 class MemorySharingController(
     private val memoryWithCommentQueryService: MemoryWithCommentQueryService,
     private val omoideMemoryQueryService: OmoideMemoryQueryService,
@@ -47,7 +47,7 @@ class MemorySharingController(
         return resultFlux
             .collectList()
             .doOnNext { list ->
-                log.info("[GET /api/feed Response] count=${list.size}, items=$list")
+                log.info("[GET /feed Response] count=${list.size}, items=$list")
             }.flatMapMany { list -> Flux.fromIterable(list) }
     }
 
