@@ -45,4 +45,27 @@ export const getVideoStreamUrl = (id: string): string => {
     return `${API_BASE_URL}/video/${id}/stream`;
 };
 
+export const saveAlbum = async (albumName: string, photoIds: string[]): Promise<{ albumId: string; albumName: string; count: number }> => {
+    const url = new URL('/albums', API_BASE_URL);
+    const response = await fetch(url.toString(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ albumName, photoIds }),
+    });
+    if (!response.ok) throw new Error('Failed to save album');
+    return response.json();
+};
+
+export const downloadAlbumZip = async (albumName: string, photoIds: string[]): Promise<Blob> => {
+    const url = new URL('/albums/download', API_BASE_URL);
+    const response = await fetch(url.toString(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ albumName, photoIds }),
+    });
+    if (!response.ok) throw new Error('Failed to download album zip');
+    return response.blob();
+};
+
+
 

@@ -6,10 +6,12 @@ import { FeedVideoCard } from './FeedVideoCard';
 interface Props {
     items: MemoryFeedItem[];
     filterMode: FilterMode;
+    selectedPhotoIds: Set<string>;
+    onTogglePhotoSelect: (photoId: string) => void;
     onItemClick: (item: MemoryFeedItem) => void;
 }
 
-export function FeedGrid({ items, filterMode, onItemClick }: Props) {
+export function FeedGrid({ items, filterMode, selectedPhotoIds, onTogglePhotoSelect, onItemClick }: Props) {
     const [openCommentIds, setOpenCommentIds] = useState<Record<string, boolean>>({});
 
     const toggleComments = (id: string, e: React.MouseEvent) => {
@@ -23,13 +25,20 @@ export function FeedGrid({ items, filterMode, onItemClick }: Props) {
                 const key = `${item.type}-${item.id}-${idx}`;
                 const hasComments = (item.commentCount || 0) > 0;
                 const isCommentsOpen = !!openCommentIds[item.id];
+                const isPhoto = item.type === 'PHOTO';
+                const isSelected = isPhoto && selectedPhotoIds.has(item.id);
 
                 return (
                     <div key={key} className="flex flex-col gap-1">
                         {item.type === 'VIDEO' ? (
                             <FeedVideoCard item={item} onClick={() => onItemClick(item)} />
                         ) : (
-                            <FeedPhotoCard item={item} onClick={() => onItemClick(item)} />
+                            <FeedPhotoCard
+                                item={item}
+                                isSelected={isSelected}
+                                onToggleSelect={isPhoto ? () => onTogglePhotoSelect(item.id) : undefined}
+                                onClick={() => onItemClick(item)}
+                            />
                         )}
 
                         {filterMode === 'ALL' && hasComments && (

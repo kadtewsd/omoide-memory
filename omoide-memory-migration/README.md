@@ -48,11 +48,17 @@ docker compose up -d
 
 ### 2. マイグレーションを実行する
 
+`bootRun` にシステムプロパティまたは環境変数を渡して実行します（デフォルトは `local` プロファイルが適用されます）。
+
 ```bash
-# ローカル環境のプロファイルを指定
+# 方法1: Gradle の -D フラグでプロファイルを指定
+./gradlew bootRun -Dspring.profiles.active=local
+
+# 方法2: 環境変数を指定して実行
 export SPRING_PROFILES_ACTIVE=local
 ./gradlew bootRun
 ```
+
 
 起動時に以下の順序で処理されます。
 
