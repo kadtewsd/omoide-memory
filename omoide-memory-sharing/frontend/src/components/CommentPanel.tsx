@@ -7,9 +7,10 @@ interface Props {
 
 export function CommentPanel({ comments, loading }: Props) {
     return (
-        <aside className="w-80 bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
-            <header className="p-4 border-b border-gray-100">
-                <h2 className="text-lg font-medium text-gray-900">コメント</h2>
+        <aside className="w-full h-full bg-white flex flex-col">
+            <header className="p-3 sm:p-4 border-b border-gray-100 flex items-center justify-between">
+                <h2 className="text-base sm:text-lg font-bold text-gray-900">コメント</h2>
+                <span className="text-xs text-gray-500 font-medium">{comments.length} 件</span>
             </header>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-6">
