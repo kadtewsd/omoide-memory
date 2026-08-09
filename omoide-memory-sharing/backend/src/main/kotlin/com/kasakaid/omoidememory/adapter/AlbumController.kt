@@ -24,7 +24,7 @@ class AlbumController(
     @PostMapping
     suspend fun createAlbum(
         @RequestBody request: CreateAlbumRequest,
-    ): ResponseEntity<CreateAlbumResponse> {
+    ): CreateAlbumResponse {
         val album =
             albumCommandService.createAlbum(
                 CreateAlbumCommand(
@@ -32,12 +32,10 @@ class AlbumController(
                     photoIds = request.photoIds,
                 ),
             )
-        return ResponseEntity.ok(
-            CreateAlbumResponse(
-                albumId = album.id,
-                albumName = album.name,
-                count = album.photoIds.size,
-            ),
+        return CreateAlbumResponse(
+            albumId = album.id,
+            albumName = album.name,
+            count = album.photoIds.size,
         )
     }
 
