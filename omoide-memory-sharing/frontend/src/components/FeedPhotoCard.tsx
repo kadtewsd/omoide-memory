@@ -3,15 +3,42 @@ import { ContentNotFound } from './ContentNotFound';
 
 interface Props {
     item: MemoryFeedItem;
+    isSelected?: boolean;
+    onToggleSelect?: (e: React.MouseEvent) => void;
     onClick: () => void;
 }
 
-export function FeedPhotoCard({ item, onClick }: Props) {
+export function FeedPhotoCard({ item, isSelected = false, onToggleSelect, onClick }: Props) {
     return (
         <div
-            className="group relative rounded-2xl overflow-hidden cursor-pointer bg-gray-100 transition-transform active:scale-95 aspect-square"
+            className={`group relative rounded-2xl overflow-hidden cursor-pointer bg-gray-100 transition-transform active:scale-95 aspect-square ${
+                isSelected ? 'ring-4 ring-blue-500' : ''
+            }`}
             onClick={onClick}
         >
+            {/* Selection Checkbox */}
+            {onToggleSelect && (
+                <div
+                    className="absolute top-2 left-2 z-10"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onToggleSelect(e);
+                    }}
+                >
+                    <div
+                        className={`w-6 h-6 rounded-full flex items-center justify-center border-2 transition-colors ${
+                            isSelected
+                                ? 'bg-blue-600 border-blue-600 text-white'
+                                : 'bg-black/30 border-white/80 text-transparent group-hover:border-white'
+                        }`}
+                    >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                    </div>
+                </div>
+            )}
+
             {item.contentBase64 ? (
                 <img 
                     src={item.contentBase64} 
