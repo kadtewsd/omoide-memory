@@ -9,6 +9,10 @@ export function useComments() {
 
     const openModal = async (item: MemoryFeedItem) => {
         setSelectedItem(item);
+        if (!item.id) {
+            setComments([]);
+            return;
+        }
         setCommentsLoading(true);
         try {
             const comms = await fetchComments(item.id);

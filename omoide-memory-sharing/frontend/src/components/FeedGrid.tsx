@@ -22,11 +22,11 @@ export function FeedGrid({ items, filterMode, selectedPhotoIds, onTogglePhotoSel
     return (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5 sm:gap-4 auto-rows-[160px] sm:auto-rows-[200px]">
             {items.map((item, idx) => {
-                const key = `${item.type}-${item.id}-${idx}`;
+                const key = `${item.type}-${item.id ?? idx}-${idx}`;
                 const hasComments = (item.commentCount || 0) > 0;
-                const isCommentsOpen = !!openCommentIds[item.id];
+                const isCommentsOpen = !!(item.id && openCommentIds[item.id]);
                 const isPhoto = item.type === 'PHOTO';
-                const isSelected = isPhoto && selectedPhotoIds.has(item.id);
+                const isSelected = isPhoto && !!item.id && selectedPhotoIds.has(item.id);
 
                 return (
                     <div key={key} className="flex flex-col gap-1">
@@ -36,15 +36,15 @@ export function FeedGrid({ items, filterMode, selectedPhotoIds, onTogglePhotoSel
                             <FeedPhotoCard
                                 item={item}
                                 isSelected={isSelected}
-                                onToggleSelect={isPhoto ? () => onTogglePhotoSelect(item.id) : undefined}
+                                onToggleSelect={isPhoto && item.id ? () => onTogglePhotoSelect(item.id!) : undefined}
                                 onClick={() => onItemClick(item)}
                             />
                         )}
 
-                        {filterMode === 'ALL' && hasComments && (
+                        {filterMode === 'ALL' && hasComments && item.id && (
                             <button
                                 type="button"
-                                onClick={(e) => toggleComments(item.id, e)}
+                                onClick={(e) => toggleComments(item.id!, e)}
                                 className="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center justify-between px-1 py-0.5 bg-gray-100 rounded"
                             >
                                 <span>{isCommentsOpen ? 'コメントをとじる' : 'コメントをひらく'}</span>

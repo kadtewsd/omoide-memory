@@ -1,7 +1,7 @@
 export type FilterMode = 'COMMENT_ONLY' | 'ALL' | 'ALBUM';
 
 export interface MemoryFeedItem {
-    id: string; // From UUID
+    id: string | null; // From UUID
     type: 'PHOTO' | 'VIDEO' | null;
     contentBase64: string | null;
     commentedAt: string; // ISO 8601 string from OffsetDateTime

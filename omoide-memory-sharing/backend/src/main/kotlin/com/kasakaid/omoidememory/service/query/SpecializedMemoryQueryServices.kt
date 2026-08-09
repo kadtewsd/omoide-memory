@@ -1,19 +1,26 @@
 package com.kasakaid.omoidememory.service.query
 
+import com.kasakaid.omoidememory.domain.model.FilePathFinder
+import com.kasakaid.omoidememory.infrastructure.LocalDiskFilePathFinder
+import com.kasakaid.omoidememory.jooq.omoide_memory.tables.CommentOmoide.Companion.COMMENT_OMOIDE
+import com.kasakaid.omoidememory.jooq.omoide_memory.tables.SyncedOmoidePhoto.Companion.SYNCED_OMOIDE_PHOTO
+import com.kasakaid.omoidememory.jooq.omoide_memory.tables.SyncedOmoideVideo.Companion.SYNCED_OMOIDE_VIDEO
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.pojos.CommentOmoide
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.pojos.SyncedOmoidePhoto
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.pojos.SyncedOmoideVideo
 import com.kasakaid.omoidememory.service.query.shared.MemoryContentsQueryService
+import org.jooq.Condition
+import org.jooq.impl.DSL
+import org.springframework.stereotype.Component
 import org.springframework.stereotype.Service
-import reactor.core.publisher.Flux
 import java.nio.file.Files
-import java.nio.file.Paths
 import java.time.OffsetDateTime
 import java.util.Base64
 
 @Service
 class MemoryWithCommentQueryService(
     private val memoryContentsQueryService: MemoryContentsQueryService,
+    private val memoryFeedDtoConverter: MemoryFeedDtoConverter,
 ) {
     suspend fun getFeed(
         startInclusive: OffsetDateTime?,
@@ -21,7 +28,7 @@ class MemoryWithCommentQueryService(
     ): List<MemoryFeedDto> {
         val (photoCondition, videoCondition, commentCondition) = buildDateCondition(startInclusive, endExclusive)
         val data = memoryContentsQueryService.fetchOmoideMemory(photoCondition, videoCondition, commentCondition)
-        return MemoryFeedDtoConverter
+        return memoryFeedDtoConverter
             .convert(data)
             .filter { it.commentCount > 0 }
     }
@@ -30,6 +37,7 @@ class MemoryWithCommentQueryService(
 @Service
 class OmoideMemoryQueryService(
     private val memoryContentsQueryService: MemoryContentsQueryService,
+    private val memoryFeedDtoConverter: MemoryFeedDtoConverter,
 ) {
     suspend fun getFeed(
         startInclusive: OffsetDateTime?,
@@ -37,54 +45,63 @@ class OmoideMemoryQueryService(
     ): List<MemoryFeedDto> {
         val (photoCondition, videoCondition, commentCondition) = buildDateCondition(startInclusive, endExclusive)
         val data = memoryContentsQueryService.fetchOmoideMemory(photoCondition, videoCondition, commentCondition)
-        return MemoryFeedDtoConverter.convert(data)
+        return memoryFeedDtoConverter.convert(data)
     }
 }
 
 private fun buildDateCondition(
     startInclusive: OffsetDateTime?,
     endExclusive: OffsetDateTime?,
-): Triple<org.jooq.Condition, org.jooq.Condition, org.jooq.Condition> {
+): Triple<Condition, Condition, Condition> {
     if (startInclusive == null || endExclusive == null) {
         return Triple(
-            org.jooq.impl.DSL
+            DSL
                 .noCondition(),
-            org.jooq.impl.DSL
+            DSL
                 .noCondition(),
-            org.jooq.impl.DSL
+            DSL
                 .noCondition(),
         )
     }
 
     val photoCondition =
-        com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_PHOTO.CAPTURE_TIME
-            .ge(
-                startInclusive,
-            ).and(
-                com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_PHOTO.CAPTURE_TIME
-                    .lt(endExclusive),
-            )
+        SYNCED_OMOIDE_PHOTO.run {
+            CAPTURE_TIME
+                .ge(
+                    startInclusive,
+                ).and(
+                    CAPTURE_TIME
+                        .lt(endExclusive),
+                )
+        }
     val videoCondition =
-        com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_VIDEO.CAPTURE_TIME
-            .ge(
-                startInclusive,
-            ).and(
-                com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_VIDEO.CAPTURE_TIME
-                    .lt(endExclusive),
-            )
+        SYNCED_OMOIDE_VIDEO.run {
+            CAPTURE_TIME
+                .ge(
+                    startInclusive,
+                ).and(
+                    CAPTURE_TIME
+                        .lt(endExclusive),
+                )
+        }
     val commentCondition =
-        com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.COMMENT_OMOIDE.COMMENTED_AT
-            .ge(
-                startInclusive,
-            ).and(
-                com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.COMMENT_OMOIDE.COMMENTED_AT
-                    .lt(endExclusive),
-            )
+        COMMENT_OMOIDE.run {
+            COMMENTED_AT
+                .ge(
+                    startInclusive,
+                ).and(
+                    COMMENTED_AT
+                        .lt(endExclusive),
+                )
+        }
 
     return Triple(photoCondition, videoCondition, commentCondition)
 }
 
-object MemoryFeedDtoConverter {
+@Component
+class MemoryFeedDtoConverter(
+    private val filePathFinder: FilePathFinder,
+) {
     fun convert(data: Triple<List<SyncedOmoidePhoto>, List<SyncedOmoideVideo>, List<CommentOmoide>>): List<MemoryFeedDto> {
         val (photos, videos, comments) = data
         val commentsByFileName = comments.groupBy { it.fileName }
@@ -99,22 +116,21 @@ object MemoryFeedDtoConverter {
                 transformVideoToDto(video, commentsByFileName[video.fileName] ?: emptyList())
             }
 
-        val mediaFileNames = (photos.map { it.fileName } + videos.map { it.fileName }).filterNotNull().toSet()
+        val mediaFileNames = (photos.map { it.fileName } + videos.map { it.fileName }).toSet()
         val orphanCommentsByFileName =
             comments
                 .filter { !mediaFileNames.contains(it.fileName) }
-                .mapNotNull { comment ->
-                    comment.fileName?.let { fName -> fName to comment }
+                .map { comment ->
+                    comment.fileName to comment
                 }.groupBy({ it.first }, { it.second })
 
         val commentOnlyDtos =
             orphanCommentsByFileName.map { (fileName, commentList) ->
-                val earliestComment = commentList.mapNotNull { it.commentedAt }.minOrNull() ?: OffsetDateTime.now()
                 MemoryFeedDto(
-                    id = commentList.firstOrNull()?.feedId ?: java.util.UUID.randomUUID(),
+                    id = commentList.firstOrNull()?.feedId,
                     type = null,
                     contentBase64 = null,
-                    commentedAt = earliestComment,
+                    commentedAt = commentList.mapNotNull { it.commentedAt }.minOrNull() ?: OffsetDateTime.now(),
                     captureTime = null,
                     thumbnailBase64 = null,
                     thumbnailMimeType = null,
@@ -124,7 +140,7 @@ object MemoryFeedDtoConverter {
 
         return (photoDtos + videoDtos + commentOnlyDtos).sortedWith(
             compareByDescending<MemoryFeedDto, OffsetDateTime?>(nullsLast()) { it.captureTime ?: it.commentedAt }
-                .thenByDescending { it.id },
+                .thenByDescending(nullsLast()) { it.id },
         )
     }
 
@@ -132,34 +148,23 @@ object MemoryFeedDtoConverter {
         photo: SyncedOmoidePhoto,
         comments: List<CommentOmoide>,
     ): MemoryFeedDto {
-        val serverPath = photo.serverPath ?: ""
-        val captureTime = photo.captureTime
-        val commentedAt = comments.mapNotNull { it.commentedAt }.minOrNull() ?: captureTime ?: OffsetDateTime.now()
-
         val contentBase64 =
-            if (serverPath.isNotEmpty()) {
+            filePathFinder.findPath(photo.serverPath)?.let { path ->
                 try {
-                    val path = Paths.get(serverPath)
-                    if (Files.exists(path)) {
-                        val bytes = Files.readAllBytes(path)
-                        val mimeType = Files.probeContentType(path) ?: "image/jpeg"
-                        "data:$mimeType;base64,${Base64.getEncoder().encodeToString(bytes)}"
-                    } else {
-                        null
-                    }
-                } catch (e: Exception) {
+                    val bytes = Files.readAllBytes(path)
+                    val mimeType = Files.probeContentType(path) ?: "image/jpeg"
+                    "data:$mimeType;base64,${Base64.getEncoder().encodeToString(bytes)}"
+                } catch (_: Exception) {
                     null
                 }
-            } else {
-                null
             }
 
         return MemoryFeedDto(
             id = photo.id,
             type = "PHOTO",
             contentBase64 = contentBase64,
-            commentedAt = commentedAt,
-            captureTime = captureTime,
+            commentedAt = comments.mapNotNull { it.commentedAt }.minOrNull() ?: photo.captureTime ?: OffsetDateTime.now(),
+            captureTime = photo.captureTime,
             thumbnailBase64 = null,
             thumbnailMimeType = null,
             commentCount = comments.size,
