@@ -58,3 +58,19 @@ npm run dev
 ```bash
 npm run build
 ```
+
+---
+
+## 🌐 LAN 公開用のファイアウォール設定 (Windows)
+
+LAN 内の他端末からアクセスする場合、Windows ファイアウォールでフロントエンドのポートを開放する必要があります。
+[allow-frontend-firewall-port.ps1](file:///Users/kazuteru.sakaida/dev/omoide-memory/omoide-memory-sharing/frontend/allow-frontend-firewall-port.ps1) を管理者権限の PowerShell で実行してください。
+
+```powershell
+# デフォルトポート (5173) の開放
+.\allow-frontend-firewall-port.ps1
+
+# ポート番号を指定して開放する場合 (例: 3000)
+.\allow-frontend-firewall-port.ps1 -Port 3000
+```
+
