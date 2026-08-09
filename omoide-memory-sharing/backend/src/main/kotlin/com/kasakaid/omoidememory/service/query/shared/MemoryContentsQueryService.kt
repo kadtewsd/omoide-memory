@@ -31,6 +31,11 @@ class MemoryContentsQueryService(
             videoConditions.add(SYNCED_OMOIDE_VIDEO.CAPTURE_TIME.ge(startInclusive).and(SYNCED_OMOIDE_VIDEO.CAPTURE_TIME.lt(endExclusive)))
         }
 
+        val commentConditions = mutableListOf<Condition>()
+        if (startInclusive != null && endExclusive != null) {
+            commentConditions.add(COMMENT_OMOIDE.COMMENTED_AT.ge(startInclusive).and(COMMENT_OMOIDE.COMMENTED_AT.lt(endExclusive)))
+        }
+
         val photosMono =
             Flux
                 .from(
@@ -53,7 +58,8 @@ class MemoryContentsQueryService(
             Flux
                 .from(
                     dslContext
-                        .selectFrom(COMMENT_OMOIDE),
+                        .selectFrom(COMMENT_OMOIDE)
+                        .where(commentConditions),
                 ).map { record -> record.into(CommentOmoide::class.java) }
                 .collectList()
 

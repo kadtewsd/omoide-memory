@@ -16,12 +16,26 @@ export function formatYearMonthDisplay(yearMonthStr: string): string {
 
 export function getYearMonthRangeIso(yearMonthStr: string): { startInclusive: string; endExclusive: string } {
     const [year, month] = yearMonthStr.split('-').map(Number);
-    const start = new Date(year, month - 1, 1, 0, 0, 0, 0);
-    const end = new Date(year, month, 1, 0, 0, 0, 0);
+    // JST 00:00:00 は UTC 前日 15:00:00 (9時間手前)
+    // JST固定オフセット (+9時間) に合わせてUTCから9時間を引いたエポックミリ秒で生成
+    const start = new Date(Date.UTC(year, month - 1, 1) - 9 * 60 * 60 * 1000);
+    const end = new Date(Date.UTC(year, month, 1) - 9 * 60 * 60 * 1000);
+
     return {
         startInclusive: start.toISOString(),
         endExclusive: end.toISOString(),
     };
+}
+
+/**
+ * ISO 8601形式の日時文字列を日本標準時 (JST: UTC+9) 基準の YYYY-MM 形式に変換します。
+ */
+export function isoToJstYearMonth(isoStr: string): string {
+    const date = new Date(isoStr);
+    const jstDate = new Date(date.getTime() + 9 * 60 * 60 * 1000);
+    const year = jstDate.getUTCFullYear();
+    const month = String(jstDate.getUTCMonth() + 1).padStart(2, '0');
+    return `${year}-${month}`;
 }
 
 export function useFeed() {
@@ -40,12 +54,7 @@ export function useFeed() {
 
                 const yearMonths: string[] = Array.from(
                     new Set<string>(
-                        datesIso.map((isoStr: string) => {
-                            const date = new Date(isoStr);
-                            const y = date.getFullYear();
-                            const m = String(date.getMonth() + 1).padStart(2, '0');
-                            return `${y}-${m}`;
-                        })
+                        datesIso.map(isoToJstYearMonth)
                     )
                 );
 
