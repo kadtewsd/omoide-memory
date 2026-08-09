@@ -1,8 +1,11 @@
+export type FilterMode = 'COMMENT_ONLY' | 'ALL';
+
 export interface MemoryFeedItem {
     id: string; // From UUID
     type: 'PHOTO' | 'VIDEO' | null;
     contentBase64: string | null;
     commentedAt: string; // ISO 8601 string from OffsetDateTime
+    captureTime?: string | null;
     thumbnailBase64?: string | null;
     thumbnailMimeType?: string | null;
     commentCount?: number;
@@ -15,3 +18,4 @@ export interface Comment {
     commentBody: string;
     commentedAt: string;
 }
+
