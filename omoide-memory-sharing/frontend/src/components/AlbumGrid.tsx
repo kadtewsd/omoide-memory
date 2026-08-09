@@ -226,7 +226,7 @@ export function AlbumGrid({ onPhotoClick }: Props) {
                                         handleDownloadZip(
                                             e,
                                             albumDetail.albumName,
-                                            albumDetail.photos.map((p) => p.id)
+                                            albumDetail.photos.flatMap((p) => (p.id ? [p.id] : []))
                                         )
                                     }
                                     disabled={downloadingId === albumDetail.albumName}

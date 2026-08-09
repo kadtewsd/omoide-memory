@@ -21,6 +21,7 @@ import java.util.UUID
 class AlbumQueryService(
     private val dslContext: DSLContext,
     private val memoryContentsQueryService: MemoryContentsQueryService,
+    private val memoryFeedDtoConverter: MemoryFeedDtoConverter,
 ) {
     suspend fun getAlbums(): List<AlbumSummaryDto> {
         val albumPhotoRecords =
@@ -99,7 +100,7 @@ class AlbumQueryService(
                 emptyList()
             }
 
-        val feedDtos = MemoryFeedDtoConverter.convert(Triple(photos, emptyList(), emptyList()))
+        val feedDtos = memoryFeedDtoConverter.convert(Triple(photos, emptyList(), emptyList()))
 
         return AlbumDetailDto(
             albumId = albumId,

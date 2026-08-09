@@ -4,7 +4,7 @@ import java.time.OffsetDateTime
 import java.util.UUID
 
 class MemoryFeedDto(
-    val id: UUID,
+    val id: UUID?,
     val type: String?,
     val contentBase64: String?,
     val commentedAt: OffsetDateTime,

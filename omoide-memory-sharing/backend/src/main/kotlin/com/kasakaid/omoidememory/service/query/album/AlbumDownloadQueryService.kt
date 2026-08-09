@@ -14,6 +14,7 @@ import java.util.zip.ZipOutputStream
 @Service
 class AlbumDownloadQueryService(
     private val photoQueryService: PhotoQueryService,
+    private val memoryFeedDtoConverter: MemoryFeedDtoConverter,
 ) {
     private val bufferFactory = DefaultDataBufferFactory()
 
@@ -33,7 +34,7 @@ class AlbumDownloadQueryService(
         val baos = ByteArrayOutputStream()
         ZipOutputStream(baos).use { zos ->
             photos
-                .map { photo -> photo to MemoryFeedDtoConverter.transformPhotoToDto(photo, emptyList()) }
+                .map { photo -> photo to memoryFeedDtoConverter.transformPhotoToDto(photo, emptyList()) }
                 .mapNotNull { (photo, dto) ->
                     dto.contentBase64?.let { contentBase64 ->
                         photo.fileName to Base64.getDecoder().decode(contentBase64.substringAfter(BASE64_HEADER_DELIMITER))

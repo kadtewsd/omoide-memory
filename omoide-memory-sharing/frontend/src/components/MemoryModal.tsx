@@ -38,7 +38,7 @@ export function MemoryModal({ selectedItem, comments, commentsLoading, onClose }
                 </header>
 
                 <div className="flex-1 flex items-center justify-center p-2 sm:p-4 min-h-0 overflow-hidden">
-                    {selectedItem.type === 'VIDEO' ? (
+                    {selectedItem.type === 'VIDEO' && selectedItem.id ? (
                         <VideoPlayer
                             videoId={selectedItem.id}
                             poster={selectedItem.thumbnailBase64}
