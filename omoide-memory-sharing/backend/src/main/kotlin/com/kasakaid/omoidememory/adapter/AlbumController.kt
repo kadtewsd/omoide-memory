@@ -2,7 +2,10 @@ package com.kasakaid.omoidememory.adapter
 
 import com.kasakaid.omoidememory.service.command.AlbumCommandService
 import com.kasakaid.omoidememory.service.command.CreateAlbumCommand
-import com.kasakaid.omoidememory.service.query.AlbumDownloadQueryService
+import com.kasakaid.omoidememory.service.query.album.AlbumDetailDto
+import com.kasakaid.omoidememory.service.query.album.AlbumDownloadQueryService
+import com.kasakaid.omoidememory.service.query.album.AlbumQueryService
+import com.kasakaid.omoidememory.service.query.album.AlbumSummaryDto
 import org.springframework.core.io.buffer.DataBuffer
 import org.springframework.http.ContentDisposition
 import org.springframework.http.HttpHeaders
@@ -20,7 +23,16 @@ import java.util.UUID
 class AlbumController(
     private val albumCommandService: AlbumCommandService,
     private val albumDownloadQueryService: AlbumDownloadQueryService,
+    private val albumQueryService: AlbumQueryService,
 ) {
+    @GetMapping
+    suspend fun getAlbums(): List<AlbumSummaryDto> = albumQueryService.getAlbums()
+
+    @GetMapping("/{albumId}")
+    suspend fun getAlbumDetail(
+        @PathVariable albumId: UUID,
+    ): AlbumDetailDto = albumQueryService.getAlbumDetail(albumId)
+
     @PostMapping
     suspend fun createAlbum(
         @RequestBody request: CreateAlbumRequest,
@@ -40,9 +52,9 @@ class AlbumController(
     }
 
     @PostMapping("/download")
-    fun downloadAlbumZip(
+    suspend fun downloadAlbumZip(
         @RequestBody request: CreateAlbumRequest,
-    ): Mono<ResponseEntity<DataBuffer>> {
+    ): ResponseEntity<DataBuffer> {
         val encodedFileName = URLEncoder.encode("${request.albumName}.zip", StandardCharsets.UTF_8.toString()).replace("+", "%20")
         val headers =
             HttpHeaders().apply {
@@ -54,13 +66,10 @@ class AlbumController(
                         .build()
             }
 
-        return albumDownloadQueryService
-            .downloadAlbumZip(request.photoIds)
-            .map { buffer ->
-                ResponseEntity
-                    .ok()
-                    .headers(headers)
-                    .body(buffer)
-            }
+        val buffer = albumDownloadQueryService.downloadAlbumZip(request.photoIds)
+        return ResponseEntity
+            .ok()
+            .headers(headers)
+            .body(buffer)
     }
 }

@@ -6,6 +6,7 @@ import { FeedGrid } from './components/FeedGrid';
 import { MemoryModal } from './components/MemoryModal';
 import { CreateAlbumModal } from './components/CreateAlbumModal';
 import { saveAlbum, downloadAlbumZip } from './api';
+import { AlbumGrid } from './components/AlbumGrid';
 
 function App() {
     const {
@@ -103,36 +104,51 @@ function App() {
                             >
                                 コメントのみ
                             </button>
+                            <button
+                                type="button"
+                                onClick={() => changeFilterMode('ALBUM')}
+                                className={`px-3.5 py-1.5 text-xs sm:text-sm font-bold rounded-lg transition-colors min-h-[36px] ${
+                                    filterMode === 'ALBUM'
+                                        ? 'bg-white text-gray-900 shadow-sm border border-gray-200'
+                                        : 'text-gray-700 hover:text-gray-900'
+                                }`}
+                            >
+                                アルバム
+                            </button>
                         </div>
                     </div>
                 </div>
 
                 {/* Month Navigation Tabs */}
-                <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0">
-                    <div className="flex items-center gap-2 py-0.5">
-                        {monthTabs.map(ym => {
-                            const isSelected = ym === currentYearMonth;
-                            return (
-                                <button
-                                    key={ym}
-                                    type="button"
-                                    onClick={() => selectMonthTab(ym)}
-                                    className={`px-4 py-2 text-xs sm:text-sm font-bold rounded-full whitespace-nowrap transition-colors min-h-[40px] flex items-center justify-center ${
-                                        isSelected
-                                            ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-600/30'
-                                            : 'bg-gray-100 text-gray-800 hover:bg-gray-200 border border-gray-200'
-                                    }`}
-                                >
-                                    {formatYearMonthDisplay(ym)}
-                                </button>
-                            );
-                        })}
+                {filterMode !== 'ALBUM' && (
+                    <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0">
+                        <div className="flex items-center gap-2 py-0.5">
+                            {monthTabs.map(ym => {
+                                const isSelected = ym === currentYearMonth;
+                                return (
+                                    <button
+                                        key={ym}
+                                        type="button"
+                                        onClick={() => selectMonthTab(ym)}
+                                        className={`px-4 py-2 text-xs sm:text-sm font-bold rounded-full whitespace-nowrap transition-colors min-h-[40px] flex items-center justify-center ${
+                                            isSelected
+                                                ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-600/30'
+                                                : 'bg-gray-100 text-gray-800 hover:bg-gray-200 border border-gray-200'
+                                        }`}
+                                    >
+                                        {formatYearMonthDisplay(ym)}
+                                    </button>
+                                );
+                            })}
+                        </div>
                     </div>
-                </div>
+                )}
             </header>
 
             <main className="p-4 sm:p-6 lg:p-8">
-                {loading ? (
+                {filterMode === 'ALBUM' ? (
+                    <AlbumGrid onPhotoClick={openModal} />
+                ) : loading ? (
                     <div className="flex justify-center py-20">
                         <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
                     </div>

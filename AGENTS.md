@@ -103,7 +103,7 @@ val total = items.fold(0) { acc, item -> acc + item.price }
 
 **ルール**:
 - 値の再代入を禁止（`var`ではなく`val`）
-- `forEach`によるリスト作成ではなく`map`を使う
+- `forEach`による副作用・繰り返し処理を避け、`map` / `mapNotNull` を優先して使用する
 - `forEach`によるListの横持ちは`fold`を使う
 
 ---

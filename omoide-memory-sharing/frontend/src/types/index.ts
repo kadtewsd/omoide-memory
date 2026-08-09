@@ -1,4 +1,4 @@
-export type FilterMode = 'COMMENT_ONLY' | 'ALL';
+export type FilterMode = 'COMMENT_ONLY' | 'ALL' | 'ALBUM';
 
 export interface MemoryFeedItem {
     id: string; // From UUID
@@ -17,5 +17,21 @@ export interface Comment {
     commenterIconBase64: string | null;
     commentBody: string;
     commentedAt: string;
+}
+
+export interface AlbumSummary {
+    albumId: string;
+    albumName: string;
+    count: number;
+    createdAt: string;
+    coverPhotoBase64: string | null;
+}
+
+export interface AlbumDetail {
+    albumId: string;
+    albumName: string;
+    count: number;
+    createdAt: string;
+    photos: MemoryFeedItem[];
 }
 
