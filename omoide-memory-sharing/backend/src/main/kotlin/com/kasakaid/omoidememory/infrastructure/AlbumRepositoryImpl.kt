@@ -3,6 +3,8 @@ package com.kasakaid.omoidememory.infrastructure
 import com.kasakaid.omoidememory.domain.model.Album
 import com.kasakaid.omoidememory.domain.repository.AlbumRepository
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.ALBUM_PHOTO
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.reactive.asFlow
 import org.jooq.DSLContext
 import org.springframework.stereotype.Repository
 import reactor.core.publisher.Flux
@@ -28,9 +30,8 @@ class AlbumRepositoryImpl(
 
         Flux
             .concat(records.map { Flux.from(it) })
-            .collectList()
-            .toFuture()
-            .get()
+            .asFlow()
+            .collect {}
         return album
     }
 }

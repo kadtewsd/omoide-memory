@@ -38,13 +38,12 @@ class MemorySharingController(
         endExclusive: OffsetDateTime?,
         @RequestParam(defaultValue = "ALL") mode: FilterMode,
     ): List<MemoryFeedDto> {
-        val resultFlux =
+        val items =
             when (mode) {
                 FilterMode.COMMENT_ONLY -> memoryWithCommentQueryService.getFeed(startInclusive, endExclusive)
                 FilterMode.ALL -> omoideMemoryQueryService.getFeed(startInclusive, endExclusive)
             }
 
-        val items = resultFlux.collectList().awaitSingle()
         log.info("[GET /feed Response] count=${items.size}, items=$items")
         return items
     }
@@ -70,7 +69,7 @@ class MemorySharingController(
     @GetMapping("/contents-captured-ym")
     suspend fun getCapturedYearMonths(): List<OffsetDateTime> {
         logger.info { "年月を取得" }
-        return memoryContentsQueryService.getCapturedYearMonths().awaitSingle().also {
+        return memoryContentsQueryService.getCapturedYearMonths().also {
             logger.info { "$it 年月を取得完了" }
         }
     }

@@ -15,31 +15,77 @@ import java.util.Base64
 class MemoryWithCommentQueryService(
     private val memoryContentsQueryService: MemoryContentsQueryService,
 ) {
-    fun getFeed(
+    suspend fun getFeed(
         startInclusive: OffsetDateTime?,
         endExclusive: OffsetDateTime?,
-    ): Flux<MemoryFeedDto> =
-        memoryContentsQueryService
-            .fetchMemoryData(startInclusive, endExclusive)
-            .flatMapMany { data -> MemoryFeedDtoConverter.convert(data) }
+    ): List<MemoryFeedDto> {
+        val (photoCondition, videoCondition, commentCondition) = buildDateCondition(startInclusive, endExclusive)
+        val data = memoryContentsQueryService.fetchOmoideMemory(photoCondition, videoCondition, commentCondition)
+        return MemoryFeedDtoConverter
+            .convert(data)
             .filter { it.commentCount > 0 }
+    }
 }
 
 @Service
 class OmoideMemoryQueryService(
     private val memoryContentsQueryService: MemoryContentsQueryService,
 ) {
-    fun getFeed(
+    suspend fun getFeed(
         startInclusive: OffsetDateTime?,
         endExclusive: OffsetDateTime?,
-    ): Flux<MemoryFeedDto> =
-        memoryContentsQueryService
-            .fetchMemoryData(startInclusive, endExclusive)
-            .flatMapMany { data -> MemoryFeedDtoConverter.convert(data) }
+    ): List<MemoryFeedDto> {
+        val (photoCondition, videoCondition, commentCondition) = buildDateCondition(startInclusive, endExclusive)
+        val data = memoryContentsQueryService.fetchOmoideMemory(photoCondition, videoCondition, commentCondition)
+        return MemoryFeedDtoConverter.convert(data)
+    }
+}
+
+private fun buildDateCondition(
+    startInclusive: OffsetDateTime?,
+    endExclusive: OffsetDateTime?,
+): Triple<org.jooq.Condition, org.jooq.Condition, org.jooq.Condition> {
+    if (startInclusive == null || endExclusive == null) {
+        return Triple(
+            org.jooq.impl.DSL
+                .noCondition(),
+            org.jooq.impl.DSL
+                .noCondition(),
+            org.jooq.impl.DSL
+                .noCondition(),
+        )
+    }
+
+    val photoCondition =
+        com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_PHOTO.CAPTURE_TIME
+            .ge(
+                startInclusive,
+            ).and(
+                com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_PHOTO.CAPTURE_TIME
+                    .lt(endExclusive),
+            )
+    val videoCondition =
+        com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_VIDEO.CAPTURE_TIME
+            .ge(
+                startInclusive,
+            ).and(
+                com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_VIDEO.CAPTURE_TIME
+                    .lt(endExclusive),
+            )
+    val commentCondition =
+        com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.COMMENT_OMOIDE.COMMENTED_AT
+            .ge(
+                startInclusive,
+            ).and(
+                com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.COMMENT_OMOIDE.COMMENTED_AT
+                    .lt(endExclusive),
+            )
+
+    return Triple(photoCondition, videoCondition, commentCondition)
 }
 
 object MemoryFeedDtoConverter {
-    fun convert(data: Triple<List<SyncedOmoidePhoto>, List<SyncedOmoideVideo>, List<CommentOmoide>>): Flux<MemoryFeedDto> {
+    fun convert(data: Triple<List<SyncedOmoidePhoto>, List<SyncedOmoideVideo>, List<CommentOmoide>>): List<MemoryFeedDto> {
         val (photos, videos, comments) = data
         val commentsByFileName = comments.groupBy { it.fileName }
 
@@ -76,16 +122,13 @@ object MemoryFeedDtoConverter {
                 )
             }
 
-        val sorted =
-            (photoDtos + videoDtos + commentOnlyDtos).sortedWith(
-                compareByDescending<MemoryFeedDto, OffsetDateTime?>(nullsLast()) { it.captureTime ?: it.commentedAt }
-                    .thenByDescending { it.id },
-            )
-
-        return Flux.fromIterable(sorted)
+        return (photoDtos + videoDtos + commentOnlyDtos).sortedWith(
+            compareByDescending<MemoryFeedDto, OffsetDateTime?>(nullsLast()) { it.captureTime ?: it.commentedAt }
+                .thenByDescending { it.id },
+        )
     }
 
-    private fun transformPhotoToDto(
+    fun transformPhotoToDto(
         photo: SyncedOmoidePhoto,
         comments: List<CommentOmoide>,
     ): MemoryFeedDto {

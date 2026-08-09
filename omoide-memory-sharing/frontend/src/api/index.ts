@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
-import { MemoryFeedItem, Comment, FilterMode } from '../types';
+import { MemoryFeedItem, Comment, FilterMode, AlbumSummary, AlbumDetail } from '../types';
+
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
@@ -66,6 +67,21 @@ export const downloadAlbumZip = async (albumName: string, photoIds: string[]): P
     if (!response.ok) throw new Error('Failed to download album zip');
     return response.blob();
 };
+
+export const fetchAlbums = async (): Promise<AlbumSummary[]> => {
+    const url = new URL('/albums', API_BASE_URL);
+    const response = await fetch(url.toString());
+    if (!response.ok) throw new Error('Failed to fetch albums');
+    return response.json();
+};
+
+export const fetchAlbumDetail = async (albumId: string): Promise<AlbumDetail> => {
+    const url = new URL(`/albums/${albumId}`, API_BASE_URL);
+    const response = await fetch(url.toString());
+    if (!response.ok) throw new Error('Failed to fetch album detail');
+    return response.json();
+};
+
 
 
 
