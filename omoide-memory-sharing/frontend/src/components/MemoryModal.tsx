@@ -1,6 +1,7 @@
 import { MemoryFeedItem, Comment } from '../types';
 import { CommentPanel } from './CommentPanel';
 import { ContentNotFound } from './ContentNotFound';
+import { VideoPlayer } from './VideoPlayer';
 
 interface Props {
     selectedItem: MemoryFeedItem | null;
@@ -30,7 +31,12 @@ export function MemoryModal({ selectedItem, comments, commentsLoading, onClose }
                 </header>
 
                 <div className="flex-1 flex items-center justify-center p-4">
-                    {selectedItem.contentBase64 ? (
+                    {selectedItem.type === 'VIDEO' ? (
+                        <VideoPlayer
+                            videoId={selectedItem.id}
+                            poster={selectedItem.thumbnailBase64}
+                        />
+                    ) : selectedItem.contentBase64 ? (
                         <img
                             src={selectedItem.contentBase64}
                             alt=""

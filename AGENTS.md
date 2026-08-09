@@ -40,9 +40,9 @@
 
 ## コーディング原則
 
-### 1. Cライクな変数代入を避ける
+### 1. Cライクな一時変数の代入・濫用を避ける
 
-❌ **悪い例（一時変数の濫用）**:
+❌ **悪い例（一度しか使わない一時変数の宣言・代入）**:
 
 ```kotlin
 val userName = user.name
@@ -52,7 +52,7 @@ val userEmail = user.email
 createUserDto(userName, userAge, userEmail)
 ```
 
-✅ **良い例（名前付き引数で宣言的に）**:
+✅ **良い例（一時変数を作らず名前付き引数を代替として使い宣言的に書く）**:
 
 ```kotlin
 createUserDto(
@@ -63,9 +63,9 @@ createUserDto(
 ```
 
 **ルール**:
-- 一度しか使わない値をDTOから変数に入れない
-- 二度以上使う場合でも、単純な値参照のみなら変数に入れない
-- インスタンス生成時は名前付き引数を使い、宣言的に書く
+- **一度しか使わない値をローカル変数（一時変数）に代入しない**（関数呼び出しやコンストラクタ引数へ直接渡す）
+- **名前付き引数を一時変数の代替として活用する**: 可読性を上げるために一時変数を作るのではなく、呼び出し側で名前付き引数（`name = user.name` など）を使うことで意図を明確にしつつ中間変数を排除する
+- 二度以上使う場合でも、単純なプロパティ参照のみなら中間変数を作らず直接参照する
 
 ---
 
@@ -170,8 +170,9 @@ suspend fun getUser(@PathVariable id: String): ResponseEntity<UserDto> {
 ```
 
 **ルール**:
-- DB層: R2DBC + Coroutines
+- DB層: R2DBC + Coroutines (または Reactive/Reactor)
 - Web API層: WebFlux + Coroutines（またはKtor）
+- **同期クエリの禁止**: R2DBC 環境であるため、jOOQ の `fetchOne()`, `fetch()`, `execute()` などの同期・ブロッキングメソッドの呼び出しは禁止（`DetachedException` が発生する）。クエリ実行時は `Flux.from(...)` / `Mono.from(...)` や Coroutines の非同期ストリームを使用すること。
 
 ---
 
@@ -313,6 +314,82 @@ val user = userRecord.into(User::class.java)
 **ルール**:
 - 入力からドメインモデルへの変換は直接行い、中間DTOを作らない
 - ただし、jOOQのPojo/Recordは型安全のために使用する
+
+---
+
+### 9. KDoc ドキュメントコメントの徹底
+
+一見して意図や背景が分かりにくい処理・マジックナンバー・変換ロジックには、必ず KDoc（`/** ... */`）による説明と名前付き定数化を行ってください。
+
+❌ **悪い例（意図が不明な数値や直書きロジック）**:
+
+```kotlin
+val count = minOf(1024 * 1024L, contentLength)
+val region = ResourceRegion(resource, 0, count)
+```
+
+✅ **良い例（定数化 + KDoc による意図の明記）**:
+
+```kotlin
+/**
+ * 1回のレスポンスでクライアントへ返す動画ストリームの最大チャンクサイズ（1 MB = 1024 * 1024 バイト）。
+ * 動画全体を一括でメモリに読み込まず、1MB ごとの部分領域（ResourceRegion）に分割して配信することで
+ * メモリ消費を抑え、スムーズな初期再生開始を実現します。
+ */
+private const val CHUNK_SIZE_1MB: Long = 1024 * 1024L
+
+val count = minOf(CHUNK_SIZE_1MB, contentLength)
+val region = ResourceRegion(resource, 0, count)
+```
+
+**ルール**:
+- パッと見で役割がわかりづらい数値・条件式・計算式（ビット演算、バイト数計算、特殊な閾値など）は、意味が伝わる定数名で定義する
+- クラス・コンポーネント・変換クラス（Translator 等）や非直感的な処理には、KDoc で背景や意図（「なぜそうしているか」）を明記する
+
+---
+
+### 10. 制御結合（Control Coupling）の回避
+
+フラグ変数や状態判定用パラメータを渡してメソッド内部の挙動を分岐させる「制御結合」を禁止します。呼び出し元ですでに判明している判断や条件を呼び出し先に委譲すると、凝集度が低下し God Class（巨大で多目的なクラス）の温床となります。
+
+❌ **悪い例（フラグや状態を渡して内部で分岐・判定させる）**:
+
+```kotlin
+// 呼び出し先でフラグを見て処理を分岐させる（制御結合）
+fun processFile(file: File, isVideo: Boolean) {
+    if (isVideo) {
+        processVideo(file)
+    } else {
+        processImage(file)
+    }
+}
+
+// 呼び出し元で判明している rangeHeader の判定を呼び出し先に委譲し、内部で分岐させる
+fun streamVideo(resource: Resource, rangeHeader: String?): ResponseEntity<ResourceRegion> {
+    if (!rangeHeader.isNullOrEmpty()) {
+        // range 用のレスポンス生成
+    } else {
+        // 通常レスポンス生成
+    }
+}
+```
+
+✅ **良い例（単一責任のメソッドに分け、呼び出し元が適切なメソッドを選択する）**:
+
+```kotlin
+// 呼び出し元が適切な関数を直接呼び出す
+fun processVideo(file: File) { ... }
+fun processImage(file: File) { ... }
+
+// レンジ指定の有無に応じてそれぞれの生成メソッドを明確に分離
+fun toPartialResponse(resource: Resource, start: Long, length: Long): ResponseEntity<ResourceRegion>
+fun toFullResponse(resource: Resource, length: Long): ResponseEntity<ResourceRegion>
+```
+
+**ルール**:
+- メソッドに Boolean フラグや nullable な制御パラメータを渡して内部動作を分岐させない
+- 呼び出し元で分かっている状態・判定結果は呼び出し先へ持ち込まず、専用の単一責任メソッドを分けて呼び出す
+- 判定ロジックと実行ロジックを混在させず、高凝集・低結合を維持する
 
 ---
 
