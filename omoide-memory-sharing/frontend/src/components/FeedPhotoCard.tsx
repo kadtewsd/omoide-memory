@@ -18,25 +18,27 @@ export function FeedPhotoCard({ item, isSelected = false, onToggleSelect, onClic
         >
             {/* Selection Checkbox */}
             {onToggleSelect && (
-                <div
-                    className="absolute top-2 left-2 z-10"
+                <button
+                    type="button"
+                    aria-label={isSelected ? "写真の選択を解除" : "写真を選択"}
+                    className="absolute top-2 left-2 z-10 p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full focus:outline-none"
                     onClick={(e) => {
                         e.stopPropagation();
                         onToggleSelect(e);
                     }}
                 >
                     <div
-                        className={`w-6 h-6 rounded-full flex items-center justify-center border-2 transition-colors ${
+                        className={`w-7 h-7 rounded-full flex items-center justify-center border-2 transition-colors ${
                             isSelected
-                                ? 'bg-blue-600 border-blue-600 text-white'
-                                : 'bg-black/30 border-white/80 text-transparent group-hover:border-white'
+                                ? 'bg-blue-600 border-white text-white shadow-md'
+                                : 'bg-black/40 border-white text-transparent active:border-white'
                         }`}
                     >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                         </svg>
                     </div>
-                </div>
+                </button>
             )}
 
             {item.contentBase64 ? (

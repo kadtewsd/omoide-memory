@@ -20,7 +20,7 @@ export function FeedGrid({ items, filterMode, selectedPhotoIds, onTogglePhotoSel
     };
 
     return (
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 auto-rows-[200px]">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5 sm:gap-4 auto-rows-[160px] sm:auto-rows-[200px]">
             {items.map((item, idx) => {
                 const key = `${item.type}-${item.id}-${idx}`;
                 const hasComments = (item.commentCount || 0) > 0;
