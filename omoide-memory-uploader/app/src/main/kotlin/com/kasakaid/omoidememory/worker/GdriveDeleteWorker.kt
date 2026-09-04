@@ -7,6 +7,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.kasakaid.omoidememory.network.GoogleDriveService
+import com.kasakaid.omoidememory.os.CrashReporter
 import com.kasakaid.omoidememory.worker.WorkerHelper.createForegroundInfo
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -42,23 +43,39 @@ class GdriveDeleteWorker
                 Log.d(TAG, "Starting batch delete for ${selectedIds.size} files")
 
                 val deleteResult =
-                    driveService.deleteFilesByLocalIds(selectedIds) { current, total ->
-                        // 🚀 進捗を通知
-                        setProgress(
-                            workDataOf(
-                                "PROGRESS_CURRENT" to current,
-                                "PROGRESS_TOTAL" to total,
-                            ),
-                        )
-                    }
-
-                Log.d(TAG, "Worker completed. deleted: ${deleteResult.deleted.size}, notDeleted: ${deleteResult.notDeleted.size}")
-                val outputData =
-                    workDataOf(
-                        "NOT_DELETED_IDS" to deleteResult.notDeleted.toLongArray(),
-                        "DELETED_IDS" to deleteResult.deleted.toLongArray(),
+                    driveService.deleteFilesByLocalIds(
+                        localIds = selectedIds,
+                        onProgress = { current, total ->
+                            // 🚀 進捗を通知
+                            setProgress(
+                                workDataOf(
+                                    "PROGRESS_CURRENT" to current,
+                                    "PROGRESS_TOTAL" to total,
+                                ),
+                            )
+                        },
                     )
-                Result.success(outputData)
+
+                deleteResult.fold(
+                    onSuccess = { res ->
+                        Log.d(TAG, "Worker completed. deleted: ${res.deleted.size}, notDeleted: ${res.notDeleted.size}")
+                        val outputData =
+                            workDataOf(
+                                "NOT_DELETED_IDS" to res.notDeleted.toLongArray(),
+                                "DELETED_IDS" to res.deleted.toLongArray(),
+                            )
+                        Result.success(outputData)
+                    },
+                    onFailure = { error ->
+                        Log.e(TAG, "Batch delete failed", error)
+                        CrashReporter.saveReport(
+                            context = appContext,
+                            action = "DELETE",
+                            throwable = error,
+                        )
+                        Result.failure()
+                    },
+                )
             }
         }
     }
