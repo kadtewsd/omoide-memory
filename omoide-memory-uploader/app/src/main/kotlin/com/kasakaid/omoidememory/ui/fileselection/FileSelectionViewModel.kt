@@ -19,6 +19,7 @@ import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeProgressB
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeUploadingStateByManualTag
 import com.kasakaid.omoidememory.ui.InitialRoute
 import com.kasakaid.omoidememory.ui.OnOff
+import com.kasakaid.omoidememory.ui.Progress
 import com.kasakaid.omoidememory.worker.LocalFileCleaner
 import com.kasakaid.omoidememory.worker.WorkManagerTag
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -262,11 +263,11 @@ class FileSelectionViewModel
 
         val isUploading: StateFlow<Boolean> =
             workManager.observeUploadingStateByManualTag(viewModelScope = viewModelScope)
-        val progress: StateFlow<Pair<Int, Int>?> =
+        val progress: StateFlow<Progress?> =
             workManager.observeProgressByManual(viewModelScope = viewModelScope)
         val isDeleting: StateFlow<Boolean> =
             workManager.observeDeletingStateByManualTag(viewModelScope = viewModelScope)
-        val deleteProgress: StateFlow<Pair<Int, Int>?> =
+        val deleteProgress: StateFlow<Progress?> =
             workManager.observeProgressByManualDelete(viewModelScope = viewModelScope)
         val isProcessing: StateFlow<Boolean> =
             combine(isUploading, isDeleting) { uploading, deleting ->

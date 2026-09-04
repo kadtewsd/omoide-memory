@@ -204,12 +204,22 @@ class MainViewModel
                     initialValue = false,
                 )
 
+        val uploadTargetCount: StateFlow<Int> =
+            omoideMemoryRepository
+                .findByAsFlow(UploadState.UPLOAD_TRIGGERED)
+                .map { it.size }
+                .stateIn(
+                    scope = viewModelScope,
+                    started = SharingStarted.WhileSubscribed(5000),
+                    initialValue = 0,
+                )
+
         private val workManager = WorkManager.getInstance(application)
         val isUploading: StateFlow<Boolean> =
             workManager.observeUploadingStateByManualTag(
                 viewModelScope = viewModelScope,
             )
-        val progress: StateFlow<Pair<Int, Int>?> =
+        val progress: StateFlow<Progress?> =
             workManager.observeProgressByManual(
                 viewModelScope = viewModelScope,
             )
