@@ -41,7 +41,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.count
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -214,7 +213,7 @@ fun UploadStatusCard(
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Text(
-                        text = "アップロード中: $current / $total",
+                        text = "$CONTENTS_UPLOADING: $current / $total",
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }

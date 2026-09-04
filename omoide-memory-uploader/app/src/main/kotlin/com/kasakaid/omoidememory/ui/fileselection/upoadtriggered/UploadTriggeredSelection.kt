@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.kasakaid.omoidememory.data.OmoideMemory
 import com.kasakaid.omoidememory.ui.AppBarWithBackIcon
+import com.kasakaid.omoidememory.ui.CONTENTS_UPLOADING
 import com.kasakaid.omoidememory.ui.UploadIndicator
 import com.kasakaid.omoidememory.ui.fileselection.FileGrid
 import com.kasakaid.omoidememory.ui.fileselection.VideoPreviewDialog
@@ -104,6 +105,7 @@ fun UploadTriggeredSelectionScreen(
     if (isUploading) {
         UploadIndicator(
             uploadProgress = progress,
+            label = CONTENTS_UPLOADING,
             onCancel = onCancelUpload,
         )
     }

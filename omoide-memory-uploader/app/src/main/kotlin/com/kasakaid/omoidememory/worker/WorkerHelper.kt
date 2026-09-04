@@ -7,6 +7,7 @@ import android.content.pm.ServiceInfo
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.work.ForegroundInfo
+import com.kasakaid.omoidememory.ui.CONTENTS_UPLOADING
 
 object WorkerHelper {
     /**
@@ -76,7 +77,7 @@ object WorkerHelper {
         val notification =
             NotificationCompat
                 .Builder(applicationContext, channelId)
-                .setContentTitle("アップロード中")
+                .setContentTitle(CONTENTS_UPLOADING)
                 .setContentText("Google Drive に送信しています")
                 .setSmallIcon(android.R.drawable.stat_sys_upload)
                 .setOngoing(true)

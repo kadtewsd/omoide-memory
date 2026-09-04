@@ -220,6 +220,10 @@ class MainViewModel
             }
         }
 
+        fun cancelManualUpload() {
+            workManager.cancelUniqueWork("manual_upload")
+        }
+
         fun toggleAutoUpload(enabled: Boolean) {
             // 自動アップロードは現在利用しないため、常に無効化する。
             // 参照実装としてロジックは残すが、外部からの変更は受け付けない。

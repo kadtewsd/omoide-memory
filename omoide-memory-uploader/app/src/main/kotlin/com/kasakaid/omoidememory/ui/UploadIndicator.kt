@@ -18,11 +18,20 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 
+const val CONTENTS_UPLOADING = "アップロード中..."
+
+/**
+ * バックグラウンドでのデータ処理（アップロード、削除等）中の進捗および画面ロック用インジケータ。
+ *
+ * @param uploadProgress 現在の進捗件数と全体の件数の Pair (current, total)。null の場合は準備中として表示。
+ * @param label 進捗テキストの末尾に表示する処理名称（例: "アップロード中...", "削除中..."）。呼び出し元で明確に指定すること。
+ * @param onCancel キャンセルボタン押下時に呼び出されるコールバック。
+ */
 @Composable
 fun UploadIndicator(
     uploadProgress: Pair<Int, Int>?,
-    label: String = "アップロード中...",
-    onCancel: (() -> Unit)? = null,
+    label: String,
+    onCancel: (() -> Unit),
 ) {
     // 背景を少し白くして、クリックを無効化する
     Box(
@@ -46,11 +55,9 @@ fun UploadIndicator(
                 Text("準備中...")
             }
 
-            if (onCancel != null) {
-                Spacer(modifier = Modifier.padding(16.dp))
-                Button(onClick = onCancel) {
-                    Text("強制キャンセル")
-                }
+            Spacer(modifier = Modifier.padding(16.dp))
+            Button(onClick = { onCancel.invoke() }) {
+                Text("強制キャンセル")
             }
         }
     }
