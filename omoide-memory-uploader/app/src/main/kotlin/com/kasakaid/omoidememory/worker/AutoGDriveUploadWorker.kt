@@ -8,13 +8,12 @@ import androidx.work.WorkerParameters
 import com.kasakaid.omoidememory.data.OmoideMemory
 import com.kasakaid.omoidememory.data.OmoideMemoryRepository
 import com.kasakaid.omoidememory.data.OmoideUploadPrefsRepository
-import com.kasakaid.omoidememory.data.UploadState
 import com.kasakaid.omoidememory.worker.WorkerHelper.createForegroundInfo
+import com.kasakaid.omoidememory.worker.WorkerHelper.showUploadErrorNotification
+import com.kasakaid.omoidememory.worker.WorkerHelper.withWifiNetworkBinding
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.takeWhile
-import kotlinx.coroutines.withContext
 
 /**
  * 自動アップロード有効時のみアップロードを試行するクラス
@@ -34,14 +33,14 @@ class AutoGDriveUploadWorker
         }
 
         override suspend fun doWork(): Result =
-            withContext(Dispatchers.IO) {
+            appContext.withWifiNetworkBinding {
                 setForeground(appContext.createForegroundInfo("AutoUpload"))
                 try {
                     Log.d(TAG, "自動アップロード開始")
                     // 1. Check Auto-Upload Setting
                     if (!omoideUploadPrefsRepository.isAutoUploadEnabled()) {
                         Log.d(TAG, "Auto-Upload が無効。写真のアップロードはスキップ")
-                        return@withContext Result.success()
+                        return@withWifiNetworkBinding Result.success()
                     }
 
                     val uploadedSizes = java.util.Collections.synchronizedList(mutableListOf<Long>())
@@ -71,7 +70,9 @@ class AutoGDriveUploadWorker
                                     uploadedSizes.add(omoideMemory.fileSize ?: 0L)
                                     uploadResult.add(Result.success())
                                 }.onFailure { error ->
-                                    Log.e(TAG, "${omoideMemory.name} のアップロード中断: ${error.message}")
+                                    val errorMessage = WorkerHelper.getReadableErrorMessage(error)
+                                    Log.e(TAG, "${omoideMemory.name} のアップロード中断: $errorMessage", error)
+                                    appContext.showUploadErrorNotification(errorMessage = errorMessage)
                                     uploadResult.add(Result.failure())
                                     shouldStop = true
                                 }
@@ -89,7 +90,9 @@ class AutoGDriveUploadWorker
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "例外が発生", e)
-                    return@withContext Result.failure()
+                    val errorMessage = WorkerHelper.getReadableErrorMessage(e)
+                    appContext.showUploadErrorNotification(errorMessage = errorMessage)
+                    Result.failure()
                 }
             }
     }

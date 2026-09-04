@@ -4,16 +4,8 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.util.Log
-import arrow.core.Either
-import arrow.core.left
-import arrow.core.right
-import com.google.api.client.googleapis.json.GoogleJsonResponseException
 import com.kasakaid.omoidememory.data.OmoideMemory
-import com.kasakaid.omoidememory.data.OmoideMemoryRepository
-import com.kasakaid.omoidememory.data.OmoideUploadPrefsRepository
-import com.kasakaid.omoidememory.data.WifiSetting
 import com.kasakaid.omoidememory.network.GoogleDriveService
-import com.kasakaid.omoidememory.network.SaPermissionDriveMetadataProvider
 import com.kasakaid.omoidememory.os.CrashReporter
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -28,14 +20,17 @@ class GdriveUploader
         private val driveService: GoogleDriveService,
     ) {
         companion object {
-            const val TAG = "GdriveUoloader"
+            const val TAG = "GdriveUploader"
         }
 
         /**
-         * 写真と Video のコンテンツをアップロードする実態
+         * 写真と Video のコンテンツをアップロードする実態 (同期ブロッキング実行)
+         *
+         * @param pendingFile アップロード対象のファイルエンティティ
+         * @param sourceWorker 呼び出し元の Worker 種別
          * @return アップロードされた Google Drive の File ID
          */
-        suspend fun upload(
+        fun upload(
             pendingFile: OmoideMemory,
             sourceWorker: WorkManagerTag,
         ): Result<String> {
@@ -56,26 +51,20 @@ class GdriveUploader
                 return Result.failure(exception)
             }
 
-            cm.bindProcessToNetwork(activeNetwork)
-
-            return try {
-                driveService.uploadFile(omoideMemory = pendingFile).fold(
-                    onSuccess = { fileId ->
-                        Log.d(tag, "Uploaded: ${pendingFile.name}")
-                        Result.success(fileId)
-                    },
-                    onFailure = { e ->
-                        Log.e(tag, "Upload Failed for ${pendingFile.name}: ${e.message}")
-                        CrashReporter.saveReport(
-                            context = context,
-                            action = "UPLOAD",
-                            throwable = e,
-                        )
-                        Result.failure(e)
-                    },
-                )
-            } finally {
-                cm.bindProcessToNetwork(null)
-            }
+            return driveService.uploadFile(omoideMemory = pendingFile).fold(
+                onSuccess = { fileId ->
+                    Log.d(tag, "Uploaded: ${pendingFile.name}")
+                    Result.success(fileId)
+                },
+                onFailure = { e ->
+                    Log.e(tag, "Upload Failed for ${pendingFile.name}: ${e.message}")
+                    CrashReporter.saveReport(
+                        context = context,
+                        action = "UPLOAD",
+                        throwable = e,
+                    )
+                    Result.failure(e)
+                },
+            )
         }
     }

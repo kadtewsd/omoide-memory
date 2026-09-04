@@ -11,8 +11,6 @@ import com.kasakaid.omoidememory.os.CrashReporter
 import com.kasakaid.omoidememory.worker.WorkerHelper.createForegroundInfo
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 /**
  * Google Drive からのファイル物理削除を実行する Worker
@@ -33,49 +31,47 @@ class GdriveDeleteWorker
             // 🚀 画面ロック (通知表示)
             setForeground(appContext.createForegroundInfo("ManualDelete"))
 
-            return withContext(Dispatchers.IO) {
-                val selectedIds = inputData.getLongArray("SELECTED_IDS")?.toList()
-                if (selectedIds.isNullOrEmpty()) {
-                    Log.w(TAG, "No IDs to delete")
-                    return@withContext Result.success()
-                }
+            val selectedIds = inputData.getLongArray("SELECTED_IDS")?.toList()
+            if (selectedIds.isNullOrEmpty()) {
+                Log.w(TAG, "No IDs to delete")
+                return Result.success()
+            }
 
-                Log.d(TAG, "Starting batch delete for ${selectedIds.size} files")
+            Log.d(TAG, "Starting batch delete for ${selectedIds.size} files")
 
-                val deleteResult =
-                    driveService.deleteFilesByLocalIds(
-                        localIds = selectedIds,
-                        onProgress = { current, total ->
-                            // 🚀 進捗を通知
-                            setProgress(
-                                workDataOf(
-                                    "PROGRESS_CURRENT" to current,
-                                    "PROGRESS_TOTAL" to total,
-                                ),
-                            )
-                        },
-                    )
-
-                deleteResult.fold(
-                    onSuccess = { res ->
-                        Log.d(TAG, "Worker completed. deleted: ${res.deleted.size}, notDeleted: ${res.notDeleted.size}")
-                        val outputData =
+            val deleteResult =
+                driveService.deleteFilesByLocalIds(
+                    localIds = selectedIds,
+                    onProgress = { current, total ->
+                        // 🚀 進捗を通知
+                        setProgress(
                             workDataOf(
-                                "NOT_DELETED_IDS" to res.notDeleted.toLongArray(),
-                                "DELETED_IDS" to res.deleted.toLongArray(),
-                            )
-                        Result.success(outputData)
-                    },
-                    onFailure = { error ->
-                        Log.e(TAG, "Batch delete failed", error)
-                        CrashReporter.saveReport(
-                            context = appContext,
-                            action = "DELETE",
-                            throwable = error,
+                                "PROGRESS_CURRENT" to current,
+                                "PROGRESS_TOTAL" to total,
+                            ),
                         )
-                        Result.failure()
                     },
                 )
-            }
+
+            return deleteResult.fold(
+                onSuccess = { res ->
+                    Log.d(TAG, "Worker completed. deleted: ${res.deleted.size}, notDeleted: ${res.notDeleted.size}")
+                    val outputData =
+                        workDataOf(
+                            "NOT_DELETED_IDS" to res.notDeleted.toLongArray(),
+                            "DELETED_IDS" to res.deleted.toLongArray(),
+                        )
+                    Result.success(outputData)
+                },
+                onFailure = { error ->
+                    Log.e(TAG, "Batch delete failed", error)
+                    CrashReporter.saveReport(
+                        context = appContext,
+                        action = "DELETE",
+                        throwable = error,
+                    )
+                    Result.failure()
+                },
+            )
         }
     }

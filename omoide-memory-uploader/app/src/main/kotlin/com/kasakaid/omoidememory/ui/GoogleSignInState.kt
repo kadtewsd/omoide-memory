@@ -23,21 +23,20 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
-import com.kasakaid.omoidememory.data.OmoideUploadPrefsRepository
-import com.kasakaid.omoidememory.worker.GdriveUploadWorker.Companion.TAG
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.Scope
 import com.google.android.gms.tasks.Task
 import com.google.api.services.drive.DriveScopes
+import com.kasakaid.omoidememory.data.OmoideUploadPrefsRepository
+import com.kasakaid.omoidememory.worker.GdriveUploadWorker.Companion.TAG
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
-
 
 /**
  * Google アカウントのサインインの状態
@@ -51,12 +50,16 @@ sealed interface GoogleSignInState {
         override val resultType: ResultType = ResultType.NotStill
     }
 
-    class Synced(email: String?) : GoogleSignInState {
+    class Synced(
+        email: String?,
+    ) : GoogleSignInState {
         override val message = "Google アカウントが同期されました $email"
         override val resultType: ResultType = ResultType.Success
     }
 
-    class Failure(expression: Exception) : GoogleSignInState {
+    class Failure(
+        expression: Exception,
+    ) : GoogleSignInState {
         override val message = "Google アカウントが同期が失敗しました ${expression.message}"
         override val resultType: ResultType = ResultType.Failure
     }
@@ -67,65 +70,70 @@ sealed interface GoogleSignInState {
          */
         fun checkGoogleSignInStatus(context: Context): GoogleSignInState {
             val account = GoogleSignIn.getLastSignedInAccount(context)
-            return if (account != null && account.email != null) {
-                // すでにログイン済みの情報が見つかった
-                Synced(account.email)
-            } else {
-                // 未サインイン
-                NotSynced
+            return when {
+                account?.email != null -> Synced(account.email)
+                else -> NotSynced
             }
         }
     }
 }
 
 @HiltViewModel
-class AuthStateViewModel @Inject constructor(
-    private val omoideUploadPrefsRepository: OmoideUploadPrefsRepository,
-    @param: ApplicationContext private val context: Context,
-) : ViewModel() {
+class AuthStateViewModel
+    @Inject
+    constructor(
+        private val omoideUploadPrefsRepository: OmoideUploadPrefsRepository,
+        @param:ApplicationContext private val context: Context,
+    ) : ViewModel() {
+        private val _accountName = MutableStateFlow(omoideUploadPrefsRepository.getAccountName())
+        val accountName: StateFlow<String?> = _accountName.asStateFlow()
 
-    private val _accountName = MutableStateFlow(omoideUploadPrefsRepository.getAccountName())
-    val accountName: StateFlow<String?> = _accountName.asStateFlow()
+        fun updateAccountName(
+            name: String?,
+            onSignInSuccess: (Boolean) -> Unit,
+        ) {
+            omoideUploadPrefsRepository.setAccountName(name)
+            _accountName.value = name
+            _googleSignInState.value =
+                when {
+                    name != null -> GoogleSignInState.Synced(name)
+                    else -> GoogleSignInState.NotSynced
+                }
+            onSignInSuccess(name != null)
+        }
 
-    fun updateAccountName(name: String?, onSignInSuccess: (Boolean) -> Unit) {
-        omoideUploadPrefsRepository.setAccountName(name)
-        _accountName.value = name
-        _googleSignInState.value = if (name == null) GoogleSignInState.NotSynced else GoogleSignInState.Synced(name)
-        onSignInSuccess(name != null)
-    }
+        /**
+         * 画面初期描画時のメソッド
+         */
+        fun refreshAuthState() {
+            _accountName.value = omoideUploadPrefsRepository.getAccountName()
+            _googleSignInState.value = GoogleSignInState.checkGoogleSignInStatus(context)
+        }
 
-    /**
-     * 画面初期描画時のメソッド
-     */
-    fun refreshAuthState() {
-        _accountName.value = omoideUploadPrefsRepository.getAccountName()
-        _googleSignInState.value = GoogleSignInState.checkGoogleSignInStatus(context)
-    }
+        private val _googleSignInState = MutableStateFlow(GoogleSignInState.checkGoogleSignInStatus(context))
+        val googleSignInState: StateFlow<GoogleSignInState> = _googleSignInState.asStateFlow()
 
-    private val _googleSignInState = MutableStateFlow(GoogleSignInState.checkGoogleSignInStatus(context))
-    val googleSignInState: StateFlow<GoogleSignInState> = _googleSignInState.asStateFlow()
-    fun googleAccountSynced() {
-        _googleSignInState.value = GoogleSignInState.Synced(accountName.value)
-    }
+        fun googleAccountSynced() {
+            _googleSignInState.value = GoogleSignInState.Synced(accountName.value)
+        }
 
-
-
-    /**
-     * Google のサインインランチャーが完了した後の副作用。
-     * remember で覚えているとその画面が出ている時だけだが、state で管理するとずっと状態が管理される
-     */
-    fun handleSignInResult(task: Task<GoogleSignInAccount>, onSignInSuccess: (Boolean) -> Unit) {
-         try {
-            val account = task.getResult(Exception::class.java)
-            updateAccountName(account?.email, onSignInSuccess)
-        } catch (e: Exception) {
-            Log.i(TAG, "${e.message} ${e.stackTrace.toString()}")
-            _googleSignInState.value = GoogleSignInState.Failure(e)
+        /**
+         * Google のサインインランチャーが完了した後の副作用。
+         * remember で覚えているとその画面が出ている時だけだが、state で管理するとずっと状態が管理される
+         */
+        fun handleSignInResult(
+            task: Task<GoogleSignInAccount>,
+            onSignInSuccess: (Boolean) -> Unit,
+        ) {
+            try {
+                val account = task.getResult(Exception::class.java)
+                updateAccountName(account?.email, onSignInSuccess)
+            } catch (e: Exception) {
+                Log.i(TAG, "${e.message} ${e.stackTrace}")
+                _googleSignInState.value = GoogleSignInState.Failure(e)
+            }
         }
     }
-
-}
-
 
 @Composable
 fun GoogleAuthStateRoute(
@@ -138,14 +146,15 @@ fun GoogleAuthStateRoute(
     LaunchedEffect(Unit) {
         viewModel.refreshAuthState()
     }
-    val signInLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
-            viewModel.handleSignInResult(task, onSignInSuccess)
+    val signInLauncher =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.StartActivityForResult(),
+        ) { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+                viewModel.handleSignInResult(task, onSignInSuccess)
+            }
         }
-    }
 
     // LocalContext.current は composable のスコープでしかアクセスできないよ！
     val context = LocalContext.current
@@ -154,7 +163,8 @@ fun GoogleAuthStateRoute(
         googleSignInState = googleSignInState,
         signInForGoogle = {
             val gso =
-                GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                GoogleSignInOptions
+                    .Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
                     .requestEmail()
                     .requestScopes(Scope(DriveScopes.DRIVE_FILE))
                     .build()
@@ -165,19 +175,17 @@ fun GoogleAuthStateRoute(
             viewModel.updateAccountName(null) {
                 viewModel.googleAccountSynced()
             }
-        }
+        },
     )
 }
-
 
 @Composable
 private fun GoogleAuthState(
     accountName: String?,
     googleSignInState: GoogleSignInState,
     signInForGoogle: () -> Unit,
-    signOutFromGoogle: () -> Unit
+    signOutFromGoogle: () -> Unit,
 ) {
-
     // Google Auth Section
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -196,6 +204,7 @@ private fun GoogleAuthState(
         }
     }
     Text(
-        googleSignInState.message, color = colorOf(googleSignInState.resultType)
+        googleSignInState.message,
+        color = colorOf(googleSignInState.resultType),
     )
 }
