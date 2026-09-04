@@ -14,10 +14,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     /**
-     * 通知タップ等で外部から指定された遷移先ルート（例: "pending"）を保持する StateFlow。
-     * AppRouter に渡され、画面遷移が完了した時点で onRouteConsumed コールバックにより null にクリアされる。
+     * 通知タップ等で外部から指定された初期遷移先（[InitialRoute]）を保持する StateFlow。
+     * AppRouter に渡され、画面遷移が完了した時点で onRouteConsumed コールバックにより [InitialRoute.MAIN] にリセットされる。
      */
-    private val targetRoute = MutableStateFlow<String?>(null)
+    private val targetRoute = MutableStateFlow<InitialRoute>(InitialRoute.MAIN)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -27,7 +27,7 @@ class MainActivity : ComponentActivity() {
                 val route by targetRoute.collectAsState()
                 AppRouter(
                     initialRoute = route,
-                    onRouteConsumed = { targetRoute.value = null },
+                    onRouteConsumed = { targetRoute.value = InitialRoute.MAIN },
                 )
             }
         }
@@ -41,12 +41,13 @@ class MainActivity : ComponentActivity() {
 
     /**
      * 送信されてきた Intent を解析し、通知タップ等による画面遷移指定（EXTRA_ROUTE）が含まれていれば
-     * [targetRoute] にセットして AppRouter へディスパッチします。
+     * 対応する [InitialRoute] を解決して [targetRoute] にセットします。
      */
     private fun handleIntent(intent: Intent?) {
         when {
             intent?.hasExtra(WorkerHelper.EXTRA_ROUTE) == true -> {
-                targetRoute.value = intent.getStringExtra(WorkerHelper.EXTRA_ROUTE)
+                val routeName = intent.getStringExtra(WorkerHelper.EXTRA_ROUTE)
+                targetRoute.value = InitialRoute.fromRoute(routeName)
             }
         }
     }

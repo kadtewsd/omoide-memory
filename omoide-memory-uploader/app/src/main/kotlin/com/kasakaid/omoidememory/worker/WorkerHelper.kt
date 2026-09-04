@@ -13,6 +13,7 @@ import androidx.core.app.NotificationCompat
 import androidx.work.ForegroundInfo
 import com.google.api.client.googleapis.json.GoogleJsonResponseException
 import com.kasakaid.omoidememory.ui.CONTENTS_UPLOADING
+import com.kasakaid.omoidememory.ui.InitialRoute
 import com.kasakaid.omoidememory.ui.MainActivity
 
 object WorkerHelper {
@@ -138,7 +139,7 @@ object WorkerHelper {
         val intent =
             Intent(applicationContext, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                putExtra(EXTRA_ROUTE, "pending")
+                putExtra(EXTRA_ROUTE, InitialRoute.PENDING.route)
                 putExtra(EXTRA_MESSAGE, errorMessage)
             }
         val pendingIntent =

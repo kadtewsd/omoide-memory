@@ -10,7 +10,6 @@ import androidx.navigation.navArgument
 import com.kasakaid.omoidememory.extension.popBackStackWithSnackMessage
 import com.kasakaid.omoidememory.ui.fileselection.DoneFileSelectionRoute
 import com.kasakaid.omoidememory.ui.fileselection.ExcludedFileSelectionRoute
-import com.kasakaid.omoidememory.ui.fileselection.FileUploadState
 import com.kasakaid.omoidememory.ui.fileselection.TargetFileSelectionRoute
 import com.kasakaid.omoidememory.ui.fileselection.upoadtriggered.UploadTriggeredSelectionRoute
 import com.kasakaid.omoidememory.ui.maintenance.CrashDetailScreen
@@ -28,7 +27,7 @@ import com.kasakaid.omoidememory.ui.maintenance.MaintenanceScreen
  * （例: アップロードエラー通知から「アップロード再開画面 (`"pending"`)」を開くなど）を
  * 直接開きたいケースが存在します。
  *
- * 直感的には `NavHost(startDestination = initialRoute ?: "main")` のように
+ * 直感的には `NavHost(startDestination = initialRoute.route)` のように
  * `startDestination` 自体を切り替えたくなりますが、あえてそうしていません。理由は以下の通りです：
  *
  * ### 1. 自然なバックスタック（戻る操作）の維持
@@ -43,77 +42,93 @@ import com.kasakaid.omoidememory.ui.maintenance.MaintenanceScreen
  * ### 2. `onRouteConsumed` によるワンショットイベント消費（多重遷移の防止）
  * - [initialRoute] は画面回転（構成変更: Configuration Change）や再描画（Recomposition）の際にも
  *   状態として保持されてしまう可能性があります。
- * - `LaunchedEffect(initialRoute)` 内で遷移完了後に即座に [onRouteConsumed] を呼び出して
- *   呼び出し元（[MainActivity]）の保持するルートを `null` にリセット（消費）させることで、
+ * - `LaunchedEffect(initialRoute)` 内でパターンマッチによる遷移完了後に即座に [onRouteConsumed] を呼び出して
+ *   呼び出し元（[MainActivity]）の保持するルートを [InitialRoute.MAIN] にリセット（消費）させることで、
  *   回転時などに意図せず同じ画面へ再度遷移してしまう多重ナビゲーションのバグを確実に防いでいます。
  *
- * @param initialRoute 通知タップ等の外部要因によって初期表示したい画面のルート文字列。通常起動時は `null`。
- * @param onRouteConsumed [initialRoute] への遷移が実行された直後に呼ばれるコールバック。呼び出し元で状態を `null` にクリアするために使用。
+ * ### 3. Enum パターンマッチによる振る舞いの分岐（横並び全列挙と NULL 排除）
+ * - `null` による「未指定」「通常起動」という暗黙の意味付けを排除し、非 Null な [InitialRoute] として状態をモデル化しています。
+ * - 振る舞い（画面遷移を行って消費する）が同一の Enum 定数はカンマ区切りで横に並べて全列挙し、
+ *   すでに解決しているインスタンスのプロパティ（[InitialRoute.route]）を直接渡して冗長な記述を排除しています。
+ * - [InitialRoute.MAIN] のように追加遷移を行わない状態とは明示的にブランチを分離し、コンパイラによる
+ *   網羅性チェックを活かしつつ見通しの良い構造にしています。
+ *
+ * @param initialRoute 通知タップ等の外部要因によって初期表示したい画面のルートEnum。通常起動時は [InitialRoute.MAIN]。
+ * @param onRouteConsumed [initialRoute] への遷移が実行された直後に呼ばれるコールバック。呼び出し元で状態を [InitialRoute.MAIN] に戻すために使用。
  */
 @Composable
 fun AppRouter(
-    initialRoute: String?,
+    initialRoute: InitialRoute,
     onRouteConsumed: () -> Unit,
 ) {
     val navController = rememberNavController()
 
-    // 外部（通知等）から遷移先ルートが指定された場合、一度だけ対象画面へ遷移して消費する
+    // 外部（通知等）から遷移先ルートが指定された場合、状態に応じたパターンマッチで振る舞いを決定する
     LaunchedEffect(initialRoute) {
-        if (initialRoute != null) {
-            navController.navigate(initialRoute)
-            // 画面回転時などに再度 navigate が多重発火しないよう、消費完了を通知して状態を null に戻す
-            onRouteConsumed()
+        when (initialRoute) {
+            InitialRoute.PENDING,
+            InitialRoute.WAITING_FOR_UPLOAD,
+            InitialRoute.UPLOAD_EXCLUDED,
+            InitialRoute.UPLOAD_DONE,
+            InitialRoute.MAINTENANCE,
+            -> {
+                navController.navigate(initialRoute.route)
+                onRouteConsumed()
+            }
+
+            InitialRoute.MAIN -> {
+                // 通常起動または消費済み：メイン画面を表示（追加遷移なし）
+            }
         }
     }
 
     // ここは「どの画面を表示するか」の分岐ロジックだけに専念！
-    // startDestination は常に "main" 固定。
+    // startDestination は常に InitialRoute.MAIN.route 固定。
     // 通知等から直接別画面を開く場合でも、バックスタックの底に "main" を残すことで
     // 戻るボタンを押した際にメイン画面に正常に戻れるようにする。
     NavHost(
         navController = navController,
-        // main が画面の最初になる、と言う設定
-        startDestination = "main",
+        startDestination = InitialRoute.MAIN.route,
     ) {
-        composable("main") { backStackEntry ->
+        composable(InitialRoute.MAIN.route) { backStackEntry ->
             val savedStateHandle = backStackEntry.savedStateHandle
             val snackMessageState = savedStateHandle.getStateFlow<String?>("snack_message", null).collectAsState()
 
             MainScreen(
                 snackMessage = snackMessageState.value,
                 onClearSnackMessage = { savedStateHandle.set<String?>("snack_message", null) },
-                onNavigateToSelection = { navController.navigate(FileUploadState.WAITING_FOR_UPLOAD.route) },
-                onNavigateToResume = { navController.navigate("pending") },
-                onNavigateToMaintenance = { navController.navigate("maintenance") },
-                onNavigateToUploadedMaintenance = { navController.navigate(FileUploadState.UPLOAD_DONE.route) },
+                onNavigateToSelection = { navController.navigate(InitialRoute.WAITING_FOR_UPLOAD.route) },
+                onNavigateToResume = { navController.navigate(InitialRoute.PENDING.route) },
+                onNavigateToMaintenance = { navController.navigate(InitialRoute.MAINTENANCE.route) },
+                onNavigateToUploadedMaintenance = { navController.navigate(InitialRoute.UPLOAD_DONE.route) },
             )
         }
-        composable(FileUploadState.WAITING_FOR_UPLOAD.route) {
+        composable(InitialRoute.WAITING_FOR_UPLOAD.route) {
             TargetFileSelectionRoute(
                 title = "アップロードする写真を選択",
                 onBack = { message -> navController.popBackStackWithSnackMessage(message) },
                 navController = navController,
             )
         }
-        composable("pending") {
+        composable(InitialRoute.PENDING.route) {
             UploadTriggeredSelectionRoute(
                 onBack = { navController.popBackStack() },
             )
         }
-        composable(FileUploadState.UPLOAD_EXCLUDED.route) {
+        composable(InitialRoute.UPLOAD_EXCLUDED.route) {
             ExcludedFileSelectionRoute(
                 title = "除外した写真",
                 onBack = { message -> navController.popBackStackWithSnackMessage(message) },
                 navController = navController,
             )
         }
-        composable(FileUploadState.UPLOAD_DONE.route) {
+        composable(InitialRoute.UPLOAD_DONE.route) {
             DoneFileSelectionRoute(
                 title = "アップロード済みの写真",
                 onBack = { message -> navController.popBackStackWithSnackMessage(message) },
             )
         }
-        composable("maintenance") {
+        composable(InitialRoute.MAINTENANCE.route) {
             MaintenanceScreen(
                 onBack = { navController.popBackStack() },
                 onNavigateToCrashReport = { navController.navigate("crash_report_viewer") },
