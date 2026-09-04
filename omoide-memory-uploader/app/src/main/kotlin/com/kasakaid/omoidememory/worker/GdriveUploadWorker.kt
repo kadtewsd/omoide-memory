@@ -44,9 +44,15 @@ class GdriveUploadWorker
 
                 val totalCount = targets.size
                 Log.d(TAG, "アップロード対象件数: $totalCount")
+                // 🚀 最初に 0 件目の進捗を出すことで、UI の「準備中」を早く終わらせる
+                setProgress(
+                    workDataOf(
+                        "PROGRESS_CURRENT" to 0,
+                        "PROGRESS_TOTAL" to totalCount,
+                    ),
+                )
                 var successCount = 0
 
-                // 🚀 最初に 0 件目の進捗を出すことで、UI の「準備中」を早く終わらせる
                 val successResults = mutableListOf<OmoideMemory>()
 
                 for ((index, omoideMemory) in targets.withIndex()) {
