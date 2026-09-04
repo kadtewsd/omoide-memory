@@ -8,7 +8,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.workDataOf
-import com.kasakaid.omoidememory.ui.Progress
+import com.kasakaid.omoidememory.ui.indicator.Progress
 import com.kasakaid.omoidememory.worker.GdriveDeleteWorker
 import com.kasakaid.omoidememory.worker.GdriveUploadWorker
 import com.kasakaid.omoidememory.worker.WorkManagerTag

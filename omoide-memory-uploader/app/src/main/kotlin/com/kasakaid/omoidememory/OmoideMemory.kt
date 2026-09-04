@@ -1,5 +1,5 @@
 package com.kasakaid.omoidememory
 
 object OmoideMemory {
-    const val VERSION = "1.8.10"
+    const val VERSION = "1.8.11"
 }

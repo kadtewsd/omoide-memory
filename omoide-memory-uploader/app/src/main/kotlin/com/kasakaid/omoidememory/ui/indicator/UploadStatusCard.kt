@@ -1,4 +1,4 @@
-package com.kasakaid.omoidememory.ui
+package com.kasakaid.omoidememory.ui.indicator
 
 import android.app.Application
 import android.util.Log
@@ -34,6 +34,7 @@ import com.kasakaid.omoidememory.data.OmoideUploadPrefsRepository
 import com.kasakaid.omoidememory.data.UploadState
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.enqueueWManualUpload
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeProgressByManual
+import com.kasakaid.omoidememory.ui.UploadRequiredCondition
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted

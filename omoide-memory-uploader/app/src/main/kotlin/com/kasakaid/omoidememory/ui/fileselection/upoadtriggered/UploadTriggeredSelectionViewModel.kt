@@ -11,8 +11,8 @@ import com.kasakaid.omoidememory.data.UploadState
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.enqueueWManualUpload
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeProgressByManual
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeUploadingStateByManualTag
-import com.kasakaid.omoidememory.ui.Progress
 import com.kasakaid.omoidememory.ui.fileselection.UploadResultSummary
+import com.kasakaid.omoidememory.ui.indicator.Progress
 import com.kasakaid.omoidememory.worker.WorkManagerTag
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
