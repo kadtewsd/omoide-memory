@@ -17,6 +17,7 @@ import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeDeletingS
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeProgressByManual
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeProgressByManualDelete
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeUploadingStateByManualTag
+import com.kasakaid.omoidememory.ui.InitialRoute
 import com.kasakaid.omoidememory.ui.OnOff
 import com.kasakaid.omoidememory.worker.LocalFileCleaner
 import com.kasakaid.omoidememory.worker.WorkManagerTag
@@ -54,17 +55,17 @@ enum class FileUploadState(
     WAITING_FOR_UPLOAD(
         label = "待ち",
         targetStates = emptyList(),
-        route = "selection",
+        route = InitialRoute.WAITING_FOR_UPLOAD.route,
     ),
     UPLOAD_EXCLUDED(
         label = "除外",
         targetStates = listOf(UploadState.EXCLUDED),
-        route = "excluded",
+        route = InitialRoute.UPLOAD_EXCLUDED.route,
     ),
     UPLOAD_DONE(
         label = "完了",
         targetStates = listOf(UploadState.DONE, UploadState.DRIVE_DELETED),
-        route = "uploaded_maintenance",
+        route = InitialRoute.UPLOAD_DONE.route,
     ),
 }
 
