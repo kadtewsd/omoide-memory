@@ -39,20 +39,21 @@ fun UploadIndicator(
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            // 🚀 進捗データがあるかどうかで表示を切り替える
-            if (uploadProgress != null && uploadProgress.second > 0) {
-                val (current, total) = uploadProgress
-                // total が 0 の時は 0f を、それ以外は進捗を計算
-                val progressValue = if (total > 0) current.toFloat() / total.toFloat() else 0f
-                LinearProgressIndicator(
-                    progress = { progressValue.coerceIn(0f, 1f) },
-                    modifier = Modifier.width(200.dp),
-                )
-                Text("$current / $total $label")
-            } else {
-                // まだ起動待ちの時はグルグル
-                CircularProgressIndicator()
-                Text("準備中...")
+            when {
+                uploadProgress != null && uploadProgress.second > 0 -> {
+                    val (current, total) = uploadProgress
+                    LinearProgressIndicator(
+                        progress = { (current.toFloat() / total.toFloat()).coerceIn(0f, 1f) },
+                        modifier = Modifier.width(200.dp),
+                    )
+                    Text("$current / $total $label")
+                }
+
+                else -> {
+                    // まだ起動待ちの時はグルグル
+                    CircularProgressIndicator()
+                    Text("準備中...")
+                }
             }
 
             Spacer(modifier = Modifier.padding(16.dp))

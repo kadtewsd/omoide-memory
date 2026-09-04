@@ -10,10 +10,10 @@ import com.kasakaid.omoidememory.data.OmoideMemory
 import com.kasakaid.omoidememory.data.OmoideMemoryRepository
 import com.kasakaid.omoidememory.data.UploadState
 import com.kasakaid.omoidememory.worker.WorkerHelper.createForegroundInfo
+import com.kasakaid.omoidememory.worker.WorkerHelper.showUploadErrorNotification
+import com.kasakaid.omoidememory.worker.WorkerHelper.withWifiNetworkBinding
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 /**
  * 手動アップロードを試行する
@@ -33,13 +33,13 @@ class GdriveUploadWorker
 
         override suspend fun doWork(): Result {
             setForeground(appContext.createForegroundInfo("ManualUpload"))
-            return withContext(Dispatchers.IO) {
+            return appContext.withWifiNetworkBinding {
                 Log.d(TAG, "UPLOAD_TRIGGERED のものを DB から取得")
                 val targets = omoideMemoryRepository.findBy(UploadState.UPLOAD_TRIGGERED)
 
                 if (targets.isEmpty()) {
                     Log.d(TAG, "アップロード対象がありません")
-                    return@withContext Result.success()
+                    return@withWifiNetworkBinding Result.success()
                 }
 
                 val totalCount = targets.size
@@ -75,15 +75,18 @@ class GdriveUploadWorker
                             successCount++
                             Log.i(TAG, "$successCount / $totalCount アップロード試行完了")
                         }.onFailure { error ->
-                            Log.e(TAG, "アップロード失敗: ${error.message}")
+                            val errorMessage = WorkerHelper.getReadableErrorMessage(error)
+                            Log.e(TAG, "アップロード失敗: $errorMessage", error)
                             if (successResults.isNotEmpty()) {
                                 omoideMemoryRepository.upsert(successResults)
                             }
                             val pendingCount = totalCount - successResults.size
                             Log.i(TAG, "処理対象前の UPLOAD_TRIGGERED となっているレコード $pendingCount 件は何もせず次回に回します ")
-                            return@withContext Result.success(
+                            appContext.showUploadErrorNotification(errorMessage = errorMessage)
+                            return@withWifiNetworkBinding Result.failure(
                                 workDataOf(
                                     "PENDING_COUNT" to pendingCount,
+                                    "ERROR_MESSAGE" to errorMessage,
                                 ),
                             )
                         }

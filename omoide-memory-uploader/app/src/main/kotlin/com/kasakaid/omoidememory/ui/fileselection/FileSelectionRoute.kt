@@ -66,7 +66,10 @@ fun FileSelectionRoute(
             if (hasNavigated) return@collect
             hasNavigated = true
             viewModel.clearSelection()
-            toMainScreen(notDeletedIds.takeIf { it.isNotEmpty() }?.let { "${it.size}個のコンテンツがダウンロード前であったので削除されてません。" })
+            when {
+                notDeletedIds.isNotEmpty() -> toMainScreen("${notDeletedIds.size}個のコンテンツがダウンロード前であったので削除されてません。")
+                else -> toMainScreen(null)
+            }
         }
     }
 
@@ -76,27 +79,11 @@ fun FileSelectionRoute(
             hasNavigated = true
             viewModel.clearSelection()
 
-            toMainScreen(
-                if (summary.pendingCount > 0) {
-                    "${summary.pendingCount}件のエラーが発生したので再度アップロードしてください"
-                } else {
-                    null
-                },
-            )
-        }
-    }
-
-    var hasStartedProcessing by remember { mutableStateOf(false) }
-    LaunchedEffect(isProcessing) {
-        if (!isProcessing && hasStartedProcessing && fileUploadState != FileUploadState.UPLOAD_DONE) {
-            if (hasNavigated) return@LaunchedEffect
-            hasNavigated = true
-            // サーバーサイドの重たい処理が終わったのでコールバック的に画面の選択状態を解除
-            viewModel.clearSelection()
-            toMainScreen(null)
-        }
-        if (isProcessing) {
-            hasStartedProcessing = true
+            when {
+                summary.errorMessage != null -> toMainScreen(summary.errorMessage)
+                summary.pendingCount > 0 -> toMainScreen("${summary.pendingCount}件のエラーが発生したので再度アップロードしてください")
+                else -> toMainScreen(null)
+            }
         }
     }
 

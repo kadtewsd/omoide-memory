@@ -6,8 +6,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,6 +37,17 @@ fun UploadTriggeredSelectionRoute(
     val files by viewModel.triggeredFiles.collectAsState()
     val isUploading by viewModel.isUploading.collectAsState()
     val progress by viewModel.progress.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(Unit) {
+        viewModel.uploadResultEvent.collect { summary ->
+            when {
+                summary.errorMessage != null -> snackbarHostState.showSnackbar(summary.errorMessage)
+                summary.pendingCount > 0 -> snackbarHostState.showSnackbar("${summary.pendingCount}件のエラーが発生したので再度アップロードしてください")
+                else -> onBack()
+            }
+        }
+    }
 
     UploadTriggeredSelectionScreen(
         title = "アップロード再開",
@@ -41,6 +55,7 @@ fun UploadTriggeredSelectionRoute(
         files = files,
         isUploading = isUploading,
         progress = progress,
+        snackbarHostState = snackbarHostState,
         onResumeUpload = { viewModel.resumeUpload() },
         onCancelUpload = { viewModel.cancelUpload() },
     )
@@ -53,6 +68,7 @@ fun UploadTriggeredSelectionScreen(
     files: List<OmoideMemory>,
     isUploading: Boolean,
     progress: Pair<Int, Int>?,
+    snackbarHostState: SnackbarHostState,
     onResumeUpload: () -> Unit,
     onCancelUpload: () -> Unit,
 ) {
@@ -69,6 +85,7 @@ fun UploadTriggeredSelectionScreen(
 
     Scaffold(
         topBar = { AppBarWithBackIcon(title = title, onFinished = onBack) },
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         bottomBar = {
             Column(
                 modifier =
