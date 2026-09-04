@@ -19,7 +19,7 @@ import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeProgressB
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeUploadingStateByManualTag
 import com.kasakaid.omoidememory.ui.InitialRoute
 import com.kasakaid.omoidememory.ui.OnOff
-import com.kasakaid.omoidememory.ui.Progress
+import com.kasakaid.omoidememory.ui.indicator.Progress
 import com.kasakaid.omoidememory.worker.LocalFileCleaner
 import com.kasakaid.omoidememory.worker.WorkManagerTag
 import dagger.hilt.android.lifecycle.HiltViewModel

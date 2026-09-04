@@ -34,6 +34,11 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.kasakaid.omoidememory.ui.indicator.CONTENTS_UPLOADING
+import com.kasakaid.omoidememory.ui.indicator.UploadIndicator
+import com.kasakaid.omoidememory.ui.indicator.UploadStatusRoute
+import com.kasakaid.omoidememory.ui.indicator.UploadedContentRoute
+import com.kasakaid.omoidememory.ui.indicator.current
 import com.kasakaid.omoidememory.ui.snakbar.StandardSnackBar
 
 // 1. 判定用の小さな関数を定義（MainScreen 内、または companion 内）

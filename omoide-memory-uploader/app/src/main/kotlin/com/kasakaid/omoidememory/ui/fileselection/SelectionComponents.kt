@@ -40,12 +40,12 @@ import com.kasakaid.omoidememory.data.isOverLimit
 import com.kasakaid.omoidememory.data.totalSize
 import com.kasakaid.omoidememory.extension.navigate
 import com.kasakaid.omoidememory.ui.AppBarWithBackIcon
-import com.kasakaid.omoidememory.ui.CONTENTS_UPLOADING
 import com.kasakaid.omoidememory.ui.MySwitch
 import com.kasakaid.omoidememory.ui.OnOff
-import com.kasakaid.omoidememory.ui.Progress
-import com.kasakaid.omoidememory.ui.UploadIndicator
-import com.kasakaid.omoidememory.ui.current
+import com.kasakaid.omoidememory.ui.indicator.CONTENTS_UPLOADING
+import com.kasakaid.omoidememory.ui.indicator.Progress
+import com.kasakaid.omoidememory.ui.indicator.UploadIndicator
+import com.kasakaid.omoidememory.ui.indicator.current
 
 @Composable
 fun FileSelectionScreen(

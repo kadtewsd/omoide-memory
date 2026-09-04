@@ -1,4 +1,4 @@
-package com.kasakaid.omoidememory.ui
+package com.kasakaid.omoidememory.ui.indicator
 
 /**
  * 処理の進捗状況を表現する値オブジェクト。

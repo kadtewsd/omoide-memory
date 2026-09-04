@@ -12,9 +12,9 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.work.ForegroundInfo
 import com.google.api.client.googleapis.json.GoogleJsonResponseException
-import com.kasakaid.omoidememory.ui.CONTENTS_UPLOADING
 import com.kasakaid.omoidememory.ui.InitialRoute
 import com.kasakaid.omoidememory.ui.MainActivity
+import com.kasakaid.omoidememory.ui.indicator.CONTENTS_UPLOADING
 
 object WorkerHelper {
     /**
