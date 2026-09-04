@@ -8,6 +8,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.workDataOf
+import com.kasakaid.omoidememory.ui.Progress
 import com.kasakaid.omoidememory.worker.GdriveDeleteWorker
 import com.kasakaid.omoidememory.worker.GdriveUploadWorker
 import com.kasakaid.omoidememory.worker.WorkManagerTag
@@ -96,7 +97,7 @@ object WorkManagerExtension {
             workManagerTag = WorkManagerTag.ManualDelete,
         )
 
-    fun WorkManager.observeProgressByManual(viewModelScope: CoroutineScope): StateFlow<Pair<Int, Int>?> =
+    fun WorkManager.observeProgressByManual(viewModelScope: CoroutineScope): StateFlow<Progress?> =
         observeProgress(
             viewModelScope = viewModelScope,
             workManagerTag = WorkManagerTag.Manual,
@@ -108,7 +109,7 @@ object WorkManagerExtension {
     private fun WorkManager.observeProgress(
         viewModelScope: CoroutineScope,
         workManagerTag: WorkManagerTag,
-    ): StateFlow<Pair<Int, Int>?> =
+    ): StateFlow<Progress?> =
         getWorkInfosForUniqueWorkFlow(workManagerTag.value)
             .map { workInfos ->
                 val runningWork = workInfos.find { it.state == WorkInfo.State.RUNNING }
@@ -116,13 +117,16 @@ object WorkManagerExtension {
                 if (progress != null) {
                     val current = progress.getInt("PROGRESS_CURRENT", 0)
                     val total = progress.getInt("PROGRESS_TOTAL", 0)
-                    current to total
+                    Progress(
+                        progressed = current,
+                        total = total,
+                    )
                 } else {
                     null
                 }
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
-    fun WorkManager.observeProgressByManualDelete(viewModelScope: CoroutineScope): StateFlow<Pair<Int, Int>?> =
+    fun WorkManager.observeProgressByManualDelete(viewModelScope: CoroutineScope): StateFlow<Progress?> =
         observeProgress(
             viewModelScope = viewModelScope,
             workManagerTag = WorkManagerTag.ManualDelete,

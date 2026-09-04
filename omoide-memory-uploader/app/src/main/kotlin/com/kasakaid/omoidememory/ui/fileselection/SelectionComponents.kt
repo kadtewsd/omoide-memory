@@ -43,7 +43,9 @@ import com.kasakaid.omoidememory.ui.AppBarWithBackIcon
 import com.kasakaid.omoidememory.ui.CONTENTS_UPLOADING
 import com.kasakaid.omoidememory.ui.MySwitch
 import com.kasakaid.omoidememory.ui.OnOff
+import com.kasakaid.omoidememory.ui.Progress
 import com.kasakaid.omoidememory.ui.UploadIndicator
+import com.kasakaid.omoidememory.ui.current
 
 @Composable
 fun FileSelectionScreen(
@@ -58,10 +60,10 @@ fun FileSelectionScreen(
     onOff: OnOff,
     onSwitchChanged: (OnOff) -> Unit,
     isUploading: Boolean,
-    progress: Pair<Int, Int>?,
+    progress: Progress?,
     onCancelUpload: () -> Unit,
     isDeleting: Boolean,
-    deleteProgress: Pair<Int, Int>?,
+    deleteProgress: Progress?,
     onCancelDelete: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -116,7 +118,7 @@ fun FileSelectionScreen(
     }
     if (isUploading) {
         UploadIndicator(
-            uploadProgress = progress,
+            uploadProgress = progress.current(total = selectedIds.count { it.value }),
             label = CONTENTS_UPLOADING,
             onCancel = onCancelUpload,
         )
@@ -124,7 +126,7 @@ fun FileSelectionScreen(
 
     if (isDeleting) {
         UploadIndicator(
-            uploadProgress = deleteProgress,
+            uploadProgress = deleteProgress.current(total = selectedIds.count { it.value }),
             label = "削除中...",
             onCancel = onCancelDelete,
         )

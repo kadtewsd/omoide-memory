@@ -44,7 +44,7 @@ class GdriveUploadWorker
 
                 val totalCount = targets.size
                 Log.d(TAG, "アップロード対象件数: $totalCount")
-                // 🚀 最初に 0 件目の進捗を出すことで、UI の「準備中」を早く終わらせる
+                // 🚀 初期進捗 (0 / totalCount) を通知して UI に全体の件数を伝える
                 setProgress(
                     workDataOf(
                         "PROGRESS_CURRENT" to 0,

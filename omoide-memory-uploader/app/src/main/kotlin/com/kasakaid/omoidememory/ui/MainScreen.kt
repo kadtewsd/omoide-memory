@@ -90,6 +90,7 @@ fun MainScreen(
 
     val isUploading = viewModel.isUploading.collectAsState().value
     val progress = viewModel.progress.collectAsState().value
+    val uploadTargetCount = viewModel.uploadTargetCount.collectAsState().value
 
     /**
      * 一括アップロードされたか？
@@ -250,7 +251,7 @@ fun MainScreen(
     // 🚀 アップロード中のみ表示されるロック層
     if (isUploading) {
         UploadIndicator(
-            uploadProgress = progress,
+            uploadProgress = progress.current(uploadTargetCount),
             label = CONTENTS_UPLOADING,
             onCancel = { viewModel.cancelManualUpload() },
         )

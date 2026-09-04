@@ -41,6 +41,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.count
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -96,19 +97,28 @@ class UploadStatusViewModel
                 .getUploadedCount(listOf(UploadState.DONE, UploadState.DRIVE_DELETED))
                 .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
+        /**
+         * メイン画面から手動で一括アップロードを開始します。
+         * 未アップロード対象を検索して UPLOAD_TRIGGERED に更新してから Worker を投入します。
+         */
         fun triggerManualUpload() {
             viewModelScope.launch {
-                /**
-                 * まとめて取得したい時は、last でも first でもなくて、toList。R2DBC の Flux を取り出す時と同じ。
-                 */
-                workManager.enqueueWManualUpload()
+                val targets =
+                    omoideMemoryRepository
+                        .getPotentialPendingFiles()
+                        .toList()
+                        .map { it.triggered() }
+                if (targets.isNotEmpty()) {
+                    omoideMemoryRepository.upsert(targets)
+                    workManager.enqueueWManualUpload()
+                }
             }
         }
 
         private val workManager = WorkManager.getInstance(application)
 
         // WorkInfo から進捗を取り出して StateFlow に変換
-        val uploadProgress: StateFlow<Pair<Int, Int>?> =
+        val uploadProgress: StateFlow<Progress?> =
             workManager.observeProgressByManual(
                 viewModelScope = viewModelScope,
             )
@@ -162,7 +172,7 @@ fun UploadStatusCard(
     condition: UploadRequiredCondition, // 状態を引数で受け取る
     onUploadClick: () -> Unit, // ボタンクリック時のアクション
     onNavigateToContentSelection: () -> Unit,
-    progress: Pair<Int, Int>?,
+    progress: Progress?,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -202,18 +212,16 @@ fun UploadStatusCard(
             }
 
             // 進捗バー
-            progress?.let { (current, total) ->
-                Log.d("進捗バー", "current: $current, total: $total を実行中")
-                if (total > 0) {
-                    // getWorkInfosByTagFlow で監視している際、状態変化のタイミングによっては、一瞬だけ 「Progress は存在するが、中身が空（デフォルト値の0）」 というデータが UI に流れることがあります。
-                    // 0除算が発生する問題を回避するため分岐入れます。
+            progress?.let { p ->
+                Log.d("進捗バー", "current: ${p.progressed}, total: ${p.total} を実行中")
+                if (p.total > 0) {
                     Spacer(modifier = Modifier.height(8.dp))
                     LinearProgressIndicator(
-                        progress = { current.toFloat() / total.toFloat() },
+                        progress = { p.fraction },
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Text(
-                        text = "$CONTENTS_UPLOADING: $current / $total",
+                        text = "$CONTENTS_UPLOADING: ${p.progressed} / ${p.total}",
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
