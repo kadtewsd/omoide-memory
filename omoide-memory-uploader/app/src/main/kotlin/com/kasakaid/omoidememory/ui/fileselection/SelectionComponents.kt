@@ -40,6 +40,7 @@ import com.kasakaid.omoidememory.data.isOverLimit
 import com.kasakaid.omoidememory.data.totalSize
 import com.kasakaid.omoidememory.extension.navigate
 import com.kasakaid.omoidememory.ui.AppBarWithBackIcon
+import com.kasakaid.omoidememory.ui.CONTENTS_UPLOADING
 import com.kasakaid.omoidememory.ui.MySwitch
 import com.kasakaid.omoidememory.ui.OnOff
 import com.kasakaid.omoidememory.ui.UploadIndicator
@@ -116,6 +117,7 @@ fun FileSelectionScreen(
     if (isUploading) {
         UploadIndicator(
             uploadProgress = progress,
+            label = CONTENTS_UPLOADING,
             onCancel = onCancelUpload,
         )
     }

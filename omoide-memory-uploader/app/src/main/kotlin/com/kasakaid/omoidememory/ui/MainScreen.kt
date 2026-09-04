@@ -251,6 +251,8 @@ fun MainScreen(
     if (isUploading) {
         UploadIndicator(
             uploadProgress = progress,
+            label = CONTENTS_UPLOADING,
+            onCancel = { viewModel.cancelManualUpload() },
         )
     }
 }
