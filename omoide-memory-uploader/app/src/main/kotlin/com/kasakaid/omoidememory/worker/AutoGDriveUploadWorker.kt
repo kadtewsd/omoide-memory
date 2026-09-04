@@ -65,18 +65,16 @@ class AutoGDriveUploadWorker
                             val result =
                                 gdriveUploader.upload(sourceWorker = WorkManagerTag.Auto, pendingFile = omoideMemory)
 
-                            result.fold(
-                                ifLeft = { error ->
-                                    Log.e(TAG, "${omoideMemory.name} のアップロード中断: ${error.message}")
-                                    uploadResult.add(Result.failure())
-                                    shouldStop = true
-                                },
-                                ifRight = { _ ->
+                            result
+                                .onSuccess { _ ->
                                     succeededFiles.add(omoideMemory.done())
                                     uploadedSizes.add(omoideMemory.fileSize ?: 0L)
                                     uploadResult.add(Result.success())
-                                },
-                            )
+                                }.onFailure { error ->
+                                    Log.e(TAG, "${omoideMemory.name} のアップロード中断: ${error.message}")
+                                    uploadResult.add(Result.failure())
+                                    shouldStop = true
+                                }
                         }
 
                     if (succeededFiles.isNotEmpty()) {

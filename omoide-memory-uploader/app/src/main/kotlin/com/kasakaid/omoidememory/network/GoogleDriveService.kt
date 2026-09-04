@@ -51,9 +51,8 @@ class GoogleDriveService
         /**
          * ファイルをアップロードします
          */
-        suspend fun uploadFile(omoideMemory: OmoideMemory): String? =
-            withContext(Dispatchers.IO) {
-                // 1. ファイル本体のアップロード
+        suspend fun uploadFile(omoideMemory: OmoideMemory): Result<String> =
+            runCatching {
                 val uploadedFile =
                     service
                         .files()
@@ -63,10 +62,9 @@ class GoogleDriveService
                         ).setFields("id")
                         .execute()
 
-                if (uploadedFile?.id == null) throw IOException("Upload failed: ID is null")
-                // 全工程成功。次のファイル処理のために少し待機
-                delay(800)
-                return@withContext uploadedFile.id
+                (uploadedFile?.id ?: throw IOException("Upload failed: ID is null for ${omoideMemory.name}")).also {
+                    delay(800)
+                }
             }
 
         private class DeleteCandidate(
@@ -83,7 +81,7 @@ class GoogleDriveService
         suspend fun deleteFilesByLocalIds(
             localIds: List<Long>,
             onProgress: suspend (Int, Int) -> Unit,
-        ): DeleteResult =
+        ): Result<DeleteResult> =
             withContext(Dispatchers.IO) {
                 val driveFiles = mutableListOf<Pair<Long, String>>() // localId to driveFileId
                 val allFoundLocalIds = mutableSetOf<Long>()
@@ -141,9 +139,11 @@ class GoogleDriveService
 
                     if (driveFiles.isEmpty()) {
                         onProgress(0, 0)
-                        return@withContext DeleteResult(
-                            deleted = deletedLocalIds,
-                            notDeleted = notDeletedLocalIds,
+                        return@withContext Result.success(
+                            DeleteResult(
+                                deleted = deletedLocalIds,
+                                notDeleted = notDeletedLocalIds,
+                            ),
                         )
                     }
 
@@ -162,21 +162,22 @@ class GoogleDriveService
                                 deletedLocalIds.add(lid)
                             } else {
                                 Log.e("Drive", "Failed to delete file from Drive: $driveId (localId: $lid)", e)
-                                notDeletedLocalIds.add(lid)
+                                val remainingLocalIds = driveFiles.subList(index, driveFiles.size).map { it.first }
+                                notDeletedLocalIds.addAll(remainingLocalIds)
+                                return@withContext Result.failure(e)
                             }
                         }
                     }
                     onProgress(driveFiles.size, driveFiles.size)
-                    return@withContext DeleteResult(
-                        deleted = deletedLocalIds,
-                        notDeleted = notDeletedLocalIds,
+                    return@withContext Result.success(
+                        DeleteResult(
+                            deleted = deletedLocalIds,
+                            notDeleted = notDeletedLocalIds,
+                        ),
                     )
                 } catch (e: Exception) {
                     Log.e("Drive", "Failed in batch delete process", e)
-                    return@withContext DeleteResult(
-                        deleted = emptyList(),
-                        notDeleted = localIds,
-                    )
+                    return@withContext Result.failure(e)
                 }
             }
 
@@ -184,8 +185,15 @@ class GoogleDriveService
          * 端末側の ID に基づいて Google Drive 上のファイルを削除します。
          */
         suspend fun deleteFileByLocalId(localId: Long): Boolean {
-            val result = deleteFilesByLocalIds(listOf(localId)) { _, _ -> }
-            return result.notDeleted.isEmpty()
+            val result =
+                deleteFilesByLocalIds(
+                    localIds = listOf(localId),
+                    onProgress = { _, _ -> },
+                )
+            return result.fold(
+                onSuccess = { deleteResult -> deleteResult.notDeleted.isEmpty() },
+                onFailure = { false },
+            )
         }
     }
 

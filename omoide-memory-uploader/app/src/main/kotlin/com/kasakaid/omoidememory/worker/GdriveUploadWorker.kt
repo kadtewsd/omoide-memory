@@ -69,8 +69,12 @@ class GdriveUploadWorker
                             pendingFile = omoideMemory,
                         )
 
-                    result.fold(
-                        ifLeft = { error ->
+                    result
+                        .onSuccess { _ ->
+                            successResults.add(omoideMemory.done())
+                            successCount++
+                            Log.i(TAG, "$successCount / $totalCount アップロード試行完了")
+                        }.onFailure { error ->
                             Log.e(TAG, "アップロード失敗: ${error.message}")
                             if (successResults.isNotEmpty()) {
                                 omoideMemoryRepository.upsert(successResults)
@@ -82,13 +86,7 @@ class GdriveUploadWorker
                                     "PENDING_COUNT" to pendingCount,
                                 ),
                             )
-                        },
-                        ifRight = { _ ->
-                            successResults.add(omoideMemory.done())
-                            successCount++
-                            Log.i(TAG, "$successCount / $totalCount アップロード試行完了")
-                        },
-                    )
+                        }
                 }
 
                 Log.d(TAG, "すべて成功になるので UPLOAD_TRIGGERED のレコードが消える")

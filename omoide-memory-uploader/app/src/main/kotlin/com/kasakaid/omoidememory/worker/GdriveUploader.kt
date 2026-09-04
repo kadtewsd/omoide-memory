@@ -14,6 +14,7 @@ import com.kasakaid.omoidememory.data.OmoideUploadPrefsRepository
 import com.kasakaid.omoidememory.data.WifiSetting
 import com.kasakaid.omoidememory.network.GoogleDriveService
 import com.kasakaid.omoidememory.network.SaPermissionDriveMetadataProvider
+import com.kasakaid.omoidememory.os.CrashReporter
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 
@@ -37,24 +38,8 @@ class GdriveUploader
         suspend fun upload(
             pendingFile: OmoideMemory,
             sourceWorker: WorkManagerTag,
-        ): Either<WorkerExecutionError, String> {
+        ): Result<String> {
             val tag = "${sourceWorker.value} -> $TAG"
-
-            /**
-             * 【背景と制約】
-             * ワーカー実行中（アップロード処理中）は、指定された SSID との一致まではチェックせず、
-             * 物理的に何らかの Wi-Fi に接続されていることのみを確認する仕様としています。
-             *
-             * [理由]
-             * 1. Android の仕様上、SSID の取得には「位置情報 (GPS)」の権限と有効化が必須です。
-             * 2. バックグラウンド実行時やスリープ中は、OS の省電力制御やプライバシー保護により、
-             *    Wi-Fi 接続自体は維持されていても SSID の取得のみが失敗（<unknown ssid>）するケースが多発します。
-             * 3. 厳密な SSID チェックを継続すると、連投アップロード中に不自然に中断される原因となるため、
-             *    「ワーカーが走り始めた＝開始時に正当な Wi-Fi 内にいた」とみなし、実行中は Wi-Fi 切断のみを監視します。
-             *
-             * ※ セキュリティ上の制約より厳密さを求める場合は、開始時だけでなく各ファイル毎に
-             *    snapshotSsid() を呼び出す必要がありますが、現状はユーザビリティと安定性を優先しています。
-             */
 
             val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
             val activeNetwork = cm.activeNetwork
@@ -62,39 +47,34 @@ class GdriveUploader
 
             if (activeNetwork == null || capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) != true) {
                 Log.e(tag, "Upload aborted: Wi-Fi is not connected.")
-                return WorkerExecutionError.WifiNotConnected.left()
+                val exception = IllegalStateException("Upload aborted: Wi-Fi is not connected.")
+                CrashReporter.saveReport(
+                    context = context,
+                    action = "UPLOAD",
+                    throwable = exception,
+                )
+                return Result.failure(exception)
             }
 
-            // 🚀 OS レベルでこのプロセス（ソケット）を現在の Wi-Fi ネットワークに強制バインドします。
-            // これにより、もしアップロードの途中で外に出て Wi-Fi が切れた場合、
-            // OS が勝手に SIM (モバイルデータ) 通信に切り替えてしまう（ハンドオーバー）のを完全に防ぎます。
-            // Wi-Fi 切断と同時にソケットは即座にエラー (Network Unreachable 等) になり安全に終了します。
             cm.bindProcessToNetwork(activeNetwork)
 
             return try {
-                val fileId = driveService.uploadFile(omoideMemory = pendingFile)
-                if (fileId != null) {
-                    Log.d(tag, "Uploaded: ${pendingFile.name}")
-                    fileId.right()
-                } else {
-                    WorkerExecutionError.UploadFailed("Upload failed: fileId is null").left()
-                }
-            } catch (e: SecurityException) {
-                Log.e(tag, "Auth Error: ${e.message}")
-                WorkerExecutionError.AuthError(e.message ?: "SecurityException during upload").left()
-            } catch (e: GoogleJsonResponseException) {
-                Log.e(tag, "${pendingFile.name} GoogleJsonResponseException (${e.statusCode}): ${e.message}")
-                when (e.statusCode) {
-                    507 -> WorkerExecutionError.StorageFull(e.message ?: "Storage full").left()
-                    401 -> WorkerExecutionError.AuthError(e.message ?: "Auth error").left()
-                    429 -> WorkerExecutionError.TooMuchRequest(e.message ?: "リクエスト回数のオーバー").left()
-                    else -> WorkerExecutionError.UploadFailed(e.message ?: "Upload failed").left()
-                }
-            } catch (e: Exception) {
-                Log.e(tag, "Upload Failed for ${pendingFile.name}: ${e.message}")
-                WorkerExecutionError.UploadFailed(e.message ?: "Unknown error during upload").left()
+                driveService.uploadFile(omoideMemory = pendingFile).fold(
+                    onSuccess = { fileId ->
+                        Log.d(tag, "Uploaded: ${pendingFile.name}")
+                        Result.success(fileId)
+                    },
+                    onFailure = { e ->
+                        Log.e(tag, "Upload Failed for ${pendingFile.name}: ${e.message}")
+                        CrashReporter.saveReport(
+                            context = context,
+                            action = "UPLOAD",
+                            throwable = e,
+                        )
+                        Result.failure(e)
+                    },
+                )
             } finally {
-                // 処理が終わったらネットワークバインドを解除し、元のデフォルト経路に戻す
                 cm.bindProcessToNetwork(null)
             }
         }
