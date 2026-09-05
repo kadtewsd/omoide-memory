@@ -29,7 +29,6 @@ object WorkManagerExtension {
             Constraints
                 .Builder()
                 .setRequiredNetworkType(NetworkType.CONNECTED) // 🚀 手動の場合はとにかく動かして、Wi-Fi 未接続なら Uploader 側でエラーを出す
-                .setRequiresBatteryNotLow(true)
                 .build()
 
         val uploadRequest =
