@@ -17,6 +17,7 @@ import com.kasakaid.omoidememory.extension.WorkManagerExtension.enqueueWManualUp
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeProgressByManual
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeUploadingStateByManualTag
 import com.kasakaid.omoidememory.ui.indicator.Progress
+import com.kasakaid.omoidememory.ui.maintenance.requestprocess.data.UploadReportRepository
 import com.kasakaid.omoidememory.worker.AutoGDriveUploadWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -54,7 +55,8 @@ class MainViewModel
         application: Application,
         private val wifiRepository: WifiRepository,
         private val omoideUploadPrefsRepository: OmoideUploadPrefsRepository,
-        private val omoideMemoryRepository: OmoideMemoryRepository,
+        omoideMemoryRepository: OmoideMemoryRepository,
+        private val uploadReportRepository: UploadReportRepository,
     ) : ViewModel() {
         // 一旦、自動アップロード機能は利用しないため false 固定とする。
         // 将来的な参照のためにコードは残しておくが、初期値は常に false。
@@ -256,7 +258,7 @@ class MainViewModel
 
         fun resumeUpload() {
             viewModelScope.launch {
-                workManager.enqueueWManualUpload()
+                workManager.enqueueWManualUpload(uploadReportRepository = uploadReportRepository, contentCount = uploadTargetCount.value)
             }
         }
 

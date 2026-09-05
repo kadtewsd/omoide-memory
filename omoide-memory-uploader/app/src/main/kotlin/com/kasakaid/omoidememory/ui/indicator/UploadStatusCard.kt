@@ -35,6 +35,7 @@ import com.kasakaid.omoidememory.data.UploadState
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.enqueueWManualUpload
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeProgressByManual
 import com.kasakaid.omoidememory.ui.UploadRequiredCondition
+import com.kasakaid.omoidememory.ui.maintenance.requestprocess.data.UploadReportRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -54,6 +55,7 @@ class UploadStatusViewModel
         private val omoideMemoryRepository: OmoideMemoryRepository,
         omoideUploadPrefsRepository: OmoideUploadPrefsRepository,
         omoideMemoryDao: OmoideMemoryDao,
+        private val uploadReportRepository: UploadReportRepository,
     ) : ViewModel() {
         /**
          * パーミッション、アカウントの設定が完了してアップロードが行えるか？
@@ -111,7 +113,7 @@ class UploadStatusViewModel
                         .map { it.triggered() }
                 if (targets.isNotEmpty()) {
                     omoideMemoryRepository.upsert(targets)
-                    workManager.enqueueWManualUpload()
+                    workManager.enqueueWManualUpload(uploadReportRepository = uploadReportRepository, contentCount = targets.size)
                 }
             }
         }
