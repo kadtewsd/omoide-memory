@@ -115,6 +115,19 @@ sealed interface UploadPoint : EnumWithLabel {
             get() = MaterialTheme.colorScheme.primary
     }
 
+    data object FinishBeforeAllCompleted : UploadPoint {
+        override val name: String = "FINISH_BEFORE_ALL_COMPLETED"
+        override val label: String = "途中で終了"
+        override val message: String = "Google からエラーが返ってきたので途中で終了した"
+
+        // 終端ステータスのため、NULL を不許可にする目的であえて「自分自身 (this)」を指定している
+        override val next: UploadPoint get() = this
+        override val color: Color
+            @Composable
+            @ReadOnlyComposable
+            get() = MaterialTheme.colorScheme.error
+    }
+
     companion object {
         val entries: List<UploadPoint> = UploadPoint::class.sealedClasses()
 
@@ -169,6 +182,13 @@ data class UploadReport(
             lastPoint = UploadPoint.TargetEmpty,
             message = UploadPoint.TargetEmpty.message,
             updatedAt = System.currentTimeMillis(),
+        )
+
+    fun failed(): UploadReport =
+        copy(
+            updatedAt = System.currentTimeMillis(),
+            lastPoint = UploadPoint.FinishBeforeAllCompleted,
+            message = UploadPoint.FinishBeforeAllCompleted.message,
         )
 
     companion object {

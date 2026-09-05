@@ -110,6 +110,7 @@ class GdriveUploadWorker
                                 val pendingCount = totalCount - successResults.size
                                 Log.i(TAG, "処理対象前の UPLOAD_TRIGGERED となっているレコード $pendingCount 件は何もせず次回に回します ")
                                 appContext.showUploadErrorNotification(errorMessage = errorMessage)
+                                uploadReportRepository.update(report = uploading.failed())
                                 return@withWifiNetworkBinding Result.failure(
                                     workDataOf(
                                         "PENDING_COUNT" to pendingCount,
