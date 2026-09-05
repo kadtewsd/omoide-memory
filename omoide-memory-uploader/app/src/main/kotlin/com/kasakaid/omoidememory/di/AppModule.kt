@@ -25,7 +25,7 @@ object AppModule {
                 context,
                 AppDatabase::class.java,
                 "picture-uploader-db",
-            ).fallbackToDestructiveMigration() // ← これを追加！
+            ).addMigrations(MIGRATION_1_2)
             .build()
 
     @Provides
