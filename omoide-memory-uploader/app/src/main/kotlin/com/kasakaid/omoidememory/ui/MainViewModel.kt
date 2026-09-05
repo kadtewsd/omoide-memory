@@ -26,12 +26,11 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -62,42 +61,76 @@ class MainViewModel
         private val _isAutoUploadEnabled = MutableStateFlow(false)
         val isAutoUploadEnabled: StateFlow<Boolean> = _isAutoUploadEnabled.asStateFlow()
 
+        companion object {
+            /**
+             * 物理的な Wi-Fi 接続状態と [wifiState] の乖離を監視・自己修復するチェック間隔（ミリ秒）。
+             *
+             * 【背景】
+             * Android OS では、アプリのバックグラウンド移行時や省電力モード移行時に OS 側でコールバックが自動解放されることがあります。
+             * 端末自体は Wi-Fi に接続しているにもかかわらず、アプリ内の状態が未接続（NotConnected）や Idle のまま滞るケースを防ぐため、
+             * 定期的に不整合を検知して [WifiRepository.refresh] を呼び出すことで自己修復を行います。
+             */
+            private const val WIFI_HEALING_CHECK_INTERVAL_MILLIS = 5000L
+        }
+
         // 権限状態を管理する Flow
         private val hasPermission = MutableStateFlow(false)
 
         // Google サインイン状態
         private val isGoogleSignIn = MutableStateFlow(false)
 
-        // Wi-Fi 状況を強制的に再取得するためのトリガー
-        private val refreshTrigger = MutableStateFlow(0)
+        init {
+            // 🚀 5秒おきの不整合検知・自己修復 (Ticker)
+            // OS の NetworkCallback はバックグラウンド移行時や省電力制限で登録解除されることがあるため、
+            // 端末が物理的に Wi-Fi 接続中であるにもかかわらず状態が未取得・未接続のまま滞っている不整合を検知し、
+            // 自動的に再取得（リフレッシュ）を実行して復帰させます。
+            viewModelScope.launch {
+                while (isActive) {
+                    delay(WIFI_HEALING_CHECK_INTERVAL_MILLIS)
+                    recoverWifiStatusIfNeeded()
+                }
+            }
+        }
+
+        /**
+         * 物理的な Wi-Fi 接続状態と [wifiState] の状態乖離を検知し、必要に応じて自己修復（リフレッシュ）を行います。
+         *
+         * 【設計原則に基づく制御結合の排除】
+         * 正常に接続されている（[WifiSetting.Found]）場合は何もしません。
+         * 物理的に Wi-Fi 接続中であるにもかかわらず、状態が未接続や未取得のまま滞っている場合のみ [WifiRepository.refresh] を呼び出します。
+         * これにより、5秒ごとの無駄な NetworkCallback 再登録による TooManyRequestsException を構造的に防止します。
+         */
+        private fun recoverWifiStatusIfNeeded() {
+            if (hasPermission.value && wifiRepository.isConnectedToWifi()) {
+                when (wifiState.value) {
+                    is WifiSetting.Found -> {
+                        // 正常に接続・認識されているため何もしない
+                    }
+
+                    is WifiSetting.Idle,
+                    is WifiSetting.Loading,
+                    is WifiSetting.NotFound,
+                    is WifiSetting.NotConnected,
+                    -> {
+                        // 物理的には接続されているのに状態が反映されていないため、自己修復を実行
+                        wifiRepository.refresh()
+                    }
+                }
+            }
+        }
 
         /**
          * 外部（UI）から Wi-Fi 状況の更新を明示的に要求します。
          * 画面が foreground に復帰した際などに呼び出すことを想定しています。
          */
         fun refreshWifiStatus() {
-            refreshTrigger.value++
+            wifiRepository.refresh()
         }
 
         @OptIn(ExperimentalCoroutinesApi::class)
         private val wifiState: StateFlow<WifiSetting> =
-            combine(
-                /**
-                 * 🚀 5秒おきの「つついて確認」 (Ticker)
-                 * OS の NetworkCallback は稀にイベントを逃す（あるいは滞る）ことがあるため、
-                 * 定期的に Unit を流して後続の flatMapLatest を再トリガーさせます。
-                 */
-                flow {
-                    while (true) {
-                        emit(Unit)
-                        delay(5000)
-                    }
-                },
-                hasPermission,
-                refreshTrigger,
-            ) { _, granted, trigger -> granted to trigger }
-                .distinctUntilChanged()
-                .flatMapLatest { (granted, _) ->
+            hasPermission
+                .flatMapLatest { granted ->
                     if (granted) {
                         wifiRepository.observeWifiSSID()
                     } else {
