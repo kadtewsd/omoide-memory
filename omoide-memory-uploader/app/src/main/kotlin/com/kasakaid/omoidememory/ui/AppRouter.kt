@@ -16,6 +16,8 @@ import com.kasakaid.omoidememory.ui.maintenance.CrashDetailScreen
 import com.kasakaid.omoidememory.ui.maintenance.CrashReportViewerScreen
 import com.kasakaid.omoidememory.ui.maintenance.DbMaintenanceScreen
 import com.kasakaid.omoidememory.ui.maintenance.MaintenanceScreen
+import com.kasakaid.omoidememory.ui.maintenance.requestprocess.UploadReportDetailScreen
+import com.kasakaid.omoidememory.ui.maintenance.requestprocess.UploadReportViewerScreen
 
 /**
  * アプリケーション全体の画面遷移（Navigation）を一括制御するルーターコンポーザブル。
@@ -131,8 +133,27 @@ fun AppRouter(
         composable(InitialRoute.MAINTENANCE.route) {
             MaintenanceScreen(
                 onBack = { navController.popBackStack() },
+                onNavigateToUploadReport = { navController.navigate("upload_report_viewer") },
                 onNavigateToCrashReport = { navController.navigate("crash_report_viewer") },
                 onNavigateToDbMaintenance = { navController.navigate("db_maintenance") },
+            )
+        }
+        composable("upload_report_viewer") {
+            UploadReportViewerScreen(
+                onBack = { navController.popBackStack() },
+                onNavigateToDetail = { reportId ->
+                    navController.navigate("upload_report_detail/$reportId")
+                },
+            )
+        }
+        composable(
+            route = "upload_report_detail/{reportId}",
+            arguments = listOf(navArgument("reportId") { type = androidx.navigation.NavType.LongType }),
+        ) { backStackEntry ->
+            val reportId = backStackEntry.arguments?.getLong("reportId") ?: 0L
+            UploadReportDetailScreen(
+                reportId = reportId,
+                onBack = { navController.popBackStack() },
             )
         }
         composable("crash_report_viewer") {

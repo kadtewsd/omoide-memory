@@ -18,6 +18,7 @@ import com.kasakaid.omoidememory.ui.AppBarWithBackIcon
 fun MaintenanceScreen(
     onBack: () -> Unit,
     onNavigateToCrashReport: () -> Unit,
+    onNavigateToUploadReport: () -> Unit,
     onNavigateToDbMaintenance: () -> Unit,
 ) {
     Scaffold(
@@ -42,6 +43,12 @@ fun MaintenanceScreen(
                     .fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            Button(
+                onClick = onNavigateToUploadReport,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("アップロードレポート確認")
+            }
             Button(
                 onClick = onNavigateToCrashReport,
                 modifier = Modifier.fillMaxWidth(),
