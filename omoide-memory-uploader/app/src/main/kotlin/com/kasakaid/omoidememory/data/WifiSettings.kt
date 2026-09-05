@@ -8,11 +8,14 @@ import android.net.wifi.WifiInfo
 import android.os.Build
 import androidx.annotation.RequiresApi
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -63,88 +66,112 @@ class WifiRepository
         // 呼び出し元は、Flow から ssid を取り出す。
         private val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default)
 
+        private val refreshTrigger = MutableStateFlow(0L)
+
+        /**
+         * 外部から Wi-Fi 状況の再監視・再取得を明示的に要求します。
+         *
+         * 【背景】
+         * Android OS では、アプリのバックグラウンド移行時や省電力モード移行時に
+         * [ConnectivityManager.NetworkCallback.onUnavailable] が発火することがあります。
+         * Android の仕様上、onUnavailable が呼ばれた時点で該当 NetworkCallback はシステム側で自動的に登録解除（解放）されるため、
+         * 再度フォアグラウンドに戻った際や不整合検知時には明示的に再登録（リフレッシュ）を行う必要があります。
+         */
+        fun refresh() {
+            refreshTrigger.value++
+        }
+
+        @OptIn(ExperimentalCoroutinesApi::class)
         private val sharedWifiState: kotlinx.coroutines.flow.StateFlow<WifiSetting> =
-            callbackFlow {
-                val connectivityManager =
-                    context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            refreshTrigger
+                .flatMapLatest {
+                    callbackFlow {
+                        val connectivityManager =
+                            context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
 
-                val callback =
-                    @RequiresApi(Build.VERSION_CODES.S)
-                    object : ConnectivityManager.NetworkCallback(FLAG_INCLUDE_LOCATION_INFO) {
-                        override fun onAvailable(network: Network) {
-                            super.onAvailable(network)
-                            trySend(WifiSetting.Loading)
-                        }
-
-                        override fun onCapabilitiesChanged(
-                            network: Network,
-                            caps: NetworkCapabilities,
-                        ) {
-                            val wifi = (caps.transportInfo as? WifiInfo) ?: return
-                            val ssid = wifi.ssid.replace("\"", "")
-
-                            val result =
-                                if (ssid != "<unknown ssid>") {
-                                    WifiSetting.Found(ssid)
-                                } else {
-                                    WifiSetting.NotFound
+                        val callback =
+                            @RequiresApi(Build.VERSION_CODES.S)
+                            object : ConnectivityManager.NetworkCallback(FLAG_INCLUDE_LOCATION_INFO) {
+                                override fun onAvailable(network: Network) {
+                                    super.onAvailable(network)
+                                    trySend(WifiSetting.Loading)
                                 }
-                            trySend(result)
-                            // 【修正】これ以上データは送らない... という考えを捨てて、監視を続けるようにする。
-                            // channel.close() を呼ぶと Flow が終了してしまうため、削除。
+
+                                override fun onCapabilitiesChanged(
+                                    network: Network,
+                                    caps: NetworkCapabilities,
+                                ) {
+                                    val wifi = (caps.transportInfo as? WifiInfo) ?: return
+                                    val ssid = wifi.ssid.replace("\"", "")
+
+                                    val result =
+                                        if (ssid != "<unknown ssid>") {
+                                            WifiSetting.Found(ssid)
+                                        } else {
+                                            WifiSetting.NotFound
+                                        }
+                                    trySend(result)
+                                    // 【修正】これ以上データは送らない... という考えを捨てて、監視を続けるようにする。
+                                    // channel.close() を呼ぶと Flow が終了してしまうため、削除。
+                                }
+
+                                /**
+                                 * バックグラウンド移行時や省電力時など、OS によりリクエストが満たせないと判断された場合に呼ばれます。
+                                 * 【重要】Android の仕様上、onUnavailable() が発火した時点でシステムはこの NetworkCallback を
+                                 * 自動的に登録解除（解放）します。そのため、次回復帰時には [refresh] による再登録が必要です。
+                                 */
+                                override fun onUnavailable() {
+                                    trySend(WifiSetting.NotConnected)
+                                    // channel.close() を削除
+                                }
+
+                                /**
+                                 * Wifi に接続していたが、外に出るなどして切れてしまった場合。この場合は Lost にする
+                                 */
+                                override fun onLost(network: Network) {
+                                    // 【ここが重要！】Wi-Fiが切れた（SIMに切り替わった等）
+                                    // 明示的に「未接続」を流す
+                                    trySend(WifiSetting.Idle)
+                                }
+                            }
+                        // 監視だけ開始
+                        // awaitClose は このストリームを閉じずに、ここで待機せよ」という命令
+                        // awaitClose がない場合
+                        // 即時終了: 関数が最後まで走りきってしまい、callbackFlow が即座に閉じてしまいます。
+                        // イベントが届かない: 後から Wi-Fi が見つかって onCapabilitiesChanged が呼ばれても、流す先の「川（Flow）」がすでに干上がっている状態になります。
+                        // メモリリーク: unregisterNetworkCallback を呼ぶタイミングを失い、リスナーが OS 内に残ったままになります。
+                        // Android 12+ の非同期取得
+                        // registerDefaultNetworkCallback は WorkManager などの他ライブラリも多用するため、
+                        // アプリ側では Wi-Fi に特化した NetworkRequest を使うことで Callback 数上限 (TooManyRequestsException)
+                        // の競合を回避します。
+                        val request =
+                            android.net.NetworkRequest
+                                .Builder()
+                                .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+                                .build()
+
+                        try {
+                            connectivityManager.registerNetworkCallback(request, callback)
+                        } catch (e: Exception) {
+                            android.util.Log.e("WifiRepository", "Failed to register network callback", e)
                         }
 
-                        override fun onUnavailable() {
-                            trySend(WifiSetting.NotConnected)
-                            // channel.close() を削除
-                        }
-
-                        /**
-                         * Wifi に接続していたが、外に出るなどして切れてしまった場合。この場合は Lost にする
-                         */
-                        override fun onLost(network: Network) {
-                            // 【ここが重要！】Wi-Fiが切れた（SIMに切り替わった等）
-                            // 明示的に「未接続」を流す
-                            trySend(WifiSetting.Idle)
+                        // ViewModel の scope が終わるまで監視を続ける
+                        awaitClose {
+                            try {
+                                connectivityManager.unregisterNetworkCallback(callback)
+                            } catch (e: Exception) {
+                                android.util.Log.e("WifiRepository", "Failed to unregister network callback", e)
+                            }
                         }
                     }
-                // 監視だけ開始
-                // awaitClose は このストリームを閉じずに、ここで待機せよ」という命令
-                // awaitClose がない場合
-                // 即時終了: 関数が最後まで走りきってしまい、callbackFlow が即座に閉じてしまいます。
-                // イベントが届かない: 後から Wi-Fi が見つかって onCapabilitiesChanged が呼ばれても、流す先の「川（Flow）」がすでに干上がっている状態になります。
-                // メモリリーク: unregisterNetworkCallback を呼ぶタイミングを失い、リスナーが OS 内に残ったままになります。
-                // Android 12+ の非同期取得
-                // registerDefaultNetworkCallback は WorkManager などの他ライブラリも多用するため、
-                // アプリ側では Wi-Fi に特化した NetworkRequest を使うことで Callback 数上限 (TooManyRequestsException)
-                // の競合を回避します。
-                val request =
-                    android.net.NetworkRequest
-                        .Builder()
-                        .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
-                        .build()
-
-                try {
-                    connectivityManager.registerNetworkCallback(request, callback)
-                } catch (e: Exception) {
-                    android.util.Log.e("WifiRepository", "Failed to register network callback", e)
-                }
-
-                // ViewModel の scope が終わるまで監視を続ける
-                awaitClose {
-                    try {
-                        connectivityManager.unregisterNetworkCallback(callback)
-                    } catch (e: Exception) {
-                        android.util.Log.e("WifiRepository", "Failed to unregister network callback", e)
-                    }
-                }
-            }.stateIn(
-                scope = scope,
-                started =
-                    kotlinx.coroutines.flow.SharingStarted
-                        .WhileSubscribed(5000),
-                initialValue = WifiSetting.Idle,
-            )
+                }.stateIn(
+                    scope = scope,
+                    started =
+                        kotlinx.coroutines.flow.SharingStarted
+                            .WhileSubscribed(5000),
+                    initialValue = WifiSetting.Idle,
+                )
 
         fun observeWifiSSID(): Flow<WifiSetting> = sharedWifiState
 
