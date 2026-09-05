@@ -27,6 +27,25 @@ Android の最新技術スタックを用いて、サーバーサイドエンジ
 
 ---
 
+## アップロード処理の状態遷移（ライフサイクル）
+
+アップロード実行時の状態は `UploadPoint` としてモデリングされ、Room データベースに履歴・進捗（`UploadReport`）として記録されます。
+処理要求開始から完了（または対象 0 件終了）までの状態遷移は以下の通りです。
+
+```mermaid
+flowchart TD
+    Start["Start (要求受付 / キュー投入前)"] --> WorkerCheck{"Worker 起動 & Empty 判定"}
+    WorkerCheck -- "0 件" --> TargetEmpty["TargetEmpty (対象 0 件で終了)"]
+    WorkerCheck -- "1 件以上" --> WorkerStarted["WorkerStarted (ワーカー起動 / 処理開始)"]
+    WorkerStarted --> ForegroundSet["ForegroundSet (フォアグラウンド通知設定完了)"]
+    ForegroundSet --> NetworkBound["NetworkBound (Wi-Fi バインド完了)"]
+    NetworkBound --> QueryFetched["QueryFetched (対象取得完了)"]
+    QueryFetched --> Uploading["Uploading (アップロード中)"]
+    Uploading --> AllCompleted["AllCompleted (全件完了)"]
+```
+
+---
+
 ## 4. セットアップ手順（Google Cloud Platform）
 
 Google ドライブへアクセスするために、Google Cloud プロジェクトの作成と設定が必要です。

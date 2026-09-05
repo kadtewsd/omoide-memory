@@ -20,6 +20,8 @@ import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeUploading
 import com.kasakaid.omoidememory.ui.InitialRoute
 import com.kasakaid.omoidememory.ui.OnOff
 import com.kasakaid.omoidememory.ui.indicator.Progress
+import com.kasakaid.omoidememory.ui.maintenance.requestprocess.UploadReport
+import com.kasakaid.omoidememory.ui.maintenance.requestprocess.data.UploadReportRepository
 import com.kasakaid.omoidememory.worker.LocalFileCleaner
 import com.kasakaid.omoidememory.worker.WorkManagerTag
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -89,6 +91,7 @@ class FileSelectionViewModel
         private val omoideMemoryRepository: OmoideMemoryRepository,
         private val excludeOmoideRepository: ExcludeOmoideRepository,
         private val localFileCleaner: LocalFileCleaner,
+        private val uploadReportRepository: UploadReportRepository,
         application: Application,
     ) : ViewModel() {
         private val _fileUploadState = MutableStateFlow(FileUploadState.WAITING_FOR_UPLOAD)
@@ -288,7 +291,7 @@ class FileSelectionViewModel
                 if (targets.isNotEmpty()) {
                     uploadStarted = true
                     omoideMemoryRepository.upsert(targets)
-                    workManager.enqueueWManualUpload()
+                    workManager.enqueueWManualUpload(uploadReportRepository = uploadReportRepository, contentCount = targets.size)
                 }
             }
         }

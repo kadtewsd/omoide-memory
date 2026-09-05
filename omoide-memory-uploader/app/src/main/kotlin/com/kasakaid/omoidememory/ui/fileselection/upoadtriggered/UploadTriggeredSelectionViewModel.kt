@@ -13,6 +13,7 @@ import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeProgressB
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeUploadingStateByManualTag
 import com.kasakaid.omoidememory.ui.fileselection.UploadResultSummary
 import com.kasakaid.omoidememory.ui.indicator.Progress
+import com.kasakaid.omoidememory.ui.maintenance.requestprocess.data.UploadReportRepository
 import com.kasakaid.omoidememory.worker.WorkManagerTag
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
@@ -27,8 +28,9 @@ import javax.inject.Inject
 class UploadTriggeredSelectionViewModel
     @Inject
     constructor(
-        private val omoideMemoryRepository: OmoideMemoryRepository,
+        omoideMemoryRepository: OmoideMemoryRepository,
         application: Application,
+        private val uploadReportRepository: UploadReportRepository,
     ) : ViewModel() {
         val triggeredFiles: StateFlow<List<OmoideMemory>> =
             omoideMemoryRepository
@@ -94,7 +96,7 @@ class UploadTriggeredSelectionViewModel
         fun resumeUpload() {
             uploadStarted = true
             viewModelScope.launch {
-                workManager.enqueueWManualUpload()
+                workManager.enqueueWManualUpload(uploadReportRepository = uploadReportRepository, contentCount = triggeredFiles.value.size)
             }
         }
 

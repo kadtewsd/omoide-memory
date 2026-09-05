@@ -9,6 +9,8 @@ import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.workDataOf
 import com.kasakaid.omoidememory.ui.indicator.Progress
+import com.kasakaid.omoidememory.ui.maintenance.requestprocess.UploadReport
+import com.kasakaid.omoidememory.ui.maintenance.requestprocess.data.UploadReportRepository
 import com.kasakaid.omoidememory.worker.GdriveDeleteWorker
 import com.kasakaid.omoidememory.worker.GdriveUploadWorker
 import com.kasakaid.omoidememory.worker.WorkManagerTag
@@ -18,24 +20,32 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
+object GdriveUploadWorkerKeys {
+    const val KEY_REPORT_ID = "REPORT_ID"
+}
+
 object WorkManagerExtension {
     /**
      * application で WorkManager を作ると初期化時に一度だけ取得。以降、この ViewModel 内ではこれを使い回す。
      * そのため、Context は都度作るので、やれるのであれば Application が良い。
      * 利用元は、application を指定することを想定
      */
-    fun WorkManager.enqueueWManualUpload() {
+    suspend fun WorkManager.enqueueWManualUpload(
+        uploadReportRepository: UploadReportRepository,
+        contentCount: Int,
+    ) {
+        val reportId = uploadReportRepository.add(UploadReport.initial(contentCount))
         val constraints =
             Constraints
                 .Builder()
                 .setRequiredNetworkType(NetworkType.CONNECTED) // 🚀 手動の場合はとにかく動かして、Wi-Fi 未接続なら Uploader 側でエラーを出す
-                .setRequiresBatteryNotLow(true)
                 .build()
 
         val uploadRequest =
             OneTimeWorkRequestBuilder<GdriveUploadWorker>()
                 .addTag(GdriveUploadWorker.TAG)
                 .setConstraints(constraints)
+                .setInputData(workDataOf(GdriveUploadWorkerKeys.KEY_REPORT_ID to reportId))
                 .build()
         val tag = "FileSelectionRoute"
         Log.d(tag, "手動アップロードをキューに入れました (REPLACE)")
