@@ -100,6 +100,7 @@ class GdriveUploadWorker
                                 successResults.add(omoideMemory.done())
                                 successCount++
                                 uploading = uploading.contentUploaded(processedCount = successCount)
+                                uploadReportRepository.update(report = uploading)
                                 Log.i(TAG, "$successCount / $totalCount アップロード試行完了")
                             }.onFailure { error ->
                                 val errorMessage = WorkerHelper.getReadableErrorMessage(throwable = error)
