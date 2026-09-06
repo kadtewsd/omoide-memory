@@ -39,7 +39,7 @@ dependencies {
 
     // R2DBC PostgreSQL
     implementation("org.postgresql:r2dbc-postgresql")
-    runtimeOnly("org.postgresql:postgresql") // Needed for Liquibase or other JDBC tools if any, keeping just in case
+    implementation("org.postgresql:postgresql") // Needed for Liquibase or other JDBC tools if any, keeping just in case
 
     // Google Drive API
     implementation("com.google.api-client:google-api-client:2.8.1")

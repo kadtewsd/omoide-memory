@@ -1,5 +1,6 @@
 package com.kasakaid.omoidememory
 
+import com.kasakaid.omoidememory.runnerlock.RunnerLock
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.boot.Banner
 import org.springframework.boot.WebApplicationType
@@ -21,14 +22,25 @@ fun main(args: Array<String>) {
         System.getProperty(APPLICATION_RUNNER_KEY)
             ?: throw IllegalArgumentException("システムプロパティ $APPLICATION_RUNNER_KEY が設定されていません。実行するApplicationRunnerの名前を指定してください。例: downloadFromGDrive")
 
+    // 二重起動防止: ロック取得
+    if (!RunnerLock.tryLock(runnerName)) {
+        logger.info { "Runner $runnerName は既に実行中です。終了します。" }
+        return
+    }
+
     logger.debug { "=== おもいでメモリ ダウンローダー 起動 ===" }
     logger.debug { "実行Runner: $runnerName" }
 
-    SpringApplicationBuilder(OmoideMemoryApp::class.java)
-        .web(WebApplicationType.NONE) // Web不要（バッチ実行）
-        .bannerMode(Banner.Mode.OFF)
-        .run(*args)
-        .also {
-            logger.debug { "DB接続先 (R2DBC): ${it.environment.getProperty("spring.r2dbc.url")}" }
-        }
+    try {
+        SpringApplicationBuilder(OmoideMemoryApp::class.java)
+            .web(WebApplicationType.NONE) // Web不要（バッチ実行）
+            .bannerMode(Banner.Mode.OFF)
+            .run(*args)
+            .also {
+                logger.debug { "DB接続先 (R2DBC): ${it.environment.getProperty("spring.r2dbc.url")}" }
+            }
+    } finally {
+        // ロック解放
+        RunnerLock.release(runnerName)
+    }
 }
