@@ -62,6 +62,12 @@ class GoogleDriveService
              * (MediaHttpUploader.MINIMUM_CHUNK_SIZE = 256KB の倍数)
              */
             private const val UPLOAD_CHUNK_SIZE_BYTES = MediaHttpUploader.MINIMUM_CHUNK_SIZE * 8
+
+            /**
+             * ダウンローダー側が PUSH 通知の宛先デバイストークンを取得するために参照する固定ファイル名。
+             * アップローダーとダウンローダー間の共通規約であるため、定数として明記する。
+             */
+            const val DEVICE_TOKEN_FILE_NAME = "device_token"
         }
 
         private val accountName: String =
@@ -105,6 +111,66 @@ class GoogleDriveService
                 val fileId = uploadedFile?.id ?: throw IOException("Upload failed: ID is null for ${omoideMemory.name}")
                 Thread.sleep(UPLOAD_INTERVAL_DELAY_MS)
                 fileId
+            }
+
+        /**
+         * FCM デバイストークンを固定ファイル名 "device_token" のテキストファイルとして Google Drive にアップロードします。
+         *
+         * ダウンローダー側がこのファイルを読み取り、PUSH 通知の宛先として使用します。
+         * アップロード先フォルダはコンテンツファイルと同じフォルダです。
+         *
+         * @param deviceToken アップロードするデバイストークン文字列
+         */
+        fun uploadDeviceToken(deviceToken: String): Result<Unit> =
+            runCatching {
+                val tempFile = File.createTempFile(DEVICE_TOKEN_FILE_NAME, null, context.cacheDir)
+                try {
+                    tempFile.writeText(deviceToken)
+                    val metadata =
+                        com.google.api.services.drive.model.File().apply {
+                            name = DEVICE_TOKEN_FILE_NAME
+                            mimeType = "text/plain"
+                            parents = listOf(com.kasakaid.omoidememory.BuildConfig.OMOIDE_FOLDER_ID)
+                        }
+                    service
+                        .files()
+                        .create(metadata, FileContent("text/plain", tempFile))
+                        .setFields("id")
+                        .execute()
+                } finally {
+                    tempFile.delete()
+                }
+                Unit
+            }
+
+        /**
+         * Google Drive 上のルートフォルダ内にある固定ファイル名 "device_token" のファイルをすべてゴミ箱へ移動します。
+         * ファイルが存在しない場合は何もせず正常終了します。
+         */
+        fun deleteDeviceToken(): Result<Unit> =
+            runCatching {
+                val fileList =
+                    service
+                        .files()
+                        .list()
+                        .setQ(
+                            "'${com.kasakaid.omoidememory.BuildConfig.OMOIDE_FOLDER_ID}' in parents" +
+                                " and name = '$DEVICE_TOKEN_FILE_NAME'" +
+                                " and trashed = false",
+                        ).setFields("files(id)")
+                        .execute()
+                fileList.files?.forEach { file ->
+                    service
+                        .files()
+                        .update(
+                            file.id,
+                            com.google.api.services.drive.model
+                                .File()
+                                .setTrashed(true),
+                        ).execute()
+                    Log.i(TAG, "device_token をゴミ箱へ移動しました (id=${file.id})")
+                }
+                Unit
             }
 
         private class DeleteCandidate(

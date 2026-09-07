@@ -8,8 +8,10 @@ import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.kasakaid.omoidememory.data.OmoideMemory
 import com.kasakaid.omoidememory.data.OmoideMemoryRepository
+import com.kasakaid.omoidememory.data.OmoideUploadPrefsRepository
 import com.kasakaid.omoidememory.data.UploadState
 import com.kasakaid.omoidememory.extension.GdriveUploadWorkerKeys
+import com.kasakaid.omoidememory.network.GoogleDriveService
 import com.kasakaid.omoidememory.os.CrashReporter
 import com.kasakaid.omoidememory.ui.maintenance.requestprocess.data.UploadReportRepository
 import com.kasakaid.omoidememory.worker.WorkerHelper.createForegroundInfo
@@ -30,6 +32,8 @@ class GdriveUploadWorker
         private val gdriveUploader: GdriveUploader,
         private val omoideMemoryRepository: OmoideMemoryRepository,
         private val uploadReportRepository: UploadReportRepository,
+        private val omoideUploadPrefsRepository: OmoideUploadPrefsRepository,
+        private val googleDriveService: GoogleDriveService,
     ) : CoroutineWorker(appContext, workerParams) {
         companion object {
             const val TAG = "ManualUploadWorker"
@@ -79,6 +83,16 @@ class GdriveUploadWorker
                     // アップロード中ステップへ
                     val sixth = fifth.next()
                     uploadReportRepository.update(report = sixth)
+
+                    // デバイストークンを Drive に保存して、ダウンローダー側が PUSH 通知に使えるようにする
+                    val deviceToken = omoideUploadPrefsRepository.getDeviceToken()
+                    if (deviceToken != null) {
+                        googleDriveService
+                            .uploadDeviceToken(deviceToken = deviceToken)
+                            .onFailure { e -> Log.w(TAG, "device_token のアップロードに失敗しました (無視して継続)", e) }
+                    } else {
+                        Log.d(TAG, "device_token 未登録のため PUSH 通知先のアップロードをスキップします")
+                    }
 
                     var uploading = sixth
                     for ((index, omoideMemory) in targets.withIndex()) {

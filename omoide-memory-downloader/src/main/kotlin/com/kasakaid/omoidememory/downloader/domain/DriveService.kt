@@ -2,7 +2,6 @@ package com.kasakaid.omoidememory.downloader.domain
 
 import arrow.core.Either
 import com.google.api.services.drive.model.File
-import com.kasakaid.omoidememory.domain.OmoideMemory
 import java.nio.file.Path
 
 /**
@@ -33,12 +32,23 @@ interface DriveService {
      *
      * @param fileId 後処理の対象となる Google Drive 上のファイル ID
      * @param accessInfo SA（Service Account）の場合は folderId、Refresh Token の場合は refreshToken
-     * @return 処理結果を表す Either。成功した場合は Unit、失敗した場合は例外 Throwable が Left に入る
+     * @return 処理結果を表す Either。成功した場合は Unit、失敗した場合は例外 Throwable が左に入る
      */
     suspend fun finalize(
         fileId: String,
         accessInfo: String,
     ): Either<Throwable, Unit>
+
+    /**
+     * Google Drive 上の固定ファイル名 "device_token" のテキストファイルからデバイストークンを取得します。
+     * アップローダーが PUSH 通知先として書き込んだトークンを読み取るために使用します。
+     *
+     * 実装クラスは accessInfo からクエリ文字列を組み立てて [fetchDeviceToken] を呼び出します。
+     *
+     * @param accessInfo SA の場合は folderId、RefreshToken の場合は refreshToken
+     * @return デバイストークン文字列。ファイルが存在しない・取得失敗の場合は null
+     */
+    suspend fun fetchDeviceToken(accessInfo: String): String?
 
     /**
      * 取得されたファイルのメタデータから実体を取得してメモリをローカル PC のストレージに書き込みます。
