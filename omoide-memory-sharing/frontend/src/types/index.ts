@@ -1,4 +1,4 @@
-export type FilterMode = 'COMMENT_ONLY' | 'ALL' | 'ALBUM';
+export type FilterMode = 'COMMENT_ONLY' | 'ALL' | 'ALBUM' | 'PHOTOBOOK';
 
 export interface MemoryFeedItem {
     id: string | null; // From UUID
@@ -35,3 +35,17 @@ export interface AlbumDetail {
     photos: MemoryFeedItem[];
 }
 
+/** `fetchFeed` のパラメータ */
+export interface FetchFeedParams {
+    startInclusive?: string;
+    endExclusive?: string;
+    mode?: FilterMode;
+}
+
+/** `fetchRandomFillPhotos` のパラメータ */
+export interface FetchRandomFillPhotosParams {
+    startInclusive: string;
+    endExclusive: string;
+    excludeIds: string[];
+    count: number;
+}

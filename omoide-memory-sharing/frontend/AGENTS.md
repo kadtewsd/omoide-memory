@@ -70,3 +70,32 @@ export const UserContent = () => {
   - 微細なアニメーションやスムーズなトランジション
 - **アクセシビリティ & レスポンシブ**:
   - モバイル・デスクトップの両方で快適に操作できるタッチターゲットサイズと柔軟なレイアウト
+
+---
+
+### 3. TypeScript 型明示ルール
+
+- **関数の引数はオブジェクト型（`interface` / `type`）で定義し、プロパティ名を明示して渡すこと。**
+  - 引数が 2 つ以上ある場合は、位置引数ではなくオブジェクト引数（Named Object Parameters）を採用する。
+  - `types/index.ts` など共通の型ファイルに `FetchXxxParams` のような専用のパラメータ型を定義し、API 関数・カスタムフックで使い回すこと。
+
+  ❌ **悪い例（位置引数で何を渡しているか分からない）**:
+  ```ts
+  fetchRandomFillPhotos(startInclusive, endExclusive, currentExcludeIds, remaining);
+  ```
+
+  ✅ **良い例（オブジェクト引数で意図が明確）**:
+  ```ts
+  fetchRandomFillPhotos({
+      startInclusive,
+      endExclusive,
+      excludeIds: currentExcludeIds,
+      count: remaining,
+  });
+  ```
+
+- **関数の戻り値型も明示すること。**
+  - `Promise<T>` の型パラメータを省略しない。
+  - カスタムフックの戻り値はオブジェクト型として `interface` で定義することが望ましい。
+
+- **`any` の使用を禁止する。** 型が不明な場合は `unknown` を使い、型ガードで絞り込むこと。

@@ -1,14 +1,14 @@
 /// <reference types="vite/client" />
-import { MemoryFeedItem, Comment, FilterMode, AlbumSummary, AlbumDetail } from '../types';
+import { MemoryFeedItem, Comment, AlbumSummary, AlbumDetail, FetchFeedParams, FetchRandomFillPhotosParams } from '../types';
 
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
-export const fetchFeed = async (
-    startInclusive?: string,
-    endExclusive?: string,
-    mode: FilterMode = 'COMMENT_ONLY',
-): Promise<MemoryFeedItem[]> => {
+export const fetchFeed = async ({
+    startInclusive,
+    endExclusive,
+    mode = 'COMMENT_ONLY',
+}: FetchFeedParams = {}): Promise<MemoryFeedItem[]> => {
     const url = new URL('/feed', API_BASE_URL);
     if (startInclusive) url.searchParams.append('startInclusive', startInclusive);
     if (endExclusive) url.searchParams.append('endExclusive', endExclusive);
@@ -81,6 +81,28 @@ export const fetchAlbumDetail = async (albumId: string): Promise<AlbumDetail> =>
     if (!response.ok) throw new Error('Failed to fetch album detail');
     return response.json();
 };
+
+/**
+ * フォトブック自動補完: 指定期間の未選択写真をランダムに count 件取得する。
+ * excludeIds に含まれる写真は除外されるため重複なしで補充できる。
+ */
+export const fetchRandomFillPhotos = async ({
+    startInclusive,
+    endExclusive,
+    excludeIds,
+    count,
+}: FetchRandomFillPhotosParams): Promise<MemoryFeedItem[]> => {
+    const url = new URL('/photos/random-fill', API_BASE_URL);
+    url.searchParams.append('startInclusive', startInclusive);
+    url.searchParams.append('endExclusive', endExclusive);
+    excludeIds.forEach(id => url.searchParams.append('excludeIds', id));
+    url.searchParams.append('count', String(count));
+
+    const response = await fetch(url.toString());
+    if (!response.ok) throw new Error('Failed to fetch random fill photos');
+    return response.json();
+};
+
 
 
 

@@ -82,7 +82,7 @@ export function useFeed() {
         setLoading(true);
         try {
             const { startInclusive, endExclusive } = getYearMonthRangeIso(ym);
-            const fetched = await fetchFeed(startInclusive, endExclusive, mode);
+            const fetched = await fetchFeed({ startInclusive, endExclusive, mode });
             setItems(fetched);
         } catch (err) {
             console.error('データの取得に失敗しました:', err);
