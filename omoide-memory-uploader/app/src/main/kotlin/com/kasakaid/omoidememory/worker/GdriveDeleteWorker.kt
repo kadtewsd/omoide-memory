@@ -56,6 +56,9 @@ class GdriveDeleteWorker
             return deleteResult.fold(
                 onSuccess = { res ->
                     Log.d(TAG, "Worker completed. deleted: ${res.deleted.size}, notDeleted: ${res.notDeleted.size}")
+                    driveService
+                        .deleteDeviceToken()
+                        .onFailure { e -> Log.w(TAG, "device_token の削除に失敗しました (無視して継続)", e) }
                     val outputData =
                         workDataOf(
                             "NOT_DELETED_IDS" to res.notDeleted.toLongArray(),

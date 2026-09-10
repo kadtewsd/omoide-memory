@@ -89,6 +89,14 @@ class DownloadFromGDrive(
 
             logger.info { "Google Drive からのダウンロード処理を開始します (対象ドライブ数: ${accessInfos.size})" }
 
+            // device_token ファイルを Drive から取得する。
+            // 最初に見つかったアクセス情報のドライブから探し、PUSH 通知の宛先として使用する。
+            val deviceToken =
+                fetchDeviceToken(
+                    accessInfos = accessInfos,
+                    driveService = driveService,
+                )
+
             accessInfos.forEach { accessInfo ->
                 logger.info { "[$accessInfo] のファイルをスキャン中..." }
 
@@ -133,7 +141,30 @@ class DownloadFromGDrive(
                 }
             }
             downloadFileBackUpService.finalize()
-            PostProcess.finish()
+            PostProcess.finish(deviceToken = deviceToken)
             logger.info { "Google Drive からのダウンロード処理をすべて終了。" }
         }
+}
+
+/**
+ * 複数の accessInfos を順番に試し、最初に取得できたデバイストークンを返します。
+ * すべてのドライブで見つからなかった場合は null を返します。
+ *
+ * @param accessInfos SA の場合は folderIds、RefreshToken の場合は refreshTokens
+ * @param driveService 使用するドライブサービス実装
+ * @return デバイストークン文字列。見つからない場合は null
+ */
+private suspend fun fetchDeviceToken(
+    accessInfos: List<String>,
+    driveService: DriveService,
+): String? {
+    for (accessInfo in accessInfos) {
+        val token = driveService.fetchDeviceToken(accessInfo = accessInfo)
+        if (token != null) {
+            logger.info { "device_token を取得しました (accessInfo=${accessInfo.take(8)}...)" }
+            return token
+        }
+    }
+    logger.info { "device_token がいずれのドライブでも見つかりませんでした。PUSH 通知はスキップします。" }
+    return null
 }

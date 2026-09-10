@@ -87,6 +87,19 @@ class OmoideUploadPrefsRepository
         fun updateUploadBaseLineInstant(instant: Instant) {
             prefs.edit { putLong(OmoideUploadPrefs.UPLOAD_BASELINE, instant.toEpochMilli()).apply() }
         }
+
+        /**
+         * FCM デバイストークンを保存します。
+         * トークンは FCM SDK（FirebaseMessaging.getInstance().token）から取得して呼び出し元がセットします。
+         */
+        fun saveDeviceToken(token: String) {
+            prefs.edit { putString(OmoideUploadPrefs.DEVICE_TOKEN, token) }
+        }
+
+        /**
+         * 保存済みの FCM デバイストークンを返します。未登録の場合は null を返します。
+         */
+        fun getDeviceToken(): String? = prefs.getString(OmoideUploadPrefs.DEVICE_TOKEN, null)
     }
 
 private object OmoideUploadPrefs {
@@ -94,4 +107,5 @@ private object OmoideUploadPrefs {
     const val AUTO_UPLOAD_ENABLED = "auto_upload_enabled"
     const val SECURE_WIFI_SSID = "secure_wifi_ssid"
     const val UPLOAD_BASELINE = "upload_baseline_epoch_millis"
+    const val DEVICE_TOKEN = "fcm_device_token"
 }

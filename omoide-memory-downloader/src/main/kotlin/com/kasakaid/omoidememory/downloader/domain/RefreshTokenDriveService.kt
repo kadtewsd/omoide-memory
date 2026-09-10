@@ -8,6 +8,7 @@ import com.google.api.services.drive.model.File
 import com.kasakaid.omoidememory.downloader.adapter.google.GoogleTokenCollector
 import com.kasakaid.omoidememory.downloader.adapter.google.GoogleTokenCollector.executeWithSafeRefresh
 import com.kasakaid.omoidememory.downloader.adapter.google.RefreshToken
+import com.kasakaid.omoidememory.infrastructure.fetchDeviceToken
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -51,6 +52,7 @@ object RefreshTokenDriveService : DriveService {
      * accessInfo はこの場合アクセスするドライブのアカウントのリフレッシュトークンになります。
      */
     override suspend fun listFiles(accessInfo: RefreshToken): List<File> =
+        // google-api-java-client の .execute() はブロッキング I/O のため、IO ディスパッチャーで実行する
         withContext(Dispatchers.IO) {
             val drive = driveServicesMap[accessInfo] ?: throw IllegalArgumentException("指定されたトークンに対応する Drive サービスが見つかりません。")
             val allFiles = mutableMapOf<String, File>()
@@ -89,6 +91,7 @@ object RefreshTokenDriveService : DriveService {
         fileId: String,
         outputStream: OutputStream,
     ): Either<Throwable, Unit> =
+        // google-api-java-client の .executeMediaAndDownloadTo() はブロッキング I/O のため、IO ディスパッチャーで実行する
         withContext(Dispatchers.IO) {
             Either.catch {
                 val token =
@@ -113,6 +116,7 @@ object RefreshTokenDriveService : DriveService {
         fileId: String,
         accessInfo: String,
     ): Either<Throwable, Unit> =
+        // google-api-java-client の .execute() はブロッキング I/O のため、IO ディスパッチャーで実行する
         withContext(Dispatchers.IO) {
             Either
                 .catch {
@@ -154,4 +158,27 @@ object RefreshTokenDriveService : DriveService {
                     e
                 }
         }
+
+    /**
+     * 指定されたリフレッシュトークンに対応するドライブの Root 直下から固定ファイル名 "device_token" のファイルを
+     * 検索し、その内容をテキストとして返します。
+     *
+     * @param accessInfo リフレッシュトークン
+     * @return デバイストークン文字列。ファイルが存在しない・取得失敗の場合は null
+     */
+    override suspend fun fetchDeviceToken(accessInfo: RefreshToken): String? =
+        // google-api-java-client の .execute() / .executeMediaAndDownloadTo() はブロッキング I/O のため、IO ディスパッチャーで実行する
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val drive = driveServicesMap[accessInfo] ?: return@runCatching null
+                executeWithSafeRefresh(accessInfo) {
+                    drive.fetchDeviceToken("'root' in parents and name = '$DEVICE_TOKEN_FILE_NAME' and trashed = false")
+                }
+            }.onFailure { e ->
+                logger.warn(e) { "device_token の取得に失敗しました (RefreshToken)" }
+            }.getOrNull()
+        }
 }
+
+/** アップローダーとの共通規約として定義した固定ファイル名。 */
+private const val DEVICE_TOKEN_FILE_NAME = "device_token"

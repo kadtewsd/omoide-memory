@@ -8,6 +8,7 @@ import com.google.api.services.drive.DriveScopes
 import com.google.api.services.drive.model.File
 import com.google.auth.http.HttpCredentialsAdapter
 import com.google.auth.oauth2.ServiceAccountCredentials
+import com.kasakaid.omoidememory.infrastructure.fetchDeviceToken
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -17,7 +18,15 @@ import java.io.OutputStream
 typealias FolderId = String
 
 /**
- * Service Account を使用して Google Drive にアクセスするサービス
+ * Service Account を使用して Google Drive にアクセスするサービス。
+ *
+ * ## なぜ suspend + withContext(Dispatchers.IO) を使うのか
+ * `google-api-java-client` ベースの Google Drive API（`.execute()` / `executeMediaAndDownloadTo()` 等）は
+ * **すべてブロッキング I/O** であり、呼び出したスレッドをネットワーク完了まで占有する。
+ * コルーチンのデフォルトディスパッチャー（`Default`）はスレッド数が限られており、
+ * そこでブロッキング処理を実行するとスレッド枯渇やレイテンシ増大を招く。
+ * `withContext(Dispatchers.IO)` を使うことで、ブロッキング呼び出しを I/O 専用スレッドプールに
+ * オフロードしつつ、呼び出し元のコルーチンはサスペンドして他の処理に譲ることができる。
  */
 class SaDriveService(
     googleSaCredentialPath: String,
@@ -40,6 +49,7 @@ class SaDriveService(
         }
 
     override suspend fun listFiles(folderId: FolderId): List<File> =
+        // google-api-java-client の .execute() はブロッキング I/O のため、IO ディスパッチャーで実行する
         withContext(Dispatchers.IO) {
             val allFiles = mutableMapOf<String, File>()
             val fields = "nextPageToken, files(id, name, mimeType, createdTime, size, imageMediaMetadata, videoMediaMetadata, properties)"
@@ -72,6 +82,7 @@ class SaDriveService(
         fileId: String,
         outputStream: OutputStream,
     ): Either<Throwable, Unit> =
+        // google-api-java-client の .executeMediaAndDownloadTo() はブロッキング I/O のため、IO ディスパッチャーで実行する
         withContext(Dispatchers.IO) {
             Either.catch {
                 // SA の場合は最初のサービスを使ってみる（複数の SA がある場合はどれでもアクセスできる想定、あるいは順番に試す必要があるか？）
@@ -92,6 +103,7 @@ class SaDriveService(
         fileId: String,
         accessInfo: String,
     ): Either<Throwable, Unit> =
+        // google-api-java-client の .execute() はブロッキング I/O のため、IO ディスパッチャーで実行する
         withContext(Dispatchers.IO) {
             Either.catch {
                 val metadata =
@@ -115,6 +127,27 @@ class SaDriveService(
                 Unit
             }
         }
+
+    /**
+     * 指定フォルダ内から固定ファイル名 "device_token" のファイルを検索し、その内容をテキストとして返します。
+     *
+     * @param accessInfo フォルダ ID（SA モードでは accessInfo = folderId）
+     * @return デバイストークン文字列。ファイルが存在しない・取得失敗の場合は null
+     */
+    override suspend fun fetchDeviceToken(accessInfo: FolderId): String? =
+        // google-api-java-client の .execute() / .executeMediaAndDownloadTo() はブロッキング I/O のため、IO ディスパッチャーで実行する
+        withContext(Dispatchers.IO) {
+            runCatching {
+                driverService.fetchDeviceToken(
+                    "'$accessInfo' in parents and name = '$DEVICE_TOKEN_FILE_NAME' and trashed = false",
+                )
+            }.onFailure { e ->
+                logger.warn(e) { "device_token の取得に失敗しました (SA, folderId=$accessInfo)" }
+            }.getOrNull()
+        }
 }
 
 private const val DOWNLOADED_PROPERTY_KEY = "downloaded"
+
+/** アップローダーとの共通規約として定義した固定ファイル名。 */
+private const val DEVICE_TOKEN_FILE_NAME = "device_token"
