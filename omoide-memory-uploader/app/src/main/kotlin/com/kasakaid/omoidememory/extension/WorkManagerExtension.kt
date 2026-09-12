@@ -62,7 +62,7 @@ object WorkManagerExtension {
         )
     }
 
-    fun WorkManager.enqueueManualDelete(ids: List<Long>) {
+    fun WorkManager.enqueueManualDelete() {
         val constraints =
             Constraints
                 .Builder()
@@ -73,7 +73,6 @@ object WorkManagerExtension {
         val deleteRequest =
             OneTimeWorkRequestBuilder<GdriveDeleteWorker>()
                 .addTag(GdriveDeleteWorker.TAG)
-                .setInputData(workDataOf("SELECTED_IDS" to ids.toLongArray()))
                 .setConstraints(constraints)
                 .build()
 

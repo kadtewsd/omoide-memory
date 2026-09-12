@@ -175,7 +175,7 @@ class OmoideMemoryRepository
         /**
          * すでにアップロードされたコンテンツの数を取得
          */
-        fun getUploadedCount(states: List<UploadState>): Flow<Int> = omoideMemoryDao.getUploadedCount(states)
+        fun getUploadedCount(states: Set<UploadState>): Flow<Int> = omoideMemoryDao.getUploadedCount(states)
 
         suspend fun add(entities: List<OmoideMemory>) {
             if (entities.isEmpty()) return
@@ -190,13 +190,27 @@ class OmoideMemoryRepository
         suspend fun update(entities: List<OmoideMemory>) {
             if (entities.isEmpty()) return
             entities.groupBy { it.state }.forEach { (state, list) ->
-                omoideMemoryDao.update(list.map { it.id }, state)
+                list.chunked(500).forEach { batch ->
+                    omoideMemoryDao.update(batch.map { it.id }, state)
+                }
             }
         }
 
-        suspend fun delete(ids: List<Long>) {
+        suspend fun updateState(
+            ids: Set<Long>,
+            state: UploadState,
+        ) {
             if (ids.isEmpty()) return
-            omoideMemoryDao.delete(ids)
+            ids.chunked(500).forEach { batch ->
+                omoideMemoryDao.update(batch, state)
+            }
+        }
+
+        suspend fun delete(ids: Set<Long>) {
+            if (ids.isEmpty()) return
+            ids.chunked(500).forEach { batch ->
+                omoideMemoryDao.delete(batch)
+            }
         }
 
         /**
@@ -230,7 +244,7 @@ class OmoideMemoryRepository
                             Log.e(TAG, "ファイルの物理削除に失敗: $uri", e)
                         }
                     }
-                    omoideMemoryDao.delete(items.map { it.id })
+                    delete(items.map { it.id }.toSet())
                     return@withContext null
                 }
             }
@@ -238,7 +252,12 @@ class OmoideMemoryRepository
 
         suspend fun findBy(state: UploadState): List<OmoideMemory> = omoideMemoryDao.findBy(state)
 
-        suspend fun findBy(ids: List<Long>): List<OmoideMemory> = omoideMemoryDao.findBy(ids)
+        suspend fun findBy(ids: List<Long>): List<OmoideMemory> {
+            if (ids.isEmpty()) return emptyList()
+            return ids.chunked(500).flatMap { batch ->
+                omoideMemoryDao.findBy(batch)
+            }
+        }
 
         fun findByAsFlow(state: UploadState): Flow<List<OmoideMemory>> = omoideMemoryDao.findByAsFlow(state)
 

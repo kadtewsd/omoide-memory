@@ -38,7 +38,7 @@ class LocalFileCleaner
                         }
 
                         FileUploadState.UPLOAD_EXCLUDED, FileUploadState.UPLOAD_DONE -> {
-                            localFileRepository.delete(missing.map { it.id })
+                            localFileRepository.delete(missing.map { it.id }.toSet())
                         }
                     }
                 }
