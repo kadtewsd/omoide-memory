@@ -26,10 +26,7 @@ import com.kasakaid.omoidememory.ui.AppBarWithBackIcon
 import com.kasakaid.omoidememory.ui.fileselection.FileGrid
 import com.kasakaid.omoidememory.ui.fileselection.VideoPreviewDialog
 import com.kasakaid.omoidememory.ui.fileselection.imageLoader
-import com.kasakaid.omoidememory.ui.indicator.CONTENTS_UPLOADING
-import com.kasakaid.omoidememory.ui.indicator.Progress
-import com.kasakaid.omoidememory.ui.indicator.UploadIndicator
-import com.kasakaid.omoidememory.ui.indicator.current
+import com.kasakaid.omoidememory.worker.GoogleDriveRequestType
 
 @Composable
 fun UploadTriggeredSelectionRoute(
@@ -37,8 +34,7 @@ fun UploadTriggeredSelectionRoute(
     viewModel: UploadTriggeredSelectionViewModel = hiltViewModel(),
 ) {
     val files by viewModel.triggeredFiles.collectAsState()
-    val isUploading by viewModel.isUploading.collectAsState()
-    val progress by viewModel.progress.collectAsState()
+    val activeRequest by viewModel.activeRequest.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(Unit) {
@@ -55,11 +51,12 @@ fun UploadTriggeredSelectionRoute(
         title = "アップロード再開",
         onBack = onBack,
         files = files,
-        isUploading = isUploading,
-        progress = progress,
+        activeRequest = activeRequest,
         snackbarHostState = snackbarHostState,
-        onResumeUpload = { viewModel.resumeUpload() },
-        onCancelUpload = { viewModel.cancelUpload() },
+        onResumeUpload = {
+            viewModel.resumeUpload()
+            onBack()
+        },
     )
 }
 
@@ -68,11 +65,9 @@ fun UploadTriggeredSelectionScreen(
     title: String,
     onBack: () -> Unit,
     files: List<OmoideMemory>,
-    isUploading: Boolean,
-    progress: Progress?,
+    activeRequest: GoogleDriveRequestType,
     snackbarHostState: SnackbarHostState,
     onResumeUpload: () -> Unit,
-    onCancelUpload: () -> Unit,
 ) {
     val context = LocalContext.current
     val imageLoader = remember(context) { context.imageLoader() }
@@ -99,7 +94,7 @@ fun UploadTriggeredSelectionScreen(
                 Button(
                     onClick = onResumeUpload,
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = !isUploading && files.isNotEmpty(),
+                    enabled = activeRequest !is GoogleDriveRequestType.Processing && files.isNotEmpty(),
                 ) {
                     Text("アップロード再開")
                 }
@@ -119,13 +114,5 @@ fun UploadTriggeredSelectionScreen(
                 onPreview = { previewingItem = it },
             )
         }
-    }
-
-    if (isUploading) {
-        UploadIndicator(
-            uploadProgress = progress.current(total = files.size),
-            label = CONTENTS_UPLOADING,
-            onCancel = onCancelUpload,
-        )
     }
 }

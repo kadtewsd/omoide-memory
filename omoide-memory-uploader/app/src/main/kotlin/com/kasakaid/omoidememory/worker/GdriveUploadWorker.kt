@@ -15,6 +15,7 @@ import com.kasakaid.omoidememory.network.GoogleDriveService
 import com.kasakaid.omoidememory.os.CrashReporter
 import com.kasakaid.omoidememory.ui.maintenance.requestprocess.data.UploadReportRepository
 import com.kasakaid.omoidememory.worker.WorkerHelper.createForegroundInfo
+import com.kasakaid.omoidememory.worker.WorkerHelper.showUploadCompleteNotification
 import com.kasakaid.omoidememory.worker.WorkerHelper.showUploadErrorNotification
 import com.kasakaid.omoidememory.worker.WorkerHelper.withWifiNetworkBinding
 import dagger.assisted.Assisted
@@ -138,6 +139,7 @@ class GdriveUploadWorker
                     omoideMemoryRepository.upsert(entities = successResults)
                     // 全件完了ステップへ
                     uploadReportRepository.update(report = uploading.next())
+                    appContext.showUploadCompleteNotification(uploadedCount = successResults.size)
                     Result.success(
                         workDataOf(
                             "PENDING_COUNT" to 0,

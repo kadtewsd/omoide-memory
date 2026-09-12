@@ -14,11 +14,11 @@ import com.kasakaid.omoidememory.data.UploadState
 import com.kasakaid.omoidememory.data.WifiRepository
 import com.kasakaid.omoidememory.data.WifiSetting
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.enqueueWManualUpload
-import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeProgressByManual
-import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeUploadingStateByManualTag
+import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeGoogleDriveRequest
 import com.kasakaid.omoidememory.ui.indicator.Progress
 import com.kasakaid.omoidememory.ui.maintenance.requestprocess.data.UploadReportRepository
 import com.kasakaid.omoidememory.worker.AutoGDriveUploadWorker
+import com.kasakaid.omoidememory.worker.GoogleDriveRequestType
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
@@ -261,12 +261,8 @@ class MainViewModel
                 )
 
         private val workManager = WorkManager.getInstance(application)
-        val isUploading: StateFlow<Boolean> =
-            workManager.observeUploadingStateByManualTag(
-                viewModelScope = viewModelScope,
-            )
-        val progress: StateFlow<Progress?> =
-            workManager.observeProgressByManual(
+        val activeRequest: StateFlow<GoogleDriveRequestType> =
+            workManager.observeGoogleDriveRequest(
                 viewModelScope = viewModelScope,
             )
 
@@ -276,11 +272,13 @@ class MainViewModel
             }
         }
 
-        fun cancelManualUpload() {
-            workManager.cancelUniqueWork("manual_upload")
+        fun cancelCurrentRequest() {
+            (activeRequest.value as? GoogleDriveRequestType.Processing)?.onCancel()
         }
 
-        fun toggleAutoUpload(enabled: Boolean) {
+        fun toggleAutoUpload(
+            @Suppress("UNUSED_PARAMETER") enabled: Boolean,
+        ) {
             // 自動アップロードは現在利用しないため、常に無効化する。
             // 参照実装としてロジックは残すが、外部からの変更は受け付けない。
             val fixedEnabled = false

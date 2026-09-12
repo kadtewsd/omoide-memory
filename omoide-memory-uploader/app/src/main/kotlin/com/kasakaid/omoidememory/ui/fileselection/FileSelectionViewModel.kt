@@ -13,17 +13,15 @@ import com.kasakaid.omoidememory.data.OmoideMemoryRepository
 import com.kasakaid.omoidememory.data.UploadState
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.enqueueManualDelete
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.enqueueWManualUpload
-import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeDeletingStateByManualTag
-import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeProgressByManual
-import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeProgressByManualDelete
-import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeUploadingStateByManualTag
+import com.kasakaid.omoidememory.extension.WorkManagerExtension.getWorkInfosForUniqueWorkFlow
+import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeGoogleDriveRequest
 import com.kasakaid.omoidememory.ui.InitialRoute
 import com.kasakaid.omoidememory.ui.OnOff
 import com.kasakaid.omoidememory.ui.indicator.Progress
 import com.kasakaid.omoidememory.ui.maintenance.requestprocess.UploadReport
 import com.kasakaid.omoidememory.ui.maintenance.requestprocess.data.UploadReportRepository
+import com.kasakaid.omoidememory.worker.GoogleDriveRequestType
 import com.kasakaid.omoidememory.worker.LocalFileCleaner
-import com.kasakaid.omoidememory.worker.WorkManagerTag
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
@@ -110,6 +108,8 @@ class FileSelectionViewModel
         }
 
         private val workManager = WorkManager.getInstance(application)
+        private val uploadRequest: GoogleDriveRequestType.Processing = GoogleDriveRequestType.Uploading()
+        private val deleteRequest: GoogleDriveRequestType.Processing = GoogleDriveRequestType.Deleting()
 
         private val deleteResultChannel = Channel<List<Long>>(Channel.BUFFERED)
         val deleteResultEvent = deleteResultChannel.receiveAsFlow()
@@ -123,7 +123,7 @@ class FileSelectionViewModel
         init {
             viewModelScope.launch {
                 workManager
-                    .getWorkInfosForUniqueWorkFlow(WorkManagerTag.ManualDelete.value)
+                    .getWorkInfosForUniqueWorkFlow(deleteRequest)
                     .collect { workInfos ->
                         val workInfo = workInfos.firstOrNull() ?: return@collect
                         Log.d("FileSelectionViewModel", "WorkInfo state: ${workInfo.state}, deleteStarted: $deleteStarted")
@@ -153,7 +153,7 @@ class FileSelectionViewModel
             }
             viewModelScope.launch {
                 workManager
-                    .getWorkInfosForUniqueWorkFlow(WorkManagerTag.Manual.value)
+                    .getWorkInfosForUniqueWorkFlow(uploadRequest)
                     .collect { workInfos ->
                         val workInfo = workInfos.firstOrNull() ?: return@collect
                         Log.d("FileSelectionViewModel", "ManualUpload WorkInfo state: ${workInfo.state}, uploadStarted: $uploadStarted")
@@ -208,7 +208,7 @@ class FileSelectionViewModel
         val pendingFiles: StateFlow<List<OmoideMemory>> =
             combine(fileUploadState, doneFilter) { mode, filter ->
                 mode to filter
-            }.flatMapLatest { (mode, filter) ->
+            }.flatMapLatest { (mode, _) ->
                 val flow =
                     when (mode) {
                         FileUploadState.WAITING_FOR_UPLOAD -> {
@@ -264,22 +264,8 @@ class FileSelectionViewModel
             }
         }
 
-        val isUploading: StateFlow<Boolean> =
-            workManager.observeUploadingStateByManualTag(viewModelScope = viewModelScope)
-        val progress: StateFlow<Progress?> =
-            workManager.observeProgressByManual(viewModelScope = viewModelScope)
-        val isDeleting: StateFlow<Boolean> =
-            workManager.observeDeletingStateByManualTag(viewModelScope = viewModelScope)
-        val deleteProgress: StateFlow<Progress?> =
-            workManager.observeProgressByManualDelete(viewModelScope = viewModelScope)
-        val isProcessing: StateFlow<Boolean> =
-            combine(isUploading, isDeleting) { uploading, deleting ->
-                uploading || deleting
-            }.stateIn(
-                scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(5000),
-                initialValue = false,
-            )
+        val activeRequest: StateFlow<GoogleDriveRequestType> =
+            workManager.observeGoogleDriveRequest(viewModelScope = viewModelScope)
 
         fun startManualUpload(ids: List<Long>) {
             viewModelScope.launch {
@@ -301,10 +287,6 @@ class FileSelectionViewModel
          */
         fun clearSelection() {
             selectedIds.clear()
-        }
-
-        fun cancelManualUpload() {
-            workManager.cancelUniqueWork("manual_upload")
         }
 
         fun markAsRemoved(ids: List<Long>) {
@@ -350,9 +332,5 @@ class FileSelectionViewModel
                     workManager.enqueueManualDelete(ids)
                 }
             }
-        }
-
-        fun cancelDelete() {
-            workManager.cancelUniqueWork("manual_delete")
         }
     }

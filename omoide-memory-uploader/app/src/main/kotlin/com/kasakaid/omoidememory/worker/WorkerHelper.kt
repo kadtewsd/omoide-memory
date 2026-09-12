@@ -28,9 +28,24 @@ object WorkerHelper {
     private const val NOTIFICATION_ID_ERROR = 2
 
     /**
+     * アップロード完了時の通知 ID
+     */
+    private const val NOTIFICATION_ID_UPLOAD_COMPLETE = 3
+
+    /**
+     * 削除完了時の通知 ID
+     */
+    private const val NOTIFICATION_ID_DELETE_COMPLETE = 4
+
+    /**
      * アップロードエラー通知用チャンネル ID
      */
     const val CHANNEL_ID_ERROR = "upload_error_channel"
+
+    /**
+     * 処理完了通知用チャンネル ID
+     */
+    const val CHANNEL_ID_COMPLETE = "upload_complete_channel"
 
     /**
      * アップロードエラー通知クリック時の遷移先ルート Extra キー
@@ -161,6 +176,98 @@ object WorkerHelper {
                 .build()
 
         manager.notify(NOTIFICATION_ID_ERROR, notification)
+    }
+
+    /**
+     * アップロード完了時の通知を表示します。
+     * タップするとアプリのメイン画面を開く PendingIntent を含みます。
+     */
+    fun Context.showUploadCompleteNotification(uploadedCount: Int) {
+        val channel =
+            NotificationChannel(
+                CHANNEL_ID_COMPLETE,
+                "処理完了通知",
+                NotificationManager.IMPORTANCE_DEFAULT,
+            )
+        val manager =
+            applicationContext.getSystemService(Context.NOTIFICATION_SERVICE)
+                as NotificationManager
+        manager.createNotificationChannel(channel)
+
+        val intent =
+            Intent(applicationContext, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+        val pendingIntent =
+            PendingIntent.getActivity(
+                applicationContext,
+                2,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+
+        val notification =
+            NotificationCompat
+                .Builder(applicationContext, CHANNEL_ID_COMPLETE)
+                .setContentTitle("Google Drive アップロード完了")
+                .setContentText("${uploadedCount}件のファイルのアップロードが完了しました")
+                .setSmallIcon(android.R.drawable.stat_sys_upload_done)
+                .setContentIntent(pendingIntent)
+                .setAutoCancel(true)
+                .build()
+
+        manager.notify(NOTIFICATION_ID_UPLOAD_COMPLETE, notification)
+    }
+
+    /**
+     * ドライブ削除完了時の通知を表示します。
+     * タップするとアプリのメイン画面を開く PendingIntent を含みます。
+     */
+    fun Context.showDeleteCompleteNotification(
+        deletedCount: Int,
+        notDeletedCount: Int,
+    ) {
+        val channel =
+            NotificationChannel(
+                CHANNEL_ID_COMPLETE,
+                "処理完了通知",
+                NotificationManager.IMPORTANCE_DEFAULT,
+            )
+        val manager =
+            applicationContext.getSystemService(Context.NOTIFICATION_SERVICE)
+                as NotificationManager
+        manager.createNotificationChannel(channel)
+
+        val intent =
+            Intent(applicationContext, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+        val pendingIntent =
+            PendingIntent.getActivity(
+                applicationContext,
+                3,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+
+        val message =
+            if (notDeletedCount > 0) {
+                "${deletedCount}件のファイルを削除しました（未ダウンロードのためスキップ: ${notDeletedCount}件）"
+            } else {
+                "${deletedCount}件のファイルを削除しました"
+            }
+
+        val notification =
+            NotificationCompat
+                .Builder(applicationContext, CHANNEL_ID_COMPLETE)
+                .setContentTitle("Google Drive 削除完了")
+                .setContentText(message)
+                .setSmallIcon(android.R.drawable.stat_sys_warning)
+                .setContentIntent(pendingIntent)
+                .setAutoCancel(true)
+                .build()
+
+        manager.notify(NOTIFICATION_ID_DELETE_COMPLETE, notification)
     }
 
     /**

@@ -9,6 +9,7 @@ import androidx.work.workDataOf
 import com.kasakaid.omoidememory.network.GoogleDriveService
 import com.kasakaid.omoidememory.os.CrashReporter
 import com.kasakaid.omoidememory.worker.WorkerHelper.createForegroundInfo
+import com.kasakaid.omoidememory.worker.WorkerHelper.showDeleteCompleteNotification
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 
@@ -59,6 +60,10 @@ class GdriveDeleteWorker
                     driveService
                         .deleteDeviceToken()
                         .onFailure { e -> Log.w(TAG, "device_token の削除に失敗しました (無視して継続)", e) }
+                    appContext.showDeleteCompleteNotification(
+                        deletedCount = res.deleted.size,
+                        notDeletedCount = res.notDeleted.size,
+                    )
                     val outputData =
                         workDataOf(
                             "NOT_DELETED_IDS" to res.notDeleted.toLongArray(),
