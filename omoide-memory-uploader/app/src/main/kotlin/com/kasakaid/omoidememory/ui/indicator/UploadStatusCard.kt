@@ -33,7 +33,7 @@ import com.kasakaid.omoidememory.data.OmoideMemoryRepository
 import com.kasakaid.omoidememory.data.OmoideUploadPrefsRepository
 import com.kasakaid.omoidememory.data.UploadState
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.enqueueWManualUpload
-import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeProgressByManual
+import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeUploadProgress
 import com.kasakaid.omoidememory.ui.UploadRequiredCondition
 import com.kasakaid.omoidememory.ui.maintenance.requestprocess.data.UploadReportRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -122,7 +122,7 @@ class UploadStatusViewModel
 
         // WorkInfo から進捗を取り出して StateFlow に変換
         val uploadProgress: StateFlow<Progress?> =
-            workManager.observeProgressByManual(
+            workManager.observeUploadProgress(
                 viewModelScope = viewModelScope,
             )
     }
@@ -131,6 +131,7 @@ class UploadStatusViewModel
 fun UploadStatusRoute(
     viewModel: UploadStatusViewModel = hiltViewModel(),
     condition: UploadRequiredCondition, // 権限状態などをまとめたオブジェクト
+    isProcessing: Boolean = false,
     // 手動アップロードを選択した際の画面遷移先
     onNavigateToContentSelection: () -> Unit,
 ) {
@@ -147,6 +148,7 @@ fun UploadStatusRoute(
         pendingFilesCount = pendingFilesCount,
         uploadedCount = uploadedCount,
         condition = condition,
+        isProcessing = isProcessing,
         onUploadClick = {
             viewModel.triggerManualUpload()
         },
@@ -173,6 +175,7 @@ fun UploadStatusCard(
     pendingFilesCount: Int,
     uploadedCount: Int,
     condition: UploadRequiredCondition, // 状態を引数で受け取る
+    isProcessing: Boolean = false,
     onUploadClick: () -> Unit, // ボタンクリック時のアクション
     onNavigateToContentSelection: () -> Unit,
     progress: Progress?,
@@ -207,7 +210,7 @@ fun UploadStatusCard(
                 Button(
                     onClick = onUploadClick,
                     modifier = Modifier.weight(1f),
-                    enabled = condition.canUpload,
+                    enabled = condition.canUpload && !isProcessing,
                     contentPadding = PaddingValues(vertical = 12.dp),
                 ) {
                     Text("すべてUP", textAlign = TextAlign.Center)

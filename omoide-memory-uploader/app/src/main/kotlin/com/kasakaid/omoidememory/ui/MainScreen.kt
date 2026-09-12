@@ -9,8 +9,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -25,9 +27,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -37,12 +37,11 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import com.kasakaid.omoidememory.ui.indicator.CONTENTS_UPLOADING
-import com.kasakaid.omoidememory.ui.indicator.UploadIndicator
 import com.kasakaid.omoidememory.ui.indicator.UploadStatusRoute
 import com.kasakaid.omoidememory.ui.indicator.UploadedContentRoute
-import com.kasakaid.omoidememory.ui.indicator.current
+import com.kasakaid.omoidememory.ui.indicator.WorkProgressTopCard
 import com.kasakaid.omoidememory.ui.snakbar.StandardSnackBar
+import com.kasakaid.omoidememory.worker.GoogleDriveRequestType
 
 // 1. 判定用の小さな関数を定義（MainScreen 内、または companion 内）
 fun isWifiPermissionGranted(state: GrantPermissionState): Boolean = state is GrantPermissionState.Granted
@@ -105,32 +104,7 @@ fun MainScreen(
 
     val scrollState = rememberScrollState()
 
-    val isUploading = viewModel.isUploading.collectAsState().value
-    val progress = viewModel.progress.collectAsState().value
-    val uploadTargetCount = viewModel.uploadTargetCount.collectAsState().value
-
-    /**
-     * 一括アップロードされたか？
-     */
-    var hasStartedUploading by remember {
-        mutableStateOf(false)
-    }
-
-    LaunchedEffect(isUploading) {
-        /**
-         * 手動でアップロードが完了していたら再度候補を取得するため
-         * 一括アップロードが完了したら画面を再描画して現状のファイルのアップロード状況を表示する
-         */
-        if (!isUploading && hasStartedUploading) {
-            // 一括アップロードが完了したとみなす。そのため、フラグを落として、アップロードが始まってない状態にする
-            hasStartedUploading = false
-        }
-        if (isUploading) {
-            // アップロードが開始したら開始状態にする
-            hasStartedUploading = true
-        }
-    }
-
+    val activeRequest by viewModel.activeRequest.collectAsState()
     val wifiStatus by viewModel.wifiStatus.collectAsState()
 
     Box(
@@ -150,127 +124,132 @@ fun MainScreen(
         Column(
             modifier =
                 Modifier
-                    .fillMaxSize() // 画面全体を占有
-                    .padding(16.dp) // 全体に余白
-                    .verticalScroll(scrollState),
-            verticalArrangement = Arrangement.spacedBy(16.dp), // 各要素の間に隙間を作る
+                    .fillMaxSize()
+                    .padding(16.dp),
         ) {
-            // Android の権限コンポーネント
-            GrantPermissionRoute(onPermissionChanged = {
-                // 最低限 Wifi が入っているかのチェックを、State Hoisting でチェック!
-                val current =
-                    isWifiPermissionGranted(
-                        GrantPermissionState.checkInitialPermission(
-                            context = context,
-                            checkTargetPermissions = wifiPermissions,
+            // 🚀 画面上部に進捗バーを表示（キャンセルボタン付き）：Processing の場合に表示
+            val currentRequest = activeRequest
+            if (currentRequest is GoogleDriveRequestType.Processing) {
+                WorkProgressTopCard(request = currentRequest)
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
+            Column(
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .verticalScroll(scrollState),
+                verticalArrangement = Arrangement.spacedBy(16.dp), // 各要素の間に隙間を作る
+            ) {
+                // Android の権限コンポーネント
+                GrantPermissionRoute(onPermissionChanged = {
+                    // 最低限 Wifi が入っているかのチェックを、State Hoisting でチェック!
+                    val current =
+                        isWifiPermissionGranted(
+                            GrantPermissionState.checkInitialPermission(
+                                context = context,
+                                checkTargetPermissions = wifiPermissions,
+                            ),
+                        )
+                    viewModel.updatePermissionStatus(current)
+                })
+                // Google のサインインの状態
+                GoogleAuthStateRoute(onSignInSuccess = {
+                    viewModel.updateGoogleSignInStatus(it)
+                })
+                // Wi-Fi Configuration Section
+                WifiSettingsCard(
+                    wifiSetting = wifiStatus.setting,
+                    fixedSecureSsid = wifiStatus.fixedSsid,
+                    onFixSecureSsid = { viewModel.changeWifiSsid(it) },
+                    isPermissionGranted = uploadCondition.isPermissionGranted,
+                )
+
+                // Auto Upload Toggle
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors =
+                        CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
                         ),
-                    )
-                viewModel.updatePermissionStatus(current)
-            })
-            // Google のサインインの状態
-            GoogleAuthStateRoute(onSignInSuccess = {
-                viewModel.updateGoogleSignInStatus(it)
-            })
-            // Wi-Fi Configuration Section
-            WifiSettingsCard(
-                wifiSetting = wifiStatus.setting,
-                fixedSecureSsid = wifiStatus.fixedSsid,
-                onFixSecureSsid = { viewModel.changeWifiSsid(it) },
-                isPermissionGranted = uploadCondition.isPermissionGranted,
-            )
-
-            // Auto Upload Toggle
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors =
-                    CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
-                    ),
-            ) {
-                Row(
-                    modifier =
-                        Modifier
-                            .padding(16.dp)
-                            .fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    Column {
-                        Text(
-                            "コンテンツの自動アップロードは?",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                        )
-                        Text(
-                            "(現在ご利用いただけません)",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                        )
-                    }
-                    Switch(
-                        checked = false,
-                        onCheckedChange = { },
-                        enabled = false,
-                    )
-                }
-            }
-
-            // 基準日設定
-            UploadedBaseLineRoute()
-
-            // Status & Trigger
-            UploadStatusRoute(
-                condition = uploadCondition,
-                onNavigateToContentSelection = onNavigateToSelection,
-            )
-
-            // Resume Upload Card
-            val isResumeEnabled by viewModel.isResumeEnabled.collectAsState()
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("アップロード再開", style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        text = "アップロードした時に Google Drive からエラーが返されてきたコンテンツの再アップロードをします。",
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
-                    )
-                    Button(
-                        onClick = onNavigateToResume,
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = uploadCondition.canUpload && isResumeEnabled,
+                    Row(
+                        modifier =
+                            Modifier
+                                .padding(16.dp)
+                                .fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
-                        Text("アップロード再開")
+                        Column {
+                            Text(
+                                "コンテンツの自動アップロードは?",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                            )
+                            Text(
+                                "(現在ご利用いただけません)",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                            )
+                        }
+                        Switch(
+                            checked = false,
+                            onCheckedChange = { },
+                            enabled = false,
+                        )
                     }
                 }
-            }
 
-            // Uploaded Content Maintenance
-            UploadedContentRoute(
-                onNavigateToMaintenance = onNavigateToUploadedMaintenance,
-            )
+                // 基準日設定
+                UploadedBaseLineRoute()
 
-            Button(
-                onClick = onNavigateToMaintenance,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("メンテナンス画面へ")
+                // Status & Trigger
+                UploadStatusRoute(
+                    condition = uploadCondition,
+                    isProcessing = activeRequest is GoogleDriveRequestType.Processing,
+                    onNavigateToContentSelection = onNavigateToSelection,
+                )
+
+                // Resume Upload Card
+                val isResumeEnabled by viewModel.isResumeEnabled.collectAsState()
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("アップロード再開", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            text = "アップロードした時に Google Drive からエラーが返されてきたコンテンツの再アップロードをします。",
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
+                        )
+                        Button(
+                            onClick = onNavigateToResume,
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = uploadCondition.canUpload && isResumeEnabled && activeRequest !is GoogleDriveRequestType.Processing,
+                        ) {
+                            Text("アップロード再開")
+                        }
+                    }
+                }
+
+                // Uploaded Content Maintenance
+                UploadedContentRoute(
+                    onNavigateToMaintenance = onNavigateToUploadedMaintenance,
+                )
+
+                Button(
+                    onClick = onNavigateToMaintenance,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("メンテナンス画面へ")
+                }
             }
         }
 
         StandardSnackBar(
             message = snackMessage,
             onDismiss = onClearSnackMessage,
-        )
-    }
-
-    // 🚀 アップロード中のみ表示されるロック層
-    if (isUploading) {
-        UploadIndicator(
-            uploadProgress = progress.current(uploadTargetCount),
-            label = CONTENTS_UPLOADING,
-            onCancel = { viewModel.cancelManualUpload() },
         )
     }
 }

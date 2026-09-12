@@ -17,6 +17,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.kasakaid.omoidememory.data.OmoideMemory
 import com.kasakaid.omoidememory.data.UploadState
 import com.kasakaid.omoidememory.ui.snakbar.StandardSnackBar
+import com.kasakaid.omoidememory.worker.GoogleDriveRequestType
 
 @Composable
 fun FileSelectionRoute(
@@ -32,11 +33,6 @@ fun FileSelectionRoute(
     }
     val pendingFiles by viewModel.pendingFiles.collectAsState()
     val onOff by viewModel.onOff.collectAsState()
-    val isUploading by viewModel.isUploading.collectAsState()
-    val progress by viewModel.progress.collectAsState()
-    val isDeleting by viewModel.isDeleting.collectAsState()
-    val deleteProgress by viewModel.deleteProgress.collectAsState()
-    val isProcessing by viewModel.isProcessing.collectAsState()
 
     val launcher =
         androidx.activity.compose.rememberLauncherForActivityResult(
@@ -98,12 +94,6 @@ fun FileSelectionRoute(
         isSelectable = { fileUploadState != FileUploadState.UPLOAD_DONE || it.state == UploadState.DONE },
         onOff = onOff,
         onSwitchChanged = { viewModel.toggleAll(it) },
-        isUploading = isUploading,
-        progress = progress,
-        onCancelUpload = { viewModel.cancelManualUpload() },
-        isDeleting = isDeleting,
-        deleteProgress = deleteProgress,
-        onCancelDelete = { viewModel.cancelDelete() },
     )
 }
 
@@ -122,7 +112,7 @@ fun ExcludedFileSelectionRoute(
     navController: androidx.navigation.NavController,
     viewModel: FileSelectionViewModel = hiltViewModel(),
 ) {
-    val isProcessing by viewModel.isProcessing.collectAsState()
+    val activeRequest by viewModel.activeRequest.collectAsState()
 
     FileSelectionRoute(
         viewModel = viewModel,
@@ -140,7 +130,7 @@ fun ExcludedFileSelectionRoute(
                 Button(
                     onClick = { viewModel.revive(selectedFiles.map { it.id }) },
                     modifier = Modifier.weight(1f),
-                    enabled = !isProcessing && selectedFiles.isNotEmpty(),
+                    enabled = activeRequest is GoogleDriveRequestType.None && selectedFiles.isNotEmpty(),
                 ) {
                     Text("復活")
                 }
@@ -164,7 +154,7 @@ fun DoneFileSelectionRoute(
     onBack: (String?) -> Unit,
     viewModel: FileSelectionViewModel = hiltViewModel(),
 ) {
-    val isProcessing by viewModel.isProcessing.collectAsState()
+    val activeRequest by viewModel.activeRequest.collectAsState()
     val doneFilter by viewModel.doneFilter.collectAsState()
 
     FileSelectionRoute(
@@ -190,10 +180,11 @@ fun DoneFileSelectionRoute(
                             viewModel.deleteFromDrive(
                                 selectedFiles.filter { it.state == UploadState.DONE }.map { it.id },
                             )
+                            onBack(null)
                         },
                         modifier = Modifier.weight(1f),
                         enabled =
-                            !isProcessing &&
+                            activeRequest is GoogleDriveRequestType.None &&
                                 selectedFiles.any { it.state == UploadState.DONE },
                     ) {
                         Text("ドライブから削除")
@@ -220,7 +211,7 @@ fun TargetFileSelectionRoute(
     navController: androidx.navigation.NavController,
     viewModel: FileSelectionViewModel = hiltViewModel(),
 ) {
-    val isProcessing by viewModel.isProcessing.collectAsState()
+    val activeRequest by viewModel.activeRequest.collectAsState()
 
     FileSelectionRoute(
         viewModel = viewModel,
@@ -236,16 +227,19 @@ fun TargetFileSelectionRoute(
         bottomBarAction = { selectedFiles ->
             StandardFileSelection(selectedFiles = selectedFiles) {
                 Button(
-                    onClick = { viewModel.startManualUpload(selectedFiles.map { it.id }) },
+                    onClick = {
+                        viewModel.startManualUpload(selectedFiles.map { it.id })
+                        onBack(null)
+                    },
                     modifier = Modifier.weight(1f),
-                    enabled = !isProcessing && selectedFiles.isNotEmpty(),
+                    enabled = activeRequest is GoogleDriveRequestType.None && selectedFiles.isNotEmpty(),
                 ) {
                     Text("送信")
                 }
                 Button(
                     onClick = { viewModel.markAsRemoved(selectedFiles.map { it.id }) },
                     modifier = Modifier.weight(1f),
-                    enabled = !isProcessing && selectedFiles.isNotEmpty(),
+                    enabled = activeRequest is GoogleDriveRequestType.None && selectedFiles.isNotEmpty(),
                     colors =
                         ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.secondary,

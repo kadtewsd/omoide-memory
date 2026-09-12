@@ -13,10 +13,12 @@ import com.kasakaid.omoidememory.ui.maintenance.requestprocess.UploadReport
 import com.kasakaid.omoidememory.ui.maintenance.requestprocess.data.UploadReportRepository
 import com.kasakaid.omoidememory.worker.GdriveDeleteWorker
 import com.kasakaid.omoidememory.worker.GdriveUploadWorker
-import com.kasakaid.omoidememory.worker.WorkManagerTag
+import com.kasakaid.omoidememory.worker.GoogleDriveRequestType
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
@@ -54,7 +56,7 @@ object WorkManagerExtension {
         // 唯一性の保証: 同じ名前のジョブがすでにキューにある場合、WorkManager が介入します。
         // REPLACE の魔法: 前のリクエストが完了していない場合はアボートしてあと勝ち。
         enqueueUniqueWork(
-            "manual_upload",
+            GoogleDriveRequestType.Uploading().workerName,
             ExistingWorkPolicy.REPLACE,
             uploadRequest,
         )
@@ -76,69 +78,112 @@ object WorkManagerExtension {
                 .build()
 
         enqueueUniqueWork(
-            WorkManagerTag.ManualDelete.value,
+            GoogleDriveRequestType.Deleting().workerName,
             ExistingWorkPolicy.REPLACE,
             deleteRequest,
         )
     }
 
     /**
-     * アップロード状態を監視します。
-     * 現在の進捗とほぼ同じですが、念の為 Worker のステートで確認
+     * 指定されたリクエスト種別 ([GoogleDriveRequestType.Processing]) の UniqueWorkFlow を取得します。
      */
-    fun WorkManager.observeUploadingStateByManualTag(viewModelScope: CoroutineScope): StateFlow<Boolean> =
-        observeUploadingState(
-            viewModelScope = viewModelScope,
-            workManagerTag = WorkManagerTag.Manual,
-        )
+    fun WorkManager.getWorkInfosForUniqueWorkFlow(requestType: GoogleDriveRequestType.Processing): Flow<List<WorkInfo>> =
+        getWorkInfosForUniqueWorkFlow(requestType.workerName)
 
-    private fun WorkManager.observeUploadingState(
+    /**
+     * 指定されたワーカー名 (Unique Work Name) の実行状態 (RUNNING または ENQUEUED) を監視します。
+     */
+    fun WorkManager.observeRequestState(
+        workerName: String,
         viewModelScope: CoroutineScope,
-        workManagerTag: WorkManagerTag,
     ): StateFlow<Boolean> =
-        getWorkInfosForUniqueWorkFlow(workManagerTag.value)
+        getWorkInfosForUniqueWorkFlow(workerName)
             .map { infos ->
-                infos.any { it.state == WorkInfo.State.RUNNING || it.state == WorkInfo.State.ENQUEUED }
+                infos.any { it.state.isActive() }
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
-    fun WorkManager.observeDeletingStateByManualTag(viewModelScope: CoroutineScope): StateFlow<Boolean> =
-        observeUploadingState(
-            viewModelScope = viewModelScope,
-            workManagerTag = WorkManagerTag.ManualDelete,
-        )
+    /**
+     * 指定されたワーカー名 (Unique Work Name) の進捗を監視します。
+     */
+    fun WorkManager.observeProgress(
+        workerName: String,
+        viewModelScope: CoroutineScope,
+    ): StateFlow<Progress?> =
+        getWorkInfosForUniqueWorkFlow(workerName)
+            .map { it.progress() }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
-    fun WorkManager.observeProgressByManual(viewModelScope: CoroutineScope): StateFlow<Progress?> =
-        observeProgress(
+    /**
+     * 指定された生成関数 [create] から得られるワーカーを監視し、進捗から [GoogleDriveRequestType.Processing] を生成するフローを返します。
+     */
+    private fun <T : GoogleDriveRequestType.Processing> WorkManager.observeRequest(create: (Progress) -> T): Flow<T?> {
+        val workerName = create(Progress(0, 0)).workerName
+        return getWorkInfosForUniqueWorkFlow(workerName)
+            .map { it.requestType(create) }
+    }
+
+    /**
+     * Google Drive に対するアクティブな非同期リクエスト ([GoogleDriveRequestType]) を監視します。
+     * アップロード中または削除中のリクエストをパターンマッチ可能な単一のフローとして提供します。
+     */
+    fun WorkManager.observeGoogleDriveRequest(viewModelScope: CoroutineScope): StateFlow<GoogleDriveRequestType> {
+        val uploadFlow =
+            observeRequest { progress ->
+                GoogleDriveRequestType.Uploading(
+                    requestProgress = progress,
+                    workManager = this@observeGoogleDriveRequest,
+                )
+            }
+
+        val deleteFlow =
+            observeRequest { progress ->
+                GoogleDriveRequestType.Deleting(
+                    requestProgress = progress,
+                    workManager = this@observeGoogleDriveRequest,
+                )
+            }
+
+        return combine(uploadFlow, deleteFlow) { upload, delete ->
+            upload ?: delete ?: GoogleDriveRequestType.None
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), GoogleDriveRequestType.None)
+    }
+
+    /**
+     * アップロード状態を監視します。
+     */
+    fun WorkManager.observeUploadingState(viewModelScope: CoroutineScope): StateFlow<Boolean> =
+        observeRequestState(
+            workerName = GoogleDriveRequestType.Uploading().workerName,
             viewModelScope = viewModelScope,
-            workManagerTag = WorkManagerTag.Manual,
         )
 
     /**
-     * 現在の進捗を確認します。
+     * アップロード進捗を監視します。
      */
-    private fun WorkManager.observeProgress(
-        viewModelScope: CoroutineScope,
-        workManagerTag: WorkManagerTag,
-    ): StateFlow<Progress?> =
-        getWorkInfosForUniqueWorkFlow(workManagerTag.value)
-            .map { workInfos ->
-                val runningWork = workInfos.find { it.state == WorkInfo.State.RUNNING }
-                val progress = runningWork?.progress
-                if (progress != null) {
-                    val current = progress.getInt("PROGRESS_CURRENT", 0)
-                    val total = progress.getInt("PROGRESS_TOTAL", 0)
-                    Progress(
-                        progressed = current,
-                        total = total,
-                    )
-                } else {
-                    null
-                }
-            }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
-
-    fun WorkManager.observeProgressByManualDelete(viewModelScope: CoroutineScope): StateFlow<Progress?> =
+    fun WorkManager.observeUploadProgress(viewModelScope: CoroutineScope): StateFlow<Progress?> =
         observeProgress(
+            workerName = GoogleDriveRequestType.Uploading().workerName,
             viewModelScope = viewModelScope,
-            workManagerTag = WorkManagerTag.ManualDelete,
         )
 }
+
+/**
+ * アクティブ扱いかを判断する
+ */
+fun WorkInfo.State.isActive(): Boolean = setOf(WorkInfo.State.RUNNING, WorkInfo.State.ENQUEUED).contains(this)
+
+/**
+ * アクティブな WorkInfo から進捗情報（[Progress]）を取り出します。
+ */
+fun List<WorkInfo>.progress(): Progress? {
+    val activeWork = this.find { it.state.isActive() } ?: return null
+    val p = activeWork.progress
+    val current = p.getInt("PROGRESS_CURRENT", 0)
+    val total = p.getInt("PROGRESS_TOTAL", 0)
+    return Progress(progressed = current, total = total)
+}
+
+/**
+ * アクティブな WorkInfo の進捗情報から高階関数 [create] を通じて [GoogleDriveRequestType] を生成します。
+ */
+fun <T : GoogleDriveRequestType> List<WorkInfo>.requestType(create: (Progress) -> T): T? = progress()?.let(create)
