@@ -1,19 +1,19 @@
 package com.kasakaid.omoidememory.worker
 
-import android.app.NotificationChannel
 import android.app.NotificationManager
-import android.app.PendingIntent
 import android.content.Context
-import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.graphics.Bitmap
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Build
-import androidx.core.app.NotificationCompat
 import androidx.work.ForegroundInfo
 import com.google.api.client.googleapis.json.GoogleJsonResponseException
+import com.kasakaid.omoidememory.notification.createForegroundNotification
+import com.kasakaid.omoidememory.notification.createMainPendingIntent
+import com.kasakaid.omoidememory.notification.ensureNotificationChannel
+import com.kasakaid.omoidememory.notification.showNotification
 import com.kasakaid.omoidememory.ui.InitialRoute
-import com.kasakaid.omoidememory.ui.MainActivity
 import com.kasakaid.omoidememory.ui.indicator.CONTENTS_UPLOADING
 
 object WorkerHelper {
@@ -41,6 +41,11 @@ object WorkerHelper {
      * 削除エラー時の通知 ID
      */
     private const val NOTIFICATION_ID_DELETE_ERROR = 5
+
+    /**
+     * ダウンロード完了時の通知 ID
+     */
+    private const val NOTIFICATION_ID_DOWNLOAD_COMPLETE = 6
 
     /**
      * アップロードエラー通知用チャンネル ID
@@ -89,40 +94,18 @@ object WorkerHelper {
      * この Worker をフォアグラウンド実行に昇格させます。
      */
     fun Context.createForegroundInfo(channelId: String): ForegroundInfo {
-        // Android 8+ は通知チャンネルが必要
-        val channel =
-            NotificationChannel(
-                channelId,
-                "Upload",
-                NotificationManager.IMPORTANCE_LOW,
-            )
-
-        val manager =
-            applicationContext.getSystemService(Context.NOTIFICATION_SERVICE)
-                as NotificationManager
-        manager.createNotificationChannel(channel)
-
-        val intent =
-            Intent(applicationContext, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            }
-        val pendingIntent =
-            PendingIntent.getActivity(
-                applicationContext,
-                0,
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-            )
-
+        ensureNotificationChannel(
+            channelId = channelId,
+            channelName = "Upload",
+            importance = NotificationManager.IMPORTANCE_LOW,
+        )
+        val pendingIntent = createMainPendingIntent(requestCode = 0)
         val notification =
-            NotificationCompat
-                .Builder(applicationContext, channelId)
-                .setContentTitle(CONTENTS_UPLOADING)
-                .setContentText("Google Drive に送信しています")
-                .setSmallIcon(android.R.drawable.stat_sys_upload)
-                .setContentIntent(pendingIntent)
-                .setOngoing(true)
-                .build()
+            createForegroundNotification(
+                pendingIntent = pendingIntent,
+                message = "Google Drive に送信しています",
+                channelId = channelId,
+            )
 
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             // API 29+
@@ -145,42 +128,21 @@ object WorkerHelper {
      * タップするとアプリの「アップロード再開」画面を開く PendingIntent を含みます。
      */
     fun Context.showUploadErrorNotification(errorMessage: String) {
-        val channel =
-            NotificationChannel(
-                CHANNEL_ID_ERROR,
-                "Upload Error",
-                NotificationManager.IMPORTANCE_HIGH,
-            )
-        val manager =
-            applicationContext.getSystemService(Context.NOTIFICATION_SERVICE)
-                as NotificationManager
-        manager.createNotificationChannel(channel)
-
-        val intent =
-            Intent(applicationContext, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        val pendingIntent =
+            createMainPendingIntent(requestCode = 1) {
                 putExtra(EXTRA_ROUTE, InitialRoute.PENDING.route)
                 putExtra(EXTRA_MESSAGE, errorMessage)
             }
-        val pendingIntent =
-            PendingIntent.getActivity(
-                applicationContext,
-                1,
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-            )
-
-        val notification =
-            NotificationCompat
-                .Builder(applicationContext, CHANNEL_ID_ERROR)
-                .setContentTitle("アップロードでエラーが発生しました")
-                .setContentText(errorMessage)
-                .setSmallIcon(android.R.drawable.stat_notify_error)
-                .setContentIntent(pendingIntent)
-                .setAutoCancel(true)
-                .build()
-
-        manager.notify(NOTIFICATION_ID_ERROR, notification)
+        showNotification(
+            channelId = CHANNEL_ID_ERROR,
+            channelName = "Upload Error",
+            importance = NotificationManager.IMPORTANCE_HIGH,
+            notificationId = NOTIFICATION_ID_ERROR,
+            title = "アップロードでエラーが発生しました",
+            message = errorMessage,
+            smallIcon = android.R.drawable.stat_notify_error,
+            pendingIntent = pendingIntent,
+        )
     }
 
     /**
@@ -188,40 +150,17 @@ object WorkerHelper {
      * タップするとアプリのメイン画面を開く PendingIntent を含みます。
      */
     fun Context.showUploadCompleteNotification(uploadedCount: Int) {
-        val channel =
-            NotificationChannel(
-                CHANNEL_ID_COMPLETE,
-                "処理完了通知",
-                NotificationManager.IMPORTANCE_DEFAULT,
-            )
-        val manager =
-            applicationContext.getSystemService(Context.NOTIFICATION_SERVICE)
-                as NotificationManager
-        manager.createNotificationChannel(channel)
-
-        val intent =
-            Intent(applicationContext, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            }
-        val pendingIntent =
-            PendingIntent.getActivity(
-                applicationContext,
-                2,
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-            )
-
-        val notification =
-            NotificationCompat
-                .Builder(applicationContext, CHANNEL_ID_COMPLETE)
-                .setContentTitle("Google Drive アップロード完了")
-                .setContentText("${uploadedCount}件のファイルのアップロードが完了しました")
-                .setSmallIcon(android.R.drawable.stat_sys_upload_done)
-                .setContentIntent(pendingIntent)
-                .setAutoCancel(true)
-                .build()
-
-        manager.notify(NOTIFICATION_ID_UPLOAD_COMPLETE, notification)
+        val pendingIntent = createMainPendingIntent(requestCode = 2)
+        showNotification(
+            channelId = CHANNEL_ID_COMPLETE,
+            channelName = "処理完了通知",
+            importance = NotificationManager.IMPORTANCE_DEFAULT,
+            notificationId = NOTIFICATION_ID_UPLOAD_COMPLETE,
+            title = "Google Drive アップロード完了",
+            message = "${uploadedCount}件のファイルのアップロードが完了しました",
+            smallIcon = android.R.drawable.stat_sys_upload_done,
+            pendingIntent = pendingIntent,
+        )
     }
 
     /**
@@ -232,47 +171,74 @@ object WorkerHelper {
         deletedCount: Int,
         notDeletedCount: Int,
     ) {
-        val channel =
-            NotificationChannel(
-                CHANNEL_ID_COMPLETE,
-                "処理完了通知",
-                NotificationManager.IMPORTANCE_DEFAULT,
-            )
-        val manager =
-            applicationContext.getSystemService(Context.NOTIFICATION_SERVICE)
-                as NotificationManager
-        manager.createNotificationChannel(channel)
-
-        val intent =
-            Intent(applicationContext, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            }
-        val pendingIntent =
-            PendingIntent.getActivity(
-                applicationContext,
-                3,
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-            )
-
         val message =
             if (notDeletedCount > 0) {
                 "${deletedCount}件のファイルを削除しました（未ダウンロードのためスキップ: ${notDeletedCount}件）"
             } else {
                 "${deletedCount}件のファイルを削除しました"
             }
+        val pendingIntent = createMainPendingIntent(requestCode = 3)
+        showNotification(
+            channelId = CHANNEL_ID_COMPLETE,
+            channelName = "処理完了通知",
+            importance = NotificationManager.IMPORTANCE_DEFAULT,
+            notificationId = NOTIFICATION_ID_DELETE_COMPLETE,
+            title = "Google Drive 削除完了",
+            message = message,
+            smallIcon = android.R.drawable.stat_sys_warning,
+            pendingIntent = pendingIntent,
+        )
+    }
 
-        val notification =
-            NotificationCompat
-                .Builder(applicationContext, CHANNEL_ID_COMPLETE)
-                .setContentTitle("Google Drive 削除完了")
-                .setContentText(message)
-                .setSmallIcon(android.R.drawable.stat_sys_warning)
-                .setContentIntent(pendingIntent)
-                .setAutoCancel(true)
-                .build()
+    /**
+     * ダウンロード完了時の PUSH 通知を表示します（デフォルトのアプリアイコンを表示）。
+     * タップするとアプリのメイン画面を開く PendingIntent を含みます。
+     *
+     * @param title 通知タイトル
+     * @param message 通知メッセージ本文
+     */
+    fun Context.showDownloadCompleteNotification(
+        title: String,
+        message: String,
+    ) {
+        val pendingIntent = createMainPendingIntent(requestCode = 5)
+        showNotification(
+            channelId = CHANNEL_ID_COMPLETE,
+            channelName = "処理完了通知",
+            importance = NotificationManager.IMPORTANCE_DEFAULT,
+            notificationId = NOTIFICATION_ID_DOWNLOAD_COMPLETE,
+            title = title,
+            message = message,
+            smallIcon = android.R.drawable.stat_sys_download_done,
+            pendingIntent = pendingIntent,
+        )
+    }
 
-        manager.notify(NOTIFICATION_ID_DELETE_COMPLETE, notification)
+    /**
+     * ダウンロード完了時の PUSH 通知を表示します（カスタムアイコンを表示）。
+     * タップするとアプリのメイン画面を開く PendingIntent を含みます。
+     *
+     * @param title 通知タイトル
+     * @param message 通知メッセージ本文
+     * @param customIcon PUSH 通知ペイロードに含まれるカスタムアイコン (Bitmap)
+     */
+    fun Context.showDownloadCompleteNotification(
+        title: String,
+        message: String,
+        customIcon: Bitmap,
+    ) {
+        val pendingIntent = createMainPendingIntent(requestCode = 5)
+        showNotification(
+            channelId = CHANNEL_ID_COMPLETE,
+            channelName = "処理完了通知",
+            importance = NotificationManager.IMPORTANCE_DEFAULT,
+            notificationId = NOTIFICATION_ID_DOWNLOAD_COMPLETE,
+            title = title,
+            message = message,
+            smallIcon = android.R.drawable.stat_sys_download_done,
+            pendingIntent = pendingIntent,
+            largeIcon = customIcon,
+        )
     }
 
     /**
@@ -280,40 +246,17 @@ object WorkerHelper {
      * タップするとアプリのメイン画面を開く PendingIntent を含みます。
      */
     fun Context.showDeleteErrorNotification(errorMessage: String) {
-        val channel =
-            NotificationChannel(
-                CHANNEL_ID_ERROR,
-                "Upload Error",
-                NotificationManager.IMPORTANCE_HIGH,
-            )
-        val manager =
-            applicationContext.getSystemService(Context.NOTIFICATION_SERVICE)
-                as NotificationManager
-        manager.createNotificationChannel(channel)
-
-        val intent =
-            Intent(applicationContext, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            }
-        val pendingIntent =
-            PendingIntent.getActivity(
-                applicationContext,
-                4,
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-            )
-
-        val notification =
-            NotificationCompat
-                .Builder(applicationContext, CHANNEL_ID_ERROR)
-                .setContentTitle("Google Drive 削除でエラーが発生しました")
-                .setContentText(errorMessage)
-                .setSmallIcon(android.R.drawable.stat_notify_error)
-                .setContentIntent(pendingIntent)
-                .setAutoCancel(true)
-                .build()
-
-        manager.notify(NOTIFICATION_ID_DELETE_ERROR, notification)
+        val pendingIntent = createMainPendingIntent(requestCode = 4)
+        showNotification(
+            channelId = CHANNEL_ID_ERROR,
+            channelName = "Upload Error",
+            importance = NotificationManager.IMPORTANCE_HIGH,
+            notificationId = NOTIFICATION_ID_DELETE_ERROR,
+            title = "Google Drive 削除でエラーが発生しました",
+            message = errorMessage,
+            smallIcon = android.R.drawable.stat_notify_error,
+            pendingIntent = pendingIntent,
+        )
     }
 
     /**

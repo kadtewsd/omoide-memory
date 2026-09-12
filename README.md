@@ -113,7 +113,8 @@ cd omoide-memory-migration
    ```
    omoide-memory-uploader/app/google-services.json
    ```
-   > ⚠️ `google-services.json` は機密情報を含むため、リポジトリにはコミットしないでください（`.gitignore` 設定済み）。
+   > ⚠️ `google-services.json` は API キー等の機密情報を含むため、リポジトリにはコミットしないでください（`.gitignore` 設定済み）。
+   > 本ファイルは、Android アプリ（uploader）が Firebase と通信し、PUSH 通知の送信先となる**デバイストークン（FCM Registration Token）を発行・取得するために必須**となります（発行されたデバイストークンは Google Drive 上に `device_token` として保存され、ダウンローダーが通知送信時の宛先として参照します）。
 
 ### 2. Google Cloud Service Account の権限設定
 
@@ -133,6 +134,7 @@ cd omoide-memory-migration
 |---|---|---|
 | `FCM_PROJECT_ID` | Firebase プロジェクト ID | Firebase コンソール → プロジェクト設定 → プロジェクト ID |
 | `GOOGLE_SA_CREDENTIAL_PATH` | Service Account の JSON 鍵ファイルパス | Google Drive アクセス用の SA 鍵と共用可能 |
+| `DOWNLOAD_COMPLETE_PUSH_ICON` | （任意）PUSH 通知に添付するアプリアイコン画像のパス | `C:\secrets\push_icon.png` |
 
 ---
 
