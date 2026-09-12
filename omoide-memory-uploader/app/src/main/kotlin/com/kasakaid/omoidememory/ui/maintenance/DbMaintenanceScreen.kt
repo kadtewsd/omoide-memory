@@ -306,7 +306,11 @@ private fun StateLabel(
 
             // Gray
 
-            UploadState.UPLOAD_TRIGGERED -> Color(0xFF9C27B0) // Purple
+            UploadState.UPLOAD_TRIGGERED -> Color(0xFF9C27B0)
+
+            // Purple
+
+            UploadState.DELETE_TRIGGERED -> Color(0xFFE91E63) // Pink
         }
 
     Surface(

@@ -16,7 +16,6 @@ import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.kasakaid.omoidememory.data.OmoideMemory
 import com.kasakaid.omoidememory.data.UploadState
-import com.kasakaid.omoidememory.ui.snakbar.StandardSnackBar
 import com.kasakaid.omoidememory.worker.GoogleDriveRequestType
 
 @Composable
@@ -58,12 +57,12 @@ fun FileSelectionRoute(
     var hasNavigated by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        viewModel.deleteResultEvent.collect { notDeletedIds ->
+        viewModel.deleteResultEvent.collect { notDeletedCount ->
             if (hasNavigated) return@collect
             hasNavigated = true
             viewModel.clearSelection()
             when {
-                notDeletedIds.isNotEmpty() -> toMainScreen("${notDeletedIds.size}個のコンテンツがダウンロード前であったので削除されてません。")
+                notDeletedCount > 0 -> toMainScreen("${notDeletedCount}個のコンテンツがダウンロード前であったので削除されてません。")
                 else -> toMainScreen(null)
             }
         }
@@ -155,7 +154,7 @@ fun DoneFileSelectionRoute(
     viewModel: FileSelectionViewModel = hiltViewModel(),
 ) {
     val activeRequest by viewModel.activeRequest.collectAsState()
-    val doneFilter by viewModel.doneFilter.collectAsState()
+    val doneFilter by viewModel.tabFilter.collectAsState()
 
     FileSelectionRoute(
         viewModel = viewModel,
@@ -168,17 +167,17 @@ fun DoneFileSelectionRoute(
                 filterDone = false,
             )
             DoneFilterRow(
-                doneFilter = doneFilter,
+                tabFilter = doneFilter,
                 onDoneFilterChanged = { viewModel.setDoneFilter(it) },
             )
         },
         bottomBarAction = { selectedFiles ->
             StandardFileSelection(selectedFiles = selectedFiles) {
-                if (doneFilter != DoneFilter.DELETED) {
+                if (doneFilter != TabFilter.DELETED) {
                     Button(
                         onClick = {
                             viewModel.deleteFromDrive(
-                                selectedFiles.filter { it.state == UploadState.DONE }.map { it.id },
+                                selectedFiles.filter { it.state == UploadState.DONE }.map { it.id }.toSet(),
                             )
                             onBack(null)
                         },

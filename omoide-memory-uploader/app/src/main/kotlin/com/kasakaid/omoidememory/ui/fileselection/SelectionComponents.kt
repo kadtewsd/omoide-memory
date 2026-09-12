@@ -197,8 +197,8 @@ fun SelectionModeRow(
 
 @Composable
 fun DoneFilterRow(
-    doneFilter: DoneFilter,
-    onDoneFilterChanged: (DoneFilter) -> Unit,
+    tabFilter: TabFilter,
+    onDoneFilterChanged: (TabFilter) -> Unit,
 ) {
     androidx.compose.foundation.layout.Row(
         modifier =
@@ -216,12 +216,12 @@ fun DoneFilterRow(
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(end = 4.dp),
         )
-        DoneFilter.entries.forEach { f ->
+        TabFilter.entries.forEach { f ->
             androidx.compose.foundation.layout.Row(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 RadioButton(
-                    selected = doneFilter == f,
+                    selected = tabFilter == f,
                     onClick = { onDoneFilterChanged(f) },
                 )
                 Text(

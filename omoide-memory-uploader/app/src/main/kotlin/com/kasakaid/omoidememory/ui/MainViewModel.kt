@@ -15,7 +15,6 @@ import com.kasakaid.omoidememory.data.WifiRepository
 import com.kasakaid.omoidememory.data.WifiSetting
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.enqueueWManualUpload
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeGoogleDriveRequest
-import com.kasakaid.omoidememory.ui.indicator.Progress
 import com.kasakaid.omoidememory.ui.maintenance.requestprocess.data.UploadReportRepository
 import com.kasakaid.omoidememory.worker.AutoGDriveUploadWorker
 import com.kasakaid.omoidememory.worker.GoogleDriveRequestType

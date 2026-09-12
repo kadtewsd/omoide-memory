@@ -38,6 +38,11 @@ object WorkerHelper {
     private const val NOTIFICATION_ID_DELETE_COMPLETE = 4
 
     /**
+     * 削除エラー時の通知 ID
+     */
+    private const val NOTIFICATION_ID_DELETE_ERROR = 5
+
+    /**
      * アップロードエラー通知用チャンネル ID
      */
     const val CHANNEL_ID_ERROR = "upload_error_channel"
@@ -268,6 +273,47 @@ object WorkerHelper {
                 .build()
 
         manager.notify(NOTIFICATION_ID_DELETE_COMPLETE, notification)
+    }
+
+    /**
+     * ドライブ削除エラー時の通知を表示します。
+     * タップするとアプリのメイン画面を開く PendingIntent を含みます。
+     */
+    fun Context.showDeleteErrorNotification(errorMessage: String) {
+        val channel =
+            NotificationChannel(
+                CHANNEL_ID_ERROR,
+                "Upload Error",
+                NotificationManager.IMPORTANCE_HIGH,
+            )
+        val manager =
+            applicationContext.getSystemService(Context.NOTIFICATION_SERVICE)
+                as NotificationManager
+        manager.createNotificationChannel(channel)
+
+        val intent =
+            Intent(applicationContext, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+        val pendingIntent =
+            PendingIntent.getActivity(
+                applicationContext,
+                4,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+
+        val notification =
+            NotificationCompat
+                .Builder(applicationContext, CHANNEL_ID_ERROR)
+                .setContentTitle("Google Drive 削除でエラーが発生しました")
+                .setContentText(errorMessage)
+                .setSmallIcon(android.R.drawable.stat_notify_error)
+                .setContentIntent(pendingIntent)
+                .setAutoCancel(true)
+                .build()
+
+        manager.notify(NOTIFICATION_ID_DELETE_ERROR, notification)
     }
 
     /**

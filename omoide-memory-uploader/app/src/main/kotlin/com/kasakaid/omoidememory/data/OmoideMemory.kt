@@ -43,6 +43,11 @@ class OmoideMemory(
             this.state = UploadState.DRIVE_DELETED
         }
 
+    fun deleteTriggered(): OmoideMemory =
+        apply {
+            this.state = UploadState.DELETE_TRIGGERED
+        }
+
     companion object {
         const val UPLOAD_LIMIT_BYTES = 10 * 1024 * 1024 * 1024L
     }
@@ -61,6 +66,7 @@ enum class UploadState(
     EXCLUDED("除外"),
     DRIVE_DELETED("ドライブ削除済み"),
     UPLOAD_TRIGGERED("アップロード適用済"),
+    DELETE_TRIGGERED("削除適用済"),
 }
 
 class ExcludeOmoide(

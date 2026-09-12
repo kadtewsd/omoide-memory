@@ -189,11 +189,12 @@ class GoogleDriveService
         suspend fun deleteFilesByLocalIds(
             localIds: List<Long>,
             onProgress: suspend (Int, Int) -> Unit,
+            onDeleted: (suspend (Long) -> Unit)? = null,
         ): Result<DeleteResult> {
             val driveFiles = mutableListOf<Pair<Long, String>>() // localId to driveFileId
             val allFoundLocalIds = mutableSetOf<Long>()
-            val notDeletedLocalIds = mutableListOf<Long>()
-            val deletedLocalIds = mutableListOf<Long>()
+            val notDeletedLocalIds = mutableSetOf<Long>()
+            val deletedLocalIds = mutableSetOf<Long>()
             try {
                 // 1. 対象のファイルをまとめて探す (N+1 解消)
                 // 30件ずつバッチ処理してクエリ長制限を回避
@@ -243,6 +244,9 @@ class GoogleDriveService
                 // ローカルの中でサーバー上に見つからなかったものは「削除成功扱い」
                 val notFoundLocalIds = localIds.toSet() - allFoundLocalIds
                 deletedLocalIds.addAll(notFoundLocalIds)
+                notFoundLocalIds.forEach { lid ->
+                    onDeleted?.invoke(lid)
+                }
 
                 if (driveFiles.isEmpty()) {
                     onProgress(0, 0)
@@ -260,6 +264,7 @@ class GoogleDriveService
                     try {
                         service.files().delete(driveId).execute()
                         deletedLocalIds.add(lid)
+                        onDeleted?.invoke(lid)
                         Log.i("Drive", "Deleted file from Drive: $driveId (localId: $lid)")
                         // 🚀 429 対策: 削除の間に少し待機
                         delay(DELETE_INTERVAL_DELAY_MS)
@@ -267,6 +272,7 @@ class GoogleDriveService
                         if (e is GoogleJsonResponseException && e.statusCode == 404) {
                             Log.i("Drive", "File not found on Drive during delete, treating as deleted: $driveId (localId: $lid)")
                             deletedLocalIds.add(lid)
+                            onDeleted?.invoke(lid)
                         } else {
                             Log.e("Drive", "Failed to delete file from Drive: $driveId (localId: $lid)", e)
                             val remainingLocalIds = driveFiles.subList(index, driveFiles.size).map { it.first }
@@ -305,6 +311,6 @@ class GoogleDriveService
     }
 
 data class DeleteResult(
-    val deleted: List<Long>,
-    val notDeleted: List<Long>,
+    val deleted: Set<Long>,
+    val notDeleted: Set<Long>,
 )

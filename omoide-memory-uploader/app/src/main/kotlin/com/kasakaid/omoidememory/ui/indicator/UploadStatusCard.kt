@@ -97,7 +97,7 @@ class UploadStatusViewModel
 
         val uploadedCount: StateFlow<Int> =
             omoideMemoryRepository
-                .getUploadedCount(listOf(UploadState.DONE, UploadState.DRIVE_DELETED))
+                .getUploadedCount(setOf(UploadState.DONE, UploadState.DRIVE_DELETED, UploadState.DELETE_TRIGGERED))
                 .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
         /**

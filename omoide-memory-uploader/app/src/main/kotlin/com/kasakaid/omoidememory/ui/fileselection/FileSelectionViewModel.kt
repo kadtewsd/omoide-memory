@@ -17,8 +17,6 @@ import com.kasakaid.omoidememory.extension.WorkManagerExtension.getWorkInfosForU
 import com.kasakaid.omoidememory.extension.WorkManagerExtension.observeGoogleDriveRequest
 import com.kasakaid.omoidememory.ui.InitialRoute
 import com.kasakaid.omoidememory.ui.OnOff
-import com.kasakaid.omoidememory.ui.indicator.Progress
-import com.kasakaid.omoidememory.ui.maintenance.requestprocess.UploadReport
 import com.kasakaid.omoidememory.ui.maintenance.requestprocess.data.UploadReportRepository
 import com.kasakaid.omoidememory.worker.GoogleDriveRequestType
 import com.kasakaid.omoidememory.worker.LocalFileCleaner
@@ -65,16 +63,31 @@ enum class FileUploadState(
     ),
     UPLOAD_DONE(
         label = "完了",
-        targetStates = listOf(UploadState.DONE, UploadState.DRIVE_DELETED),
+        targetStates = listOf(UploadState.DONE, UploadState.DRIVE_DELETED, UploadState.DELETE_TRIGGERED),
         route = InitialRoute.UPLOAD_DONE.route,
     ),
 }
 
-enum class DoneFilter(
+/**
+ * アップロード済み・削除済みのタブ切り替え時に利用するコンテンツのフィルタ
+ */
+enum class TabFilter(
     val label: String,
+    private val filterState: Set<UploadState>,
 ) {
-    NOT_DELETED(label = "未削除"),
-    DELETED(label = "削除済み"),
+    // 【未削除タブ】
+    // Drive上に残っているファイル（DONE）を表示する。
+    // また、削除実行中（DELETE_TRIGGERED）のファイルもここに含める。
+    // （これを含めないと、削除ボタンを押した瞬間に一覧から消えてしまいUIがガタつくため、
+    //   Worker による Drive からの削除が完了するまで「未削除」側に留めておく）
+    NOT_DELETED(label = "未削除", filterState = setOf(UploadState.DONE, UploadState.DELETE_TRIGGERED)),
+
+    // 【削除済みタブ】
+    // Worker による Drive 上の物理削除が成功したファイル（DRIVE_DELETED）のみを表示する
+    DELETED(label = "削除済み", filterState = setOf(UploadState.DRIVE_DELETED)),
+    ;
+
+    fun filter(memories: List<OmoideMemory>): List<OmoideMemory> = memories.filter { filterState.contains(it.state) }
 }
 
 data class UploadResultSummary(
@@ -111,7 +124,7 @@ class FileSelectionViewModel
         private val uploadRequest: GoogleDriveRequestType.Processing = GoogleDriveRequestType.Uploading()
         private val deleteRequest: GoogleDriveRequestType.Processing = GoogleDriveRequestType.Deleting()
 
-        private val deleteResultChannel = Channel<List<Long>>(Channel.BUFFERED)
+        private val deleteResultChannel = Channel<Int>(Channel.BUFFERED)
         val deleteResultEvent = deleteResultChannel.receiveAsFlow()
 
         private val uploadResultChannel = Channel<UploadResultSummary>(Channel.BUFFERED)
@@ -132,18 +145,13 @@ class FileSelectionViewModel
                         when (workInfo.state) {
                             WorkInfo.State.SUCCEEDED -> {
                                 deleteStarted = false
-                                val deletedIds = workInfo.outputData.getLongArray("DELETED_IDS")?.toList() ?: emptyList()
-                                if (deletedIds.isNotEmpty()) {
-                                    val targets = omoideMemoryRepository.findBy(deletedIds)
-                                    omoideMemoryRepository.update(targets.map { it.driveDeleted() })
-                                }
-                                val notDeletedIds = workInfo.outputData.getLongArray("NOT_DELETED_IDS")?.toList() ?: emptyList()
-                                deleteResultChannel.send(notDeletedIds)
+                                val notDeletedCount = workInfo.outputData.getInt("NOT_DELETED_COUNT", 0)
+                                deleteResultChannel.send(notDeletedCount)
                             }
 
                             WorkInfo.State.FAILED, WorkInfo.State.CANCELLED -> {
                                 deleteStarted = false
-                                deleteResultChannel.send(emptyList())
+                                deleteResultChannel.send(0)
                             }
 
                             WorkInfo.State.ENQUEUED, WorkInfo.State.RUNNING, WorkInfo.State.BLOCKED -> {
@@ -190,11 +198,11 @@ class FileSelectionViewModel
             }
         }
 
-        private val _doneFilter = MutableStateFlow(DoneFilter.NOT_DELETED)
-        val doneFilter: StateFlow<DoneFilter> = _doneFilter.asStateFlow()
+        private val _tabFilter = MutableStateFlow(TabFilter.NOT_DELETED)
+        val tabFilter: StateFlow<TabFilter> = _tabFilter.asStateFlow()
 
-        fun setDoneFilter(filter: DoneFilter) {
-            _doneFilter.value = filter
+        fun setDoneFilter(filter: TabFilter) {
+            _tabFilter.value = filter
             _onOff.value = OnOff.Off
             selectedIds.clear()
         }
@@ -206,7 +214,7 @@ class FileSelectionViewModel
 
         @OptIn(ExperimentalCoroutinesApi::class)
         val pendingFiles: StateFlow<List<OmoideMemory>> =
-            combine(fileUploadState, doneFilter) { mode, filter ->
+            combine(fileUploadState, tabFilter) { mode, filter ->
                 mode to filter
             }.flatMapLatest { (mode, _) ->
                 val flow =
@@ -226,13 +234,11 @@ class FileSelectionViewModel
                         }
 
                         FileUploadState.UPLOAD_DONE -> {
+                            // 「アップロード完了」画面では、「未削除」と「削除済み」のサブフィルタ（DoneFilter）で表示を切り替える
                             omoideMemoryRepository
                                 .findByAsFlow(mode.targetStates)
-                                .combine(doneFilter) { files, f ->
-                                    when (f) {
-                                        DoneFilter.NOT_DELETED -> files.filter { it.state == UploadState.DONE }
-                                        DoneFilter.DELETED -> files.filter { it.state == UploadState.DRIVE_DELETED }
-                                    }
+                                .combine(tabFilter) { files, f ->
+                                    f.filter(files)
                                 }
                         }
                     }
@@ -319,17 +325,18 @@ class FileSelectionViewModel
 
         fun deleteAfterPermission() {
             viewModelScope.launch {
-                omoideMemoryRepository.delete(pendingDeleteEntities.map { it.id })
+                omoideMemoryRepository.delete(pendingDeleteEntities.map { it.id }.toSet())
                 pendingDeleteEntities = emptyList()
                 selectedIds.clear()
             }
         }
 
-        fun deleteFromDrive(ids: List<Long>) {
+        fun deleteFromDrive(ids: Set<Long>) {
             viewModelScope.launch {
                 if (ids.isNotEmpty()) {
                     deleteStarted = true
-                    workManager.enqueueManualDelete(ids)
+                    omoideMemoryRepository.updateState(ids, UploadState.DELETE_TRIGGERED)
+                    workManager.enqueueManualDelete()
                 }
             }
         }
