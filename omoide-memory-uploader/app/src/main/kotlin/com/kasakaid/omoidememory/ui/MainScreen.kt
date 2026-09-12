@@ -1,6 +1,9 @@
 package com.kasakaid.omoidememory.ui
 
 import android.Manifest
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -59,6 +62,11 @@ fun MainScreen(
     val context = LocalContext.current
     val wifiPermissions = arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
 
+    val notificationPermissionLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestPermission(),
+        ) { /* 通知権限の結果を受け取る（拒否されてもアップロード等の基本機能は継続） */ }
+
     // 🚀 画面が foreground に復帰（ON_RESUME）した際に Wi-Fi 状況をリフレッシュする
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -77,6 +85,10 @@ fun MainScreen(
 
     // 🚀 初回起動時のみ現在の状態を確認して ViewModel に教える
     LaunchedEffect(Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+
         val initialPermission =
             isWifiPermissionGranted(
                 GrantPermissionState.checkInitialPermission(

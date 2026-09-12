@@ -5,6 +5,7 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("com.google.devtools.ksp")
     id("com.google.dagger.hilt.android")
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -154,6 +155,13 @@ dependencies {
 
     // Kotlin Reflection (sealedSubclasses 等の走査用)
     implementation("org.jetbrains.kotlin:kotlin-reflect")
+
+    // Firebase BOM（バージョン一元管理）
+    implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
+
+    // FCM（BOM を使うのでバージョン番号は不要）
+    implementation("com.google.firebase:firebase-messaging-ktx")
+
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.assertj:assertj-core:3.27.7")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
