@@ -92,6 +92,20 @@ class MainViewModel
                     recoverWifiStatusIfNeeded()
                 }
             }
+
+            // FCM トークンを取得して SharedPreferences に保存する
+            // トークンが存在しない場合や更新された場合は onNewToken() が別途呼ばれるが、
+            // 初回起動時の既存トークンはここで明示的に取得する必要がある。
+            viewModelScope.launch {
+                com.google.firebase.messaging.FirebaseMessaging
+                    .getInstance()
+                    .token
+                    .addOnSuccessListener { token ->
+                        omoideUploadPrefsRepository.saveDeviceToken(token = token)
+                    }.addOnFailureListener { e ->
+                        android.util.Log.w("FCM", "FCM トークンの取得に失敗しました", e)
+                    }
+            }
         }
 
         /**

@@ -68,6 +68,8 @@ class GoogleDriveService
              * アップローダーとダウンローダー間の共通規約であるため、定数として明記する。
              */
             const val DEVICE_TOKEN_FILE_NAME = "device_token"
+
+            const val TAG = "GoogleDriveService"
         }
 
         private val accountName: String =
