@@ -1,12 +1,21 @@
 import { useState } from 'react';
 import { useFeed, formatYearMonthDisplay } from './hooks/useFeed';
+
 import { useComments } from './hooks/useComments';
 import { usePhotoSelection } from './hooks/usePhotoSelection';
+import { usePhotobookSelection } from './hooks/usePhotobookSelection';
 import { FeedGrid } from './components/FeedGrid';
 import { MemoryModal } from './components/MemoryModal';
 import { CreateAlbumModal } from './components/CreateAlbumModal';
+import { PhotobookSelectionView } from './components/PhotobookSelectionView';
+import { PhotobookPreviewView } from './components/PhotobookPreviewView';
 import { saveAlbum, downloadAlbumZip } from './api';
 import { AlbumGrid } from './components/AlbumGrid';
+import { FilterMode } from './types';
+
+
+/** フォトブックフローの画面フェーズ */
+type PhotobookPhase = 'select' | 'preview';
 
 function App() {
     const {
@@ -21,6 +30,21 @@ function App() {
     const { selectedItem, comments, commentsLoading, openModal, closeModal } = useComments();
     const { selectedPhotoIds, togglePhotoSelection, clearSelection } = usePhotoSelection();
     const [isAlbumModalOpen, setIsAlbumModalOpen] = useState(false);
+
+    const [photobookPhase, setPhotobookPhase] = useState<PhotobookPhase>('select');
+    const {
+        selectedPhotoIds: photobookSelectedIds,
+        selectedPhotos,
+        currentYearMonth: photobookYearMonth,
+        monthTabs: photobookMonthTabs,
+        maxCount,
+        setMaxCount,
+        togglePhotoSelection: togglePhotobookPhoto,
+        clearSelection: clearPhotobookSelection,
+        fillRemaining,
+        replacePhoto,
+        selectMonthTab: selectPhotobookMonthTab,
+    } = usePhotobookSelection();
 
     const handleCreateAlbumSubmit = async (albumName: string) => {
         const photoIds = Array.from(selectedPhotoIds);
@@ -42,6 +66,68 @@ function App() {
 
         clearSelection();
     };
+
+    const handlePhotobookDownload = async () => {
+        const photoIds = selectedPhotos
+            .map(p => p.id)
+            .filter((id): id is string => id !== null);
+        if (photoIds.length === 0) return;
+
+        // ファイル名は photobook_YYYYMM.zip 形式
+        const fileNameYm = photobookYearMonth.replace('-', '');
+        const albumName = `photobook_${fileNameYm}`;
+
+        const blob = await downloadAlbumZip(albumName, photoIds);
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${albumName}.zip`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+    };
+
+    const handleDeletePhotobookPhoto = (targetId: string) => {
+        togglePhotobookPhoto(selectedPhotos.find(p => p.id === targetId)!);
+    };
+
+    const handleChangeFilterMode = (mode: FilterMode) => {
+        if (mode !== 'PHOTOBOOK') {
+            changeFilterMode(mode);
+            return;
+        }
+        changeFilterMode(mode);
+        setPhotobookPhase('select');
+        clearPhotobookSelection();
+    };
+
+    if (filterMode === 'PHOTOBOOK') {
+        return photobookPhase === 'select' ? (
+            <PhotobookSelectionView
+                selectedPhotoIds={photobookSelectedIds}
+                selectedCount={selectedPhotos.length}
+                maxCount={maxCount}
+                currentYearMonth={photobookYearMonth}
+                monthTabs={photobookMonthTabs}
+                onTogglePhoto={togglePhotobookPhoto}
+                onSelectMonthTab={selectPhotobookMonthTab}
+                onChangeMaxCount={setMaxCount}
+                onFillRemaining={fillRemaining}
+                onConfirm={() => setPhotobookPhase('preview')}
+            />
+        ) : (
+            <PhotobookPreviewView
+                selectedPhotos={selectedPhotos}
+                maxCount={maxCount}
+                currentYearMonth={photobookYearMonth}
+                onDeletePhoto={handleDeletePhotobookPhoto}
+                onReplacePhoto={replacePhoto}
+                onBackToSelect={() => setPhotobookPhase('select')}
+                onDownloadZip={handlePhotobookDownload}
+            />
+        );
+    }
 
     return (
         <div className="min-h-screen bg-gray-50 text-gray-900">
@@ -84,7 +170,7 @@ function App() {
                         <div className="inline-flex rounded-xl border border-gray-300 bg-gray-100 p-1 min-h-[44px]">
                             <button
                                 type="button"
-                                onClick={() => changeFilterMode('ALL')}
+                                onClick={() => handleChangeFilterMode('ALL')}
                                 className={`px-3.5 py-1.5 text-xs sm:text-sm font-bold rounded-lg transition-colors min-h-[36px] ${
                                     filterMode === 'ALL'
                                         ? 'bg-white text-gray-900 shadow-sm border border-gray-200'
@@ -95,7 +181,7 @@ function App() {
                             </button>
                             <button
                                 type="button"
-                                onClick={() => changeFilterMode('COMMENT_ONLY')}
+                                onClick={() => handleChangeFilterMode('COMMENT_ONLY')}
                                 className={`px-3.5 py-1.5 text-xs sm:text-sm font-bold rounded-lg transition-colors min-h-[36px] ${
                                     filterMode === 'COMMENT_ONLY'
                                         ? 'bg-white text-gray-900 shadow-sm border border-gray-200'
@@ -106,7 +192,7 @@ function App() {
                             </button>
                             <button
                                 type="button"
-                                onClick={() => changeFilterMode('ALBUM')}
+                                onClick={() => handleChangeFilterMode('ALBUM')}
                                 className={`px-3.5 py-1.5 text-xs sm:text-sm font-bold rounded-lg transition-colors min-h-[36px] ${
                                     filterMode === 'ALBUM'
                                         ? 'bg-white text-gray-900 shadow-sm border border-gray-200'
@@ -114,6 +200,17 @@ function App() {
                                 }`}
                             >
                                 アルバム
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => handleChangeFilterMode('PHOTOBOOK')}
+                                className={`px-3.5 py-1.5 text-xs sm:text-sm font-bold rounded-lg transition-colors min-h-[36px] ${
+                                    (filterMode as FilterMode) === 'PHOTOBOOK'
+                                        ? 'bg-white text-gray-900 shadow-sm border border-gray-200'
+                                        : 'text-gray-700 hover:text-gray-900'
+                                }`}
+                            >
+                                フォトブック
                             </button>
                         </div>
                     </div>
