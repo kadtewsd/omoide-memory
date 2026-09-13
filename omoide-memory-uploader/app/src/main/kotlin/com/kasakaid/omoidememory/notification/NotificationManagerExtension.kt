@@ -7,8 +7,9 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
+import androidx.core.graphics.drawable.toBitmap
 import com.kasakaid.omoidememory.R
 import com.kasakaid.omoidememory.ui.MainActivity
 import com.kasakaid.omoidememory.ui.indicator.CONTENTS_UPLOADING
@@ -109,8 +110,13 @@ fun Context.showNotification(
     smallIcon: Int,
     pendingIntent: PendingIntent,
 ) {
+    val width = resources.getDimensionPixelSize(android.R.dimen.notification_large_icon_width)
+    val height = resources.getDimensionPixelSize(android.R.dimen.notification_large_icon_height)
     val defaultIcon =
-        BitmapFactory.decodeResource(applicationContext.resources, R.mipmap.ic_launcher)
+        (
+            ContextCompat.getDrawable(applicationContext, R.mipmap.ic_launcher)
+                ?: packageManager.getApplicationIcon(packageName)
+        ).toBitmap(width, height)
     showNotification(
         channelId = channelId,
         channelName = channelName,
