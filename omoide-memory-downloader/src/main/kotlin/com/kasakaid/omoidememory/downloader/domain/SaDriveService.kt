@@ -1,14 +1,16 @@
 package com.kasakaid.omoidememory.downloader.domain
 
 import arrow.core.Either
-import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport
-import com.google.api.client.json.gson.GsonFactory
+import arrow.core.Option
 import com.google.api.services.drive.Drive
 import com.google.api.services.drive.DriveScopes
 import com.google.api.services.drive.model.File
 import com.google.auth.http.HttpCredentialsAdapter
 import com.google.auth.oauth2.ServiceAccountCredentials
-import com.kasakaid.omoidememory.infrastructure.fetchDeviceToken
+import com.kasakaid.omoidememory.downloader.adapter.google.createDriveService
+import com.kasakaid.omoidememory.downloader.adapter.google.download
+import com.kasakaid.omoidememory.downloader.adapter.google.listFiles
+import com.kasakaid.omoidememory.downloader.adapter.google.markAsDownloaded
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -39,55 +41,24 @@ class SaDriveService(
                 ServiceAccountCredentials
                     .fromStream(FileInputStream(googleSaCredentialPath))
                     .createScoped(listOf(DriveScopes.DRIVE)) as ServiceAccountCredentials
-            Drive
-                .Builder(
-                    GoogleNetHttpTransport.newTrustedTransport(),
-                    GsonFactory.getDefaultInstance(),
-                    HttpCredentialsAdapter(credentials),
-                ).setApplicationName("OmoideMemoryDownloader")
-                .build()
+            createDriveService(HttpCredentialsAdapter(credentials))
         }
 
-    override suspend fun listFiles(folderId: FolderId): List<File> =
-        // google-api-java-client の .execute() はブロッキング I/O のため、IO ディスパッチャーで実行する
+    override suspend fun listFiles(folderId: FolderId): Pair<Option<DeviceToken>, List<File>> =
         withContext(Dispatchers.IO) {
-            val allFiles = mutableMapOf<String, File>()
-            val fields = "nextPageToken, files(id, name, mimeType, createdTime, size, imageMediaMetadata, videoMediaMetadata, properties)"
-
-            var pageToken: String? = null
             logger.info { "Processing folder: $folderId using Service Account" }
-            do {
-                val result =
-                    driverService
-                        .files()
-                        .list()
-                        .setQ("'$folderId' in parents and trashed = false and mimeType != 'application/vnd.google-apps.folder'")
-                        .setFields(fields)
-                        .setPageToken(pageToken)
-                        .execute()
-
-                result.files
-                    ?.filter { file -> file.properties?.get(DOWNLOADED_PROPERTY_KEY) != "true" }
-                    ?.forEach { file ->
-                        if (!allFiles.containsKey(file.name)) {
-                            allFiles[file.name] = file
-                        }
-                    }
-                pageToken = result.nextPageToken
-            } while (pageToken != null)
-            allFiles.values.toList()
+            driverService.listFiles(
+                query = "'$folderId' in parents and trashed = false and mimeType != 'application/vnd.google-apps.folder'",
+            )
         }
 
     override suspend fun download(
         fileId: String,
         outputStream: OutputStream,
     ): Either<Throwable, Unit> =
-        // google-api-java-client の .executeMediaAndDownloadTo() はブロッキング I/O のため、IO ディスパッチャーで実行する
         withContext(Dispatchers.IO) {
             Either.catch {
-                // SA の場合は最初のサービスを使ってみる（複数の SA がある場合はどれでもアクセスできる想定、あるいは順番に試す必要があるか？）
-                // ここではシンプルに最初のものを使用
-                driverService.files().get(fileId).executeMediaAndDownloadTo(outputStream)
+                driverService.download(fileId = fileId, outputStream = outputStream)
             }
         }
 
@@ -103,51 +74,9 @@ class SaDriveService(
         fileId: String,
         accessInfo: String,
     ): Either<Throwable, Unit> =
-        // google-api-java-client の .execute() はブロッキング I/O のため、IO ディスパッチャーで実行する
         withContext(Dispatchers.IO) {
             Either.catch {
-                val metadata =
-                    File().apply {
-                        properties =
-                            mapOf(
-                                DOWNLOADED_PROPERTY_KEY to "true",
-                                "downloadedAt" to
-                                    java.time.Instant
-                                        .now()
-                                        .toString(),
-                            )
-                    }
-
-                driverService
-                    .files()
-                    .update(fileId, metadata)
-                    .setFields("properties")
-                    .execute()
-
-                Unit
+                driverService.markAsDownloaded(fileId = fileId)
             }
         }
-
-    /**
-     * 指定フォルダ内から固定ファイル名 "device_token" のファイルを検索し、その内容をテキストとして返します。
-     *
-     * @param accessInfo フォルダ ID（SA モードでは accessInfo = folderId）
-     * @return デバイストークン文字列。ファイルが存在しない・取得失敗の場合は null
-     */
-    override suspend fun fetchDeviceToken(accessInfo: FolderId): String? =
-        // google-api-java-client の .execute() / .executeMediaAndDownloadTo() はブロッキング I/O のため、IO ディスパッチャーで実行する
-        withContext(Dispatchers.IO) {
-            runCatching {
-                driverService.fetchDeviceToken(
-                    "'$accessInfo' in parents and name = '$DEVICE_TOKEN_FILE_NAME' and trashed = false",
-                )
-            }.onFailure { e ->
-                logger.warn(e) { "device_token の取得に失敗しました (SA, folderId=$accessInfo)" }
-            }.getOrNull()
-        }
 }
-
-private const val DOWNLOADED_PROPERTY_KEY = "downloaded"
-
-/** アップローダーとの共通規約として定義した固定ファイル名。 */
-private const val DEVICE_TOKEN_FILE_NAME = "device_token"

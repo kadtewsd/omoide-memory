@@ -1,10 +1,17 @@
 package com.kasakaid.omoidememory.downloader.adapter
 
+import arrow.core.raise.either
+import com.google.api.client.json.gson.GsonFactory
+import com.kasakaid.omoidememory.downloader.adapter.google.AccessTokenRetrieveError
+import com.kasakaid.omoidememory.downloader.adapter.google.PushNotification
 import com.kasakaid.omoidememory.downloader.domain.DriveService
 import com.kasakaid.omoidememory.downloader.service.FileIOFinish
 import com.kasakaid.omoidememory.r2dbc.transaction.RollbackException
 import com.kasakaid.omoidememory.utility.OneLineLogFormatter
 import io.github.oshai.kotlinlogging.KotlinLogging
+import java.io.OutputStream
+import java.net.HttpURLConnection
+import java.net.URL
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.LocalDateTime
@@ -35,35 +42,67 @@ object PostProcess {
         }
 
     /**
-     * 全ダウンロード処理の終了後に呼び出します。
-     * 失敗ファイルのログ書き出しを行い、device_token が渡された場合は PUSH 通知を送信します。
+     * ダウンロード完了の PUSH 通知を送信します（引数は非 Null 必須）。
      *
-     * @param deviceToken FCM デバイストークン。null の場合は PUSH 通知をスキップします。
+     * @param pushNotification PUSH 通知構成要素
+     * @param projectId GCP プロジェクト ID
      */
-    fun finish(deviceToken: String?) {
-        if (failedPaths.isNotEmpty()) {
-            Files.createDirectories(Path.of("log"))
-            val logFilePath =
-                Path.of(
-                    "log",
-                    "failed_downloads_$errorLogFileName",
-                )
-            val logContent = failedPaths.joinToString("\n") { it.toFile().name } + "\n"
-            try {
-                logFilePath.toFile().writeText(logContent)
-            } catch (e: Exception) {
-                System.err.println("Failed to write to log file: ${e.message}")
-            }
-        }
+    fun sendNotification(
+        pushNotification: PushNotification,
+        projectId: String,
+    ) {
+        either {
+            val accessToken = pushNotification.accessToken.bind()
+            val messageText = "成功 : ${successCount}件、失敗 : ${failureCount}件で完了しました"
 
-        if (deviceToken != null) {
-            PushNotificationService.send(
-                deviceToken = deviceToken,
-                successCount = successCount,
-                failureCount = failureCount,
-            )
-        } else {
-            logger.info { "device_token が見つからなかったため PUSH 通知をスキップします" }
+            mapOf(
+                "token" to pushNotification.deviceToken,
+                "data" to
+                    mapOf(
+                        "title" to "ダウンロード完了",
+                        "body" to messageText,
+                    ) +
+                    pushNotification.pushIcon.fold(
+                        ifLeft = { emptyMap() },
+                        ifRight = { mapOf("icon_base64" to it) },
+                    ),
+                "android" to
+                    mapOf(
+                        "priority" to "high",
+                    ),
+            ).let { messagePayload ->
+                postToFcm(
+                    projectId = projectId,
+                    accessToken = accessToken,
+                    body = GsonFactory.getDefaultInstance().toString(mapOf("message" to messagePayload)),
+                )
+            }
+        }.onLeft { error ->
+            logger.warn { "アクセストークンの取得に失敗したため PUSH 通知をスキップします: ${error.e.message}" }
+        }
+    }
+
+    private fun postToFcm(
+        projectId: String,
+        accessToken: String,
+        body: String,
+    ) {
+        runCatching {
+            val fcmEndpointUrl = URL("https://fcm.googleapis.com/v1/projects/%s/messages:send".format(projectId))
+            (fcmEndpointUrl.openConnection() as HttpURLConnection)
+                .apply {
+                    requestMethod = "POST"
+                    setRequestProperty("Authorization", "Bearer $accessToken")
+                    setRequestProperty("Content-Type", "application/json; UTF-8")
+                    doOutput = true
+                    outputStream.use { stream: OutputStream ->
+                        stream.write(body.toByteArray(Charsets.UTF_8))
+                    }
+                }.let {
+                    logger.warn { "PUSH 通知の送信に失敗しました (HTTP ${it.responseCode})" }
+                }
+        }.onFailure { e ->
+            logger.error(e) { "PUSH 通知の送信中に例外が発生しました" }
         }
     }
 

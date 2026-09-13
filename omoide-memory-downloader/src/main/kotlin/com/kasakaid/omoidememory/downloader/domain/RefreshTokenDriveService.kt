@@ -1,14 +1,17 @@
 package com.kasakaid.omoidememory.downloader.domain
 
 import arrow.core.Either
-import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport
-import com.google.api.client.json.gson.GsonFactory
+import arrow.core.Option
 import com.google.api.services.drive.Drive
 import com.google.api.services.drive.model.File
 import com.kasakaid.omoidememory.downloader.adapter.google.GoogleTokenCollector
 import com.kasakaid.omoidememory.downloader.adapter.google.GoogleTokenCollector.executeWithSafeRefresh
 import com.kasakaid.omoidememory.downloader.adapter.google.RefreshToken
-import com.kasakaid.omoidememory.infrastructure.fetchDeviceToken
+import com.kasakaid.omoidememory.downloader.adapter.google.createDriveService
+import com.kasakaid.omoidememory.downloader.adapter.google.download
+import com.kasakaid.omoidememory.downloader.adapter.google.listFiles
+import com.kasakaid.omoidememory.downloader.adapter.google.moveToTrash
+import com.kasakaid.omoidememory.utility.OneLineLogFormatter
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -36,55 +39,35 @@ object RefreshTokenDriveService : DriveService {
     private val driveServicesMap: Map<RefreshToken, Drive> =
         run {
             GoogleTokenCollector.refreshTokens.associateWith { token ->
-                Drive
-                    .Builder(
-                        GoogleNetHttpTransport.newTrustedTransport(),
-                        GsonFactory.getDefaultInstance(),
-                        GoogleTokenCollector.asHttpCredentialsAdapter(
-                            GoogleTokenCollector.createUserCredentials(token),
-                        ),
-                    ).setApplicationName("OmoideMemoryDownloader")
-                    .build()
+                createDriveService(
+                    GoogleTokenCollector.asHttpCredentialsAdapter(
+                        GoogleTokenCollector.createUserCredentials(token),
+                    ),
+                )
             }
         }
 
     /**
      * accessInfo はこの場合アクセスするドライブのアカウントのリフレッシュトークンになります。
      */
-    override suspend fun listFiles(accessInfo: RefreshToken): List<File> =
+    override suspend fun listFiles(accessInfo: RefreshToken): Pair<Option<DeviceToken>, List<File>> =
         // google-api-java-client の .execute() はブロッキング I/O のため、IO ディスパッチャーで実行する
         withContext(Dispatchers.IO) {
             val drive = driveServicesMap[accessInfo] ?: throw IllegalArgumentException("指定されたトークンに対応する Drive サービスが見つかりません。")
-            val allFiles = mutableMapOf<String, File>()
-            val fields = "nextPageToken, files(id, name, mimeType, createdTime, size, imageMediaMetadata, videoMediaMetadata)"
-
-            var pageToken: String? = null
-            do {
-                val result =
-                    executeWithSafeRefresh(accessInfo) {
-                        drive
-                            .files()
-                            .list()
-                            .setQ(
-                                """
-                                'root' in parents
-                                and trashed = false
-                                and mimeType != 'application/vnd.google-apps.folder'
-                                """.trimIndent(),
-                            ).setFields(fields)
-                            .setPageToken(pageToken)
-                            .execute()
-                    }
-
-                result.files?.forEach { file ->
-                    if (!allFiles.containsKey(file.name)) {
-                        allFiles[file.name] = file
-                        fileIdToTokenMap[file.id] = accessInfo
-                    }
+            executeWithSafeRefresh(accessInfo) {
+                drive.listFiles(
+                    query =
+                        """
+                        'root' in parents
+                        and trashed = false
+                        and mimeType != 'application/vnd.google-apps.folder'
+                        """.trimIndent(),
+                )
+            }.also { (_, files) ->
+                files.forEach { file ->
+                    fileIdToTokenMap[file.id] = accessInfo
                 }
-                pageToken = result.nextPageToken
-            } while (pageToken != null)
-            allFiles.values.toList()
+            }
         }
 
     override suspend fun download(
@@ -100,7 +83,7 @@ object RefreshTokenDriveService : DriveService {
                 val drive = driveServicesMap[token] ?: throw IllegalStateException("Drive service not initialized for token")
 
                 executeWithSafeRefresh(token) {
-                    drive.files().get(fileId).executeMediaAndDownloadTo(outputStream)
+                    drive.download(fileId = fileId, outputStream = outputStream)
                 }
             }
         }
@@ -125,60 +108,11 @@ object RefreshTokenDriveService : DriveService {
                             ?: throw IllegalArgumentException("指定された token (${accessInfo.take(8)}...) のドライブサービスが見つかりませんでした。")
 
                     executeWithSafeRefresh(accessInfo) {
-                        val fileInfo =
-                            drive
-                                .files()
-                                .get(fileId)
-                                .setFields("name, parents")
-                                .execute()
-                        val fileName = fileInfo.name
-                        val parents = fileInfo.parents
-
-                        if (fileName != null && parents != null && parents.isNotEmpty()) {
-                            val parentId = parents[0]
-                            val q = "name = '${fileName.replace("'", "\\'")}' and '$parentId' in parents and trashed = false"
-                            val filesToDelete =
-                                drive
-                                    .files()
-                                    .list()
-                                    .setQ(q)
-                                    .setFields("files(id)")
-                                    .execute()
-                            filesToDelete.files?.forEach { f ->
-                                drive.files().update(f.id, File().setTrashed(true)).execute()
-                                logger.info { "同名ファイルをゴミ箱へ移動しました: $fileName (ID: ${f.id})" }
-                            }
-                        } else {
-                            drive.files().update(fileId, File().setTrashed(true)).execute()
-                        }
+                        drive.moveToTrash(fileId = fileId)
                     }
-                    Unit
                 }.mapLeft { e ->
-                    logger.error { "ゴミ箱移動失敗: ${com.kasakaid.omoidememory.utility.OneLineLogFormatter.format(e)}" }
+                    logger.error { "ゴミ箱移動失敗: ${OneLineLogFormatter.format(e)}" }
                     e
                 }
         }
-
-    /**
-     * 指定されたリフレッシュトークンに対応するドライブの Root 直下から固定ファイル名 "device_token" のファイルを
-     * 検索し、その内容をテキストとして返します。
-     *
-     * @param accessInfo リフレッシュトークン
-     * @return デバイストークン文字列。ファイルが存在しない・取得失敗の場合は null
-     */
-    override suspend fun fetchDeviceToken(accessInfo: RefreshToken): String? =
-        // google-api-java-client の .execute() / .executeMediaAndDownloadTo() はブロッキング I/O のため、IO ディスパッチャーで実行する
-        withContext(Dispatchers.IO) {
-            runCatching {
-                val drive = driveServicesMap[accessInfo] ?: return@runCatching null
-                executeWithSafeRefresh(accessInfo) {
-                    drive.fetchDeviceToken("'root' in parents and name = '$DEVICE_TOKEN_FILE_NAME' and trashed = false")
-                }
-            }.onFailure { e ->
-                logger.warn(e) { "device_token の取得に失敗しました (RefreshToken)" }
-            }.getOrNull()
-        }
 }
-
-/** アップローダーとの共通規約として定義した固定ファイル名。 */
-private const val DEVICE_TOKEN_FILE_NAME = "device_token"

@@ -1,7 +1,6 @@
 package com.kasakaid.omoidememory.patchtool.filedirmodification.adapter
 
 import com.kasakaid.omoidememory.APPLICATION_RUNNER_KEY
-import com.kasakaid.omoidememory.downloader.adapter.PostProcess
 import com.kasakaid.omoidememory.patchtool.filedirmodification.service.ReorganizeMisplacedFilesService
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.runBlocking
@@ -81,7 +80,6 @@ class ReorganizeMisplacedFilesAdapter(
                 )
             }
 
-            PostProcess.finish()
             logger.info { "全ての再編成処理を終了しました。" }
         }
 }

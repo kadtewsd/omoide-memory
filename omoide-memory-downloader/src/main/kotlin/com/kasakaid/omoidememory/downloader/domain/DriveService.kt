@@ -1,8 +1,11 @@
 package com.kasakaid.omoidememory.downloader.domain
 
 import arrow.core.Either
+import arrow.core.Option
 import com.google.api.services.drive.model.File
 import java.nio.file.Path
+
+typealias DeviceToken = String
 
 /**
  * DIP にしたがってドライブのアクセスの実装は切り離す
@@ -12,11 +15,12 @@ interface DriveService {
      * ドライブからファイルを持ってきます。
      * 実装は Google や OneDrive などいずれかのドライブのアクセスになります。
      * まずはメタデータを取得します。
-     * 戻り値はファイルリストです。
+     * 戻り値はデバイストークン（存在しない場合は None）と、ダウンロード対象ファイルリストのペアです。
      *
      * @param accessInfo SA の場合は folderId, RefreshToken の場合は refreshToken
+     * @return デバイストークン（[Option]）と対象ファイルリストのペア
      */
-    suspend fun listFiles(accessInfo: String): List<File>
+    suspend fun listFiles(accessInfo: String): Pair<Option<DeviceToken>, List<File>>
 
     /**
      * ファイルをダウンロードして OutputStream に書き込みます。
@@ -38,17 +42,6 @@ interface DriveService {
         fileId: String,
         accessInfo: String,
     ): Either<Throwable, Unit>
-
-    /**
-     * Google Drive 上の固定ファイル名 "device_token" のテキストファイルからデバイストークンを取得します。
-     * アップローダーが PUSH 通知先として書き込んだトークンを読み取るために使用します。
-     *
-     * 実装クラスは accessInfo からクエリ文字列を組み立てて [fetchDeviceToken] を呼び出します。
-     *
-     * @param accessInfo SA の場合は folderId、RefreshToken の場合は refreshToken
-     * @return デバイストークン文字列。ファイルが存在しない・取得失敗の場合は null
-     */
-    suspend fun fetchDeviceToken(accessInfo: String): String?
 
     /**
      * 取得されたファイルのメタデータから実体を取得してメモリをローカル PC のストレージに書き込みます。

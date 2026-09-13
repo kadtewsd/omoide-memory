@@ -87,6 +87,10 @@ G:\my-memory\
 
 ローカル保存とDB登録が完了したファイルをどう扱うかは、認証方式によって異なります。詳細は後述の「認証方式の選択」を参照してください。
 
+### 6. ダウンロード完了時の PUSH 通知（アイコン付き）
+
+Google Drive 上にアップローダー端末のデバイストークン（`device_token`）が存在する場合、ダウンロード完了時に FCM（Firebase Cloud Messaging HTTP v1 API）を経由してモバイル端末へ完了通知を送信します。通知には指定した画像から自動生成されるアプリアイコン（ラージアイコン）が付与されます。
+
 ---
 
 ## 必要な環境
@@ -311,6 +315,30 @@ GDRIVE_REFRESH_TOKENS=1//token_for_account_A,1//token_for_account_B
 | `OMOIDE_BACKUP_DIRECTORY` | 環境 | download-from-gdrive / ImportFromLocal | バックアップ先ディレクトリ | `G:\my-memory` |
 | `OMOIDE_COMMENT_FILE_PATH` | 環境 | comment-import | インポートするコメントファイルのパス | `C:\Users\user\comments.csv` |
 | `EXTERNAL_STORAGE_BACKUP_DIRECTORY` | 環境 | backup-to-local | バックアップ先ディレクトリ | `G:\my-memory` |
+| `FCM_PROJECT_ID` | 環境 | download-from-gdrive | （任意）Firebase プロジェクト ID。PUSH 通知送信時に使用 | `omoide-memory-12345` |
+| `DOWNLOAD_COMPLETE_PUSH_ICON` | 環境 | download-from-gdrive | （任意）PUSH 通知に添付するアプリアイコン画像の絶対パス | `C:\secrets\push_icon.png` |
+
+---
+
+### 4-B. ダウンロード完了時の PUSH 通知とアイコン生成機能
+
+Google Drive 上にアップローダー端末のデバイストークン（`device_token`）ファイルが存在し、環境変数 `FCM_PROJECT_ID` および `DOWNLOAD_COMPLETE_PUSH_ICON` が設定されている場合、全ファイルのダウンロード処理完了後に FCM（Firebase Cloud Messaging HTTP v1 API）を経由してモバイル端末へ完了通知（成功件数・失敗件数）を送信します。
+
+#### アイコン画像の自動最適化仕様
+- **自動中央クロップ & リサイズ**:
+  `DOWNLOAD_COMPLETE_PUSH_ICON` で指定された画像ファイルを読み込み、中央を正方形（1:1）に自動クロップした上で、バイリニア補間とアンチエイリアス処理を適用して高品質な正方形アイコン画像へリサイズします。
+- **標準解像度とフォールバック**:
+  - 標準解像度: **64x64 ピクセル**（白背景・JPEG 形式）
+  - FCM のペイロード全体の上限（4,096 バイト）を遵守するため、生成された Base64 文字列長が **2,800 文字** を超える場合は、自動的に **48x48 ピクセル** へフォールバックして再圧縮します。
+- **モバイル端末での表示**:
+  Base64 文字列としてペイロードの `data.icon_base64` に格納され、受信したモバイルアプリ（Android）側の通知シェード上でラージアイコンとして描画されます。
+
+#### 必要な設定
+1. **サービスアカウント認証情報**:
+   FCM 送信時のアクセストークン取得には、Service Account（`GOOGLE_SA_CREDENTIAL_PATH`）を使用します（FCM スコープ `https://www.googleapis.com/auth/firebase.messaging` を用いて OAuth2 トークンを発行）。
+2. **環境変数の設定**:
+   - `FCM_PROJECT_ID`: GCP / Firebase のプロジェクト ID
+   - `DOWNLOAD_COMPLETE_PUSH_ICON`: アイコン画像（PNG / JPEG 等）の絶対パス
 
 ---
 
@@ -363,6 +391,10 @@ $env:OMOIDE_BACKUP_DIRECTORY = "H:\YOUR_DIRECTORY"
 # $env:GDRIVE_REFRESH_TOKENS = "token_A,token_B"
 # $env:OMOIDE_FAMILY_ID      = "my-home-01"
 # $env:OMOIDE_BACKUP_DIRECTORY = "H:\YOUR_DIRECTORY"
+
+# --- PUSH 通知設定（任意） ---
+# $env:FCM_PROJECT_ID              = "omoide-memory-12345"
+# $env:DOWNLOAD_COMPLETE_PUSH_ICON = "C:\secrets\push_icon.png"
 
 $logFile = "$PSScriptRoot\log\download-from-gdrive.log"
 "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] 実行開始" | Out-File -FilePath $logFile -Encoding utf8
