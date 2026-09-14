@@ -101,11 +101,7 @@ Set-Location $BackendDir
 $backendJarPath = ""
 if ($Mode -eq "Production") {
     Write-Host "  Gradle による JAR パッケージングを実行中 (build -x test)..." -ForegroundColor Gray
-    if (Get-Command "gradlew.bat" -ErrorAction SilentlyContinue) {
-        .\gradlew.bat build -x test
-    } else {
-        gradle build -x test
-    }
+    .\gradlew.bat build -x test
 
     $buildJarDir = Join-Path $BackendDir "build\libs"
     $jarFile = Get-ChildItem -Path $buildJarDir -Filter "*.jar" | Where-Object { $_.Name -notlike "*-plain.jar" } | Select-Object -First 1
