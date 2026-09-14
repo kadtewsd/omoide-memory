@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     React / Vite (frontend) アプリケーションのビルドおよび成果物の移動スクリプト。
 

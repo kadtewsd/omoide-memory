@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     omoide-memory-sharing の LAN 公開用ワンストップ ビルド・起動スクリプト。
 

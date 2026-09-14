@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Spring Boot (backend) アプリケーションのビルドおよび成果物 (JAR) の移動スクリプト。
 
