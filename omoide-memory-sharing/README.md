@@ -29,8 +29,44 @@
 > **前提条件**:
 > - Windows 10 / 11
 > - Java 21 以上
-> - Node.js v20 以上
+> - **Node.js v20 以上**（下記「Node.js のインストール」参照）
 > - PostgreSQL（`omoide_memory` データベース）が起動していること
+
+---
+
+## 🟢 Node.js のインストール
+
+`npm run build` や `deploy-and-run-lan.ps1` を実行するには **Node.js v20 以上（LTS 推奨）** が必要です。
+`node --version` で `v20.x.x` 以上が表示されない場合は以下のいずれかでインストールしてください。
+
+### 方法 A: winget（推奨・コマンド 1 行）
+
+管理者権限の PowerShell で実行します：
+
+```powershell
+winget install OpenJS.NodeJS.LTS
+```
+
+インストール後は **新しい PowerShell ウィンドウ**を開いてから再実行してください（PATH を反映するため）。
+
+### 方法 B: 公式インストーラー
+
+1. <https://nodejs.org/ja/> にアクセス
+2. **LTS（推奨版）** をダウンロード・実行
+3. インストール完了後、新しい PowerShell を開いて `node --version` を確認
+
+### バージョン確認
+
+```powershell
+node --version   # v22.x.x 等が表示されれば OK
+npm  --version   # v10.x.x 等が表示されれば OK
+```
+
+> [!WARNING]
+> `C:\Program Files (x86)\nodejs\` に古い Node.js（v0.12 等）が残っている場合、PATH の優先順位が問題になることがあります。
+> 新しい Node をインストール後も古いものが使われる場合は、「設定 → アプリ → インストール済みアプリ」から旧 Node.js をアンインストールしてください。
+
+---
 
 ### 1. ワンストップ実行（推奨）
 
@@ -134,6 +170,7 @@ cd frontend
 
 | 症状 | 原因 | 解決策 |
 |---|---|---|
+| `npm-debug.log` が生成されビルドが失敗する | Node.js のバージョンが古い（v0.12 等）。`C:\Program Files (x86)\nodejs\` の旧版が PATH に混入している | `node --version` を確認し、v20 未満なら「🟢 Node.js のインストール」セクションの手順で LTS をインストールしてください。インストール後は**新しい PowerShell ウィンドウ**で再実行してください。 |
 | スマホから `<PC名>.local:5173` で開けない | Wi-Fi ルーターのプライバシーセパレーター機能が有効になっている | ルーター管理画面で「プライバシーセパレーター（端末間通信の分離）」を無効にするか、IP アドレス直接（`http://192.168.x.x:5173`）でアクセスしてください。 |
 | 接続タイムアウトになる | Windows ファイアウォールでブロックされている | 管理者権限の PowerShell で `cd frontend; .\allow-frontend-firewall-port.ps1` を再実行してください。また、Windows のネットワーク接続が「プライベート」に設定されているか確認してください。 |
 | 写真一覧やコメントが読み込まれない | バックエンドまたは DB が起動していない | バックエンドのコンソールウィンドウにエラーが出ていないか確認し、PostgreSQL サービスが動作しているか確認してください。 |

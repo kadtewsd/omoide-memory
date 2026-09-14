@@ -1,0 +1,58 @@
+# ============================================================
+# omoide-memory-sharing .gitignore
+# ============================================================
+
+# -------------------------------------------------------
+# OS / Editor
+# -------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
+
+# VS Code（プロジェクト固有設定は .vscode/ で管理、
+# ユーザー固有設定は除外）
+.vscode/settings.json
+.vscode/*.code-workspace
+.vscode/.ropeproject
+
+# -------------------------------------------------------
+# Frontend (Node.js / npm / Vite)
+# -------------------------------------------------------
+frontend/node_modules/
+frontend/dist/
+frontend/.env.local
+frontend/.env.*.local
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/.pnpm-debug.log*
+frontend/coverage/
+
+# -------------------------------------------------------
+# Backend (Gradle / Spring Boot / Kotlin)
+# -------------------------------------------------------
+backend/.gradle/
+backend/build/
+backend/*.jar
+backend/*.war
+backend/.kotlin/
+backend/out/
+
+# -------------------------------------------------------
+# Java / Kotlin
+# -------------------------------------------------------
+*.class
+hs_err_pid*
+replay_pid*
+
+# -------------------------------------------------------
+# Secrets / Environment
+# -------------------------------------------------------
+.env
+.env.local
+.env.production
+*.pem
+*.key
+*.p12
