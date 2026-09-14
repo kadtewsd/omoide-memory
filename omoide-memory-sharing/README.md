@@ -23,7 +23,8 @@
 
 ## 🚀 LAN 公開クイックスタート (Windows)
 
-Windows ホスト PC 上で、最新ソースの取得（Git pull）からファイアウォール開放、ビルド、自動起動、アクセス URL 案内までを一括で実行できます。
+`omoide-memory-sharing` ディレクトリをカレントディレクトリとして PowerShell を開き、以下を実行します。
+ファイアウォール開放・Backend/Frontend のビルドから両サービスの同時起動まで一括実行されます。
 
 > **前提条件**:
 > - Windows 10 / 11
@@ -31,16 +32,19 @@ Windows ホスト PC 上で、最新ソースの取得（Git pull）からファ
 > - Node.js v20 以上
 > - PostgreSQL（`omoide_memory` データベース）が起動していること
 
-### 1. 初回および更新時のワンストップ実行（推奨）
+### 1. ワンストップ実行（推奨）
 
-管理者権限で PowerShell を開き、リポジトリの `omoide-memory-sharing` ディレクトリで以下を実行します：
+管理者権限で PowerShell を開き、`omoide-memory-sharing` ディレクトリで以下を実行します：
 
 ```powershell
-# 最新コード取得 -> ポート開放 -> Backend/Frontend ビルド -> 起動
+# ポート開放 -> Backend/Frontend ビルド -> 両サービス同時起動
 .\deploy-and-run-lan.ps1
 ```
 
-※ 実行後、Backend（ポート 8080）と Frontend Preview（ポート 5173）が別ウィンドウで自動起動し、スマートフォンからアクセスするための URL がコンソールに表示されます。
+実行後、Backend（ポート 8080）と Frontend Preview（ポート 5173）が**同一ウィンドウ**でログをストリーミング表示しながら起動します。
+スマートフォンからアクセスするための URL もコンソールに表示されます。
+**Ctrl+C** で Backend・Frontend の両方を同時に停止できます。
+
 
 ### 2. 日常の起動（ビルド済みの場合）
 
@@ -78,26 +82,15 @@ http://<ホストPC名>.local:5173
 | パラメータ | 型 | デフォルト | 説明 |
 |---|---|---|---|
 | `-Mode` | `Production` \| `Dev` | `Production` | `Production`: JAR パッケージング & Vite preview<br>`Dev`: bootRun & Vite dev |
-| `-CleanGit` | switch | なし | 成果物から `.git` 等の不要リソースを削除（配備先未指定時はカレントディレクトリで実施） |
-| `-DeployPath` | string | `.` (カレント) | `-CleanGit` 指定時の配置先ディレクトリ |
 | `-FrontendPort` | int | `5173` | フロントエンドの公開ポート |
-| `-SkipPull` | switch | なし | Git pull を行わず、ローカルの現状コードでビルド |
 | `-SkipFirewall`| switch | なし | Windows ファイアウォール設定をスキップ |
-| `-NoLaunch` | switch | なし | ビルド・デプロイのみ行い、自動起動しない |
-
-#### クリーン配備（.git 削除）の実行例:
-```powershell
-# カレントディレクトリで .git を削除してスッキリ運用する
-.\deploy-and-run-lan.ps1 -CleanGit
-
-# 別の配備先フォルダ（例: D:\app\omoide）へコピーして .git を排除する場合
-.\deploy-and-run-lan.ps1 -CleanGit -DeployPath "D:\app\omoide"
-```
+| `-NoLaunch` | switch | なし | ビルドのみ行い、自動起動しない |
 
 #### 開発モード（ホットリロード有効）での実行例:
 ```powershell
 .\deploy-and-run-lan.ps1 -Mode Dev
 ```
+
 
 ---
 
