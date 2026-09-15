@@ -1,7 +1,5 @@
 package com.kasakaid.omoidememory.service.query
 
-import com.kasakaid.omoidememory.domain.model.FilePathFinder
-import com.kasakaid.omoidememory.infrastructure.LocalDiskFilePathFinder
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.CommentOmoide.Companion.COMMENT_OMOIDE
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.SyncedOmoidePhoto.Companion.SYNCED_OMOIDE_PHOTO
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.SyncedOmoideVideo.Companion.SYNCED_OMOIDE_VIDEO
@@ -13,7 +11,6 @@ import org.jooq.Condition
 import org.jooq.impl.DSL
 import org.springframework.stereotype.Component
 import org.springframework.stereotype.Service
-import java.nio.file.Files
 import java.time.OffsetDateTime
 import java.util.Base64
 
@@ -99,9 +96,7 @@ private fun buildDateCondition(
 }
 
 @Component
-class MemoryFeedDtoConverter(
-    private val filePathFinder: FilePathFinder,
-) {
+class MemoryFeedDtoConverter {
     fun convert(data: Triple<List<SyncedOmoidePhoto>, List<SyncedOmoideVideo>, List<CommentOmoide>>): List<MemoryFeedDto> {
         val (photos, videos, comments) = data
         val commentsByFileName = comments.groupBy { it.fileName }
@@ -125,11 +120,10 @@ class MemoryFeedDtoConverter(
                 }.groupBy({ it.first }, { it.second })
 
         val commentOnlyDtos =
-            orphanCommentsByFileName.map { (fileName, commentList) ->
+            orphanCommentsByFileName.map { (_, commentList) ->
                 MemoryFeedDto(
                     id = commentList.firstOrNull()?.feedId,
                     type = null,
-                    contentBase64 = null,
                     commentedAt = commentList.mapNotNull { it.commentedAt }.minOrNull() ?: OffsetDateTime.now(),
                     captureTime = null,
                     thumbnailBase64 = null,
@@ -147,29 +141,16 @@ class MemoryFeedDtoConverter(
     fun transformPhotoToDto(
         photo: SyncedOmoidePhoto,
         comments: List<CommentOmoide>,
-    ): MemoryFeedDto {
-        val contentBase64 =
-            filePathFinder.findPath(photo.serverPath)?.let { path ->
-                try {
-                    val bytes = Files.readAllBytes(path)
-                    val mimeType = Files.probeContentType(path) ?: "image/jpeg"
-                    "data:$mimeType;base64,${Base64.getEncoder().encodeToString(bytes)}"
-                } catch (_: Exception) {
-                    null
-                }
-            }
-
-        return MemoryFeedDto(
+    ): MemoryFeedDto =
+        MemoryFeedDto(
             id = photo.id,
             type = "PHOTO",
-            contentBase64 = contentBase64,
             commentedAt = comments.mapNotNull { it.commentedAt }.minOrNull() ?: photo.captureTime ?: OffsetDateTime.now(),
             captureTime = photo.captureTime,
             thumbnailBase64 = null,
             thumbnailMimeType = null,
             commentCount = comments.size,
         )
-    }
 
     private fun transformVideoToDto(
         video: SyncedOmoideVideo,
@@ -179,16 +160,13 @@ class MemoryFeedDtoConverter(
         val commentedAt = comments.mapNotNull { it.commentedAt }.minOrNull() ?: video.captureTime ?: OffsetDateTime.now()
 
         val thumbnailBase64 =
-            if (video.thumbnailImage != null) {
-                "data:$thumbnailMimeType;base64,${Base64.getEncoder().encodeToString(video.thumbnailImage)}"
-            } else {
-                null
+            video.thumbnailImage?.let { bytes ->
+                "data:$thumbnailMimeType;base64,${Base64.getEncoder().encodeToString(bytes)}"
             }
 
         return MemoryFeedDto(
             id = video.id,
             type = "VIDEO",
-            contentBase64 = thumbnailBase64,
             commentedAt = commentedAt,
             captureTime = video.captureTime,
             thumbnailBase64 = thumbnailBase64,

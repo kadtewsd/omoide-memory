@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { MemoryFeedItem } from '../types';
 import { ContentNotFound } from './ContentNotFound';
+import { getImageUrl } from '../api';
 
 /** アクションシートで選択中の写真ID（null = 非表示） */
 type ActionTargetId = string | null;
@@ -117,9 +118,9 @@ export function PhotobookPreviewView({
                                 role="button"
                                 aria-label="写真の操作"
                             >
-                                {photo.contentBase64 ? (
+                                {photo.id ? (
                                     <img
-                                        src={photo.contentBase64}
+                                        src={getImageUrl(photo.id)}
                                         alt="選択済み写真"
                                         className="w-full h-full object-cover"
                                         loading="lazy"

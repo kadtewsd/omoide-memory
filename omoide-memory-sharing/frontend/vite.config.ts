@@ -8,6 +8,7 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 5173,
+    allowedHosts: ['ganymede.local'],
     proxy: {
       '/feed': 'http://localhost:8080',
       '/content': 'http://localhost:8080',
@@ -21,6 +22,7 @@ export default defineConfig({
   preview: {
     host: '0.0.0.0',
     port: 5173,
+    allowedHosts: ['ganymede.local'],
     proxy: {
       '/feed': 'http://localhost:8080',
       '/content': 'http://localhost:8080',

@@ -4,7 +4,9 @@ import com.kasakaid.omoidememory.jooq.omoide_memory.tables.pojos.CommentOmoide
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.COMMENTER
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.COMMENT_OMOIDE
 import org.jooq.DSLContext
+import org.jooq.DatePart
 import org.jooq.Record
+import org.jooq.impl.DSL
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
@@ -38,16 +40,16 @@ class MemoryCommentsQueryService(
                 mapper(commentPojo, commenterName, commenterIcon)
             }
 
-    fun getCommentCreatedYearMonths(): Mono<List<OffsetDateTime>> =
-        Flux
+    fun getCommentCreatedYearMonths(): Mono<List<OffsetDateTime>> {
+        val commentedAtYearMonthField = DSL.trunc(COMMENT_OMOIDE.COMMENTED_AT, DatePart.MONTH)
+        return Flux
             .from(
                 dslContext
-                    .select(COMMENT_OMOIDE.COMMENTED_AT)
+                    .selectDistinct(commentedAtYearMonthField)
                     .from(COMMENT_OMOIDE)
-                    .where(COMMENT_OMOIDE.COMMENTED_AT.isNotNull),
+                    .where(COMMENT_OMOIDE.COMMENTED_AT.isNotNull)
+                    .orderBy(commentedAtYearMonthField.desc()),
             ).mapNotNull { record -> record.value1() }
             .collectList()
-            .map { times ->
-                times.sortedDescending()
-            }
+    }
 }

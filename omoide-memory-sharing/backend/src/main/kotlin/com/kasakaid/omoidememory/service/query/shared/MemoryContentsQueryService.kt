@@ -60,24 +60,29 @@ class MemoryContentsQueryService(
             .toList()
 
     suspend fun getCapturedYearMonths(): List<OffsetDateTime> {
-        val photoCaptureTimes =
+        val photoYearMonthField = DSL.trunc(SYNCED_OMOIDE_PHOTO.CAPTURE_TIME, org.jooq.DatePart.MONTH)
+        val videoYearMonthField = DSL.trunc(SYNCED_OMOIDE_VIDEO.CAPTURE_TIME, org.jooq.DatePart.MONTH)
+
+        val photoYearMonths =
             dslContext
-                .select(SYNCED_OMOIDE_PHOTO.CAPTURE_TIME)
+                .selectDistinct(photoYearMonthField)
                 .from(SYNCED_OMOIDE_PHOTO)
                 .where(SYNCED_OMOIDE_PHOTO.CAPTURE_TIME.isNotNull)
                 .asFlow()
                 .mapNotNull { record -> record.value1() }
                 .toList()
 
-        val videoCaptureTimes =
+        val videoYearMonths =
             dslContext
-                .select(SYNCED_OMOIDE_VIDEO.CAPTURE_TIME)
+                .selectDistinct(videoYearMonthField)
                 .from(SYNCED_OMOIDE_VIDEO)
                 .where(SYNCED_OMOIDE_VIDEO.CAPTURE_TIME.isNotNull)
                 .asFlow()
                 .mapNotNull { record -> record.value1() }
                 .toList()
 
-        return (photoCaptureTimes + videoCaptureTimes).sortedDescending()
+        return (photoYearMonths + videoYearMonths)
+            .distinct()
+            .sortedDescending()
     }
 }
