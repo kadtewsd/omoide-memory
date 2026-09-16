@@ -119,6 +119,7 @@ http://<ホストPC名>.local:5173
 |---|---|---|---|
 | `-Mode` | `Production` \| `Dev` | `Production` | `Production`: JAR パッケージング & Vite preview<br>`Dev`: bootRun & Vite dev |
 | `-FrontendPort` | int | `5173` | フロントエンドの公開ポート |
+| `-BackendPort` | int | `8080` | バックエンド API の公開ポート |
 | `-SkipFirewall`| switch | なし | Windows ファイアウォール設定をスキップ |
 | `-NoLaunch` | switch | なし | ビルドのみ行い、自動起動しない |
 
@@ -147,10 +148,10 @@ cd frontend
 npm run preview -- --host 0.0.0.0 --port 5173
 ```
 
-### ファイアウォールポート個別開放
+### ファイアウォールポート個別開放（Frontend: 5173 & Backend: 8080）
 ```powershell
 cd frontend
-.\allow-frontend-firewall-port.ps1 -Port 5173
+.\allow-frontend-firewall-port.ps1
 ```
 
 ---
