@@ -3,7 +3,11 @@ import { MemoryFeedItem, Comment, AlbumSummary, AlbumDetail, FetchFeedParams, Fe
 
 
 const API_BASE_URL =
-    import.meta.env.VITE_API_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8080');
+    import.meta.env.VITE_API_URL ||
+    (typeof window !== 'undefined'
+        ? `${window.location.protocol}//${window.location.hostname}:8080`
+        : 'http://localhost:8080');
+
 
 export const fetchFeed = async ({
     startInclusive,
