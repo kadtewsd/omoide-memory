@@ -47,6 +47,10 @@ export const getVideoStreamUrl = (id: string): string => {
     return `${API_BASE_URL}/video/${id}/stream`;
 };
 
+export const getImageUrl = (id: string): string => {
+    return `${API_BASE_URL}/content/${id}/image`;
+};
+
 export const saveAlbum = async (albumName: string, photoIds: string[]): Promise<{ albumId: string; albumName: string; count: number }> => {
     const url = new URL('/albums', API_BASE_URL);
     const response = await fetch(url.toString(), {

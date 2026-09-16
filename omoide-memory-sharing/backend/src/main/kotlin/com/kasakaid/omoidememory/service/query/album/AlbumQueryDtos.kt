@@ -9,7 +9,7 @@ class AlbumSummaryDto(
     val albumName: String,
     val count: Int,
     val createdAt: OffsetDateTime,
-    val coverPhotoBase64: String?,
+    val coverPhotoId: UUID?,
 )
 
 class AlbumDetailDto(

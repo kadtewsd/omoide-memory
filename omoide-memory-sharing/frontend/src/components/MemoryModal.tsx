@@ -2,6 +2,7 @@ import { MemoryFeedItem, Comment } from '../types';
 import { CommentPanel } from './CommentPanel';
 import { ContentNotFound } from './ContentNotFound';
 import { VideoPlayer } from './VideoPlayer';
+import { getImageUrl } from '../api';
 
 interface Props {
     selectedItem: MemoryFeedItem | null;
@@ -43,9 +44,9 @@ export function MemoryModal({ selectedItem, comments, commentsLoading, onClose }
                             videoId={selectedItem.id}
                             poster={selectedItem.thumbnailBase64}
                         />
-                    ) : selectedItem.contentBase64 ? (
+                    ) : selectedItem.type === 'PHOTO' && selectedItem.id ? (
                         <img
-                            src={selectedItem.contentBase64}
+                            src={getImageUrl(selectedItem.id)}
                             alt="拡大写真"
                             className="max-w-full max-h-full object-contain rounded-lg"
                         />

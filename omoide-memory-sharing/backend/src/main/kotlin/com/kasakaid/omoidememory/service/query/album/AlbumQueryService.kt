@@ -11,10 +11,7 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.reactive.asFlow
 import org.jooq.DSLContext
 import org.springframework.stereotype.Service
-import java.nio.file.Files
-import java.nio.file.Paths
 import java.time.OffsetDateTime
-import java.util.Base64
 import java.util.UUID
 
 @Service
@@ -33,16 +30,6 @@ class AlbumQueryService(
         if (albumPhotoRecords.isEmpty()) return emptyList()
 
         val grouped = albumPhotoRecords.groupBy { it.albumId }
-        val allPhotoIds = albumPhotoRecords.mapNotNull { it.photoId }.distinct()
-
-        val photos =
-            if (allPhotoIds.isNotEmpty()) {
-                memoryContentsQueryService.fetchPhoto(SYNCED_OMOIDE_PHOTO.ID.`in`(allPhotoIds))
-            } else {
-                emptyList()
-            }
-
-        val photoMap = photos.associateBy { it.id }
 
         return grouped
             .map { (albumId, records) ->
@@ -50,28 +37,14 @@ class AlbumQueryService(
                 val albumName = firstRecord.albumName ?: ""
                 val createdAt = records.mapNotNull { it.createdAt }.minOrNull() ?: OffsetDateTime.now()
                 val count = records.size
-
-                val firstPhoto = records.mapNotNull { it.photoId }.firstNotNullOfOrNull { photoMap[it] }
-                val coverPhotoBase64 =
-                    firstPhoto?.serverPath?.let { serverPath ->
-                        try {
-                            val path = Paths.get(serverPath)
-                            if (Files.exists(path)) {
-                                Base64.getEncoder().encodeToString(Files.readAllBytes(path))
-                            } else {
-                                null
-                            }
-                        } catch (e: Exception) {
-                            null
-                        }
-                    }
+                val coverPhotoId = records.mapNotNull { it.photoId }.firstOrNull()
 
                 AlbumSummaryDto(
                     albumId = albumId,
                     albumName = albumName,
                     count = count,
                     createdAt = createdAt,
-                    coverPhotoBase64 = coverPhotoBase64,
+                    coverPhotoId = coverPhotoId,
                 )
             }.sortedByDescending { it.createdAt }
     }
@@ -100,7 +73,7 @@ class AlbumQueryService(
                 emptyList()
             }
 
-        val feedDtos = memoryFeedDtoConverter.convert(Triple(photos, emptyList(), emptyList()))
+        val feedDtos = memoryFeedDtoConverter.convert(Triple(photos, emptyList<SyncedOmoideVideo>(), emptyList<CommentOmoide>()))
 
         return AlbumDetailDto(
             albumId = albumId,

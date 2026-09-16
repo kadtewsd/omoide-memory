@@ -1,17 +1,24 @@
 package com.kasakaid.omoidememory.adapter
 
+import com.kasakaid.omoidememory.domain.model.FilePathFinder
 import com.kasakaid.omoidememory.service.query.CommentDto
 import com.kasakaid.omoidememory.service.query.MemoryFeedDto
 import com.kasakaid.omoidememory.service.query.MemoryWithCommentQueryService
 import com.kasakaid.omoidememory.service.query.OmoideMemoryQueryService
 import com.kasakaid.omoidememory.service.query.shared.MemoryCommentsQueryService
 import com.kasakaid.omoidememory.service.query.shared.MemoryContentsQueryService
+import com.kasakaid.omoidememory.service.query.shared.PhotoQueryService
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.reactive.awaitSingle
 import org.slf4j.LoggerFactory
 import org.springframework.format.annotation.DateTimeFormat
+import org.springframework.http.HttpStatus
+import org.springframework.http.MediaType
+import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
+import java.nio.file.Files
 import java.time.OffsetDateTime
+import java.util.UUID
 
 enum class FilterMode {
     COMMENT_ONLY,
@@ -25,6 +32,8 @@ class MemorySharingController(
     private val omoideMemoryQueryService: OmoideMemoryQueryService,
     private val memoryContentsQueryService: MemoryContentsQueryService,
     private val memoryCommentsQueryService: MemoryCommentsQueryService,
+    private val photoQueryService: PhotoQueryService,
+    private val filePathFinder: FilePathFinder,
 ) {
     private val log = LoggerFactory.getLogger(MemorySharingController::class.java)
 
@@ -44,8 +53,32 @@ class MemorySharingController(
                 FilterMode.ALL -> omoideMemoryQueryService.getFeed(startInclusive, endExclusive)
             }
 
-        log.info("[GET /feed Response] count=${items.size}, items=$items")
+        log.info("[GET /feed Response] count=${items.size}")
         return items
+    }
+
+    @GetMapping("/content/{id}/image", produces = [MediaType.APPLICATION_OCTET_STREAM_VALUE])
+    suspend fun getImage(
+        @PathVariable id: UUID,
+    ): ResponseEntity<ByteArray> {
+        val photos = photoQueryService.findPhotosByIds(listOf(id))
+        val photo = photos.firstOrNull()
+            ?: return ResponseEntity.notFound().build()
+
+        val path = filePathFinder.findPath(photo.serverPath)
+            ?: return ResponseEntity.status(HttpStatus.NOT_FOUND).build()
+
+        val bytes = try {
+            Files.readAllBytes(path)
+        } catch (_: Exception) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build()
+        }
+
+        val mimeType = Files.probeContentType(path) ?: "image/jpeg"
+        return ResponseEntity
+            .ok()
+            .contentType(MediaType.parseMediaType(mimeType))
+            .body(bytes)
     }
 
     @GetMapping("/content/{id}/comments")

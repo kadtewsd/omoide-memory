@@ -3,7 +3,6 @@ export type FilterMode = 'COMMENT_ONLY' | 'ALL' | 'ALBUM' | 'PHOTOBOOK';
 export interface MemoryFeedItem {
     id: string | null; // From UUID
     type: 'PHOTO' | 'VIDEO' | null;
-    contentBase64: string | null;
     commentedAt: string; // ISO 8601 string from OffsetDateTime
     captureTime?: string | null;
     thumbnailBase64?: string | null;
@@ -24,7 +23,7 @@ export interface AlbumSummary {
     albumName: string;
     count: number;
     createdAt: string;
-    coverPhotoBase64: string | null;
+    coverPhotoId: string | null;
 }
 
 export interface AlbumDetail {

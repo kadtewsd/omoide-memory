@@ -1,5 +1,6 @@
 import { MemoryFeedItem } from '../types';
 import { ContentNotFound } from './ContentNotFound';
+import { getImageUrl } from '../api';
 
 interface Props {
     item: MemoryFeedItem;
@@ -41,10 +42,10 @@ export function FeedPhotoCard({ item, isSelected = false, onToggleSelect, onClic
                 </button>
             )}
 
-            {item.contentBase64 ? (
-                <img 
-                    src={item.contentBase64} 
-                    alt="Memory" 
+            {item.id ? (
+                <img
+                    src={getImageUrl(item.id)}
+                    alt="Memory"
                     className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-500"
                     loading="lazy"
                 />

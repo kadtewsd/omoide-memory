@@ -1,4 +1,4 @@
-package com.kasakaid.omoidememory.domain
+package com.kasakaid.omoidememory.adapter
 
 /**
  * ACL (Anti-Corruption Layer) class for Location.
