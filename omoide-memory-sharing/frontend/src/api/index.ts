@@ -3,7 +3,11 @@ import { MemoryFeedItem, Comment, AlbumSummary, AlbumDetail, FetchFeedParams, Fe
 
 
 const API_BASE_URL =
-    import.meta.env.VITE_API_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8080');
+    import.meta.env.VITE_API_URL ||
+    (typeof window !== 'undefined'
+        ? `${window.location.protocol}//${window.location.hostname}:8080`
+        : 'http://localhost:8080');
+
 
 export const fetchFeed = async ({
     startInclusive,
@@ -45,6 +49,10 @@ export const fetchCommentCreatedYearMonths = async (): Promise<string[]> => {
 
 export const getVideoStreamUrl = (id: string): string => {
     return `${API_BASE_URL}/video/${id}/stream`;
+};
+
+export const getImageUrl = (id: string): string => {
+    return `${API_BASE_URL}/content/${id}/image`;
 };
 
 export const saveAlbum = async (albumName: string, photoIds: string[]): Promise<{ albumId: string; albumName: string; count: number }> => {

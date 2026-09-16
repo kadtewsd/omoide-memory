@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { AlbumSummary, AlbumDetail } from '../types';
-import { fetchAlbums, fetchAlbumDetail, downloadAlbumZip } from '../api';
+import { fetchAlbums, fetchAlbumDetail, downloadAlbumZip, getImageUrl } from '../api';
 import { MemoryFeedItem } from '../types';
 import { FeedPhotoCard } from './FeedPhotoCard';
 
@@ -116,11 +116,12 @@ export function AlbumGrid({ onPhotoClick }: Props) {
                     >
                         {/* Cover Image / Placeholder */}
                         <div className="relative aspect-video bg-gray-100 overflow-hidden flex items-center justify-center">
-                            {album.coverPhotoBase64 ? (
+                            {album.coverPhotoId ? (
                                 <img
-                                    src={`data:image/jpeg;base64,${album.coverPhotoBase64}`}
+                                    src={getImageUrl(album.coverPhotoId)}
                                     alt={album.albumName}
                                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                    loading="lazy"
                                 />
                             ) : (
                                 <div className="text-gray-400 text-xs font-semibold">カバー写真なし</div>
