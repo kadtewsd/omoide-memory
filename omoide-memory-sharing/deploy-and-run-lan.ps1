@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     omoide-memory-sharing の LAN 公開用ワンストップ ビルド・起動スクリプト。
 
@@ -42,6 +42,9 @@ param (
     [int]$FrontendPort = 5173,
 
     [Parameter(Mandatory = $false)]
+    [int]$BackendPort = 8080,
+
+    [Parameter(Mandatory = $false)]
     [switch]$SkipFirewall,
 
     [Parameter(Mandatory = $false)]
@@ -68,25 +71,38 @@ if (-not $SkipFirewall) {
     $isAdmin = $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 
     if ($isAdmin) {
-        Write-Host "[1/3] Windows ファイアウォールの受信規則を設定中 (Port: $FrontendPort)..." -ForegroundColor Cyan
-        $ruleName = "OmoideMemorySharingFrontend"
-        $existingRule = Get-NetFirewallRule -Name $ruleName -ErrorAction SilentlyContinue
-        if ($existingRule) {
-            Remove-NetFirewallRule -Name $ruleName
+        Write-Host "[1/3] Windows ファイアウォールの受信規則を設定中 (Frontend: $FrontendPort, Backend: $BackendPort)..." -ForegroundColor Cyan
+        $frontendRule = "OmoideMemorySharingFrontend"
+        $backendRule = "OmoideMemorySharingBackend"
+        foreach ($rule in @($frontendRule, $backendRule)) {
+            $existingRule = Get-NetFirewallRule -Name $rule -ErrorAction SilentlyContinue
+            if ($existingRule) {
+                Remove-NetFirewallRule -Name $rule
+            }
         }
         New-NetFirewallRule `
-            -Name $ruleName `
-            -DisplayName "$ruleName (Port $FrontendPort)" `
+            -Name $frontendRule `
+            -DisplayName "$frontendRule (Port $FrontendPort)" `
             -Description "Omoide Memory Sharing Frontend Port $FrontendPort for LAN" `
             -Direction Inbound `
             -Action Allow `
             -Protocol TCP `
             -LocalPort $FrontendPort | Out-Null
-        Write-Host "  -> ポート $FrontendPort の開放が完了しました。" -ForegroundColor Green
+
+        New-NetFirewallRule `
+            -Name $backendRule `
+            -DisplayName "$backendRule (Port $BackendPort)" `
+            -Description "Omoide Memory Sharing Backend Port $BackendPort for LAN" `
+            -Direction Inbound `
+            -Action Allow `
+            -Protocol TCP `
+            -LocalPort $BackendPort | Out-Null
+
+        Write-Host "  -> ポート $FrontendPort (Frontend) および $BackendPort (Backend) の開放が完了しました。" -ForegroundColor Green
     } else {
         Write-Host "[1/3] 注意: 管理者権限ではないためファイアウォール自動開放をスキップしました。" -ForegroundColor Yellow
         Write-Host "  LAN 内の他端末からアクセスできない場合は、管理者権限 PowerShell で以下を実行してください:" -ForegroundColor Gray
-        Write-Host "  cd `"$FrontendDir`"; .\allow-frontend-firewall-port.ps1 -Port $FrontendPort" -ForegroundColor Gray
+        Write-Host "  cd `"$FrontendDir`"; .\allow-frontend-firewall-port.ps1 -FrontendPort $FrontendPort -BackendPort $BackendPort" -ForegroundColor Gray
     }
 } else {
     Write-Host "[1/3] ファイアウォール設定はスキップされました。" -ForegroundColor Gray

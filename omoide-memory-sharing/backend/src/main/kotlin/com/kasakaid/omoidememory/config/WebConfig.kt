@@ -9,6 +9,7 @@ class WebConfig : WebFluxConfigurer {
     override fun addCorsMappings(registry: CorsRegistry) {
         // CORS設定を適用するリソース
         registry
+            .addMapping("/**")
             .allowedOriginPatterns(
                 "http://localhost:5173",
                 "http://127.0.0.1:5173",
