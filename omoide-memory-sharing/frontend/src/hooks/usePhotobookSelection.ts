@@ -13,11 +13,10 @@ export function getPeriodIsoRange(period: PhotobookPeriod): { startInclusive: st
     if (period.type === 'MONTH_TAB') {
         return getYearMonthRangeIso(period.yearMonth);
     }
-    const isOrderAscending = period.fromYearMonth <= period.toYearMonth;
-    const startYm = isOrderAscending ? period.fromYearMonth : period.toYearMonth;
-    const endYm = isOrderAscending ? period.toYearMonth : period.fromYearMonth;
+    const isConflict = period.fromYearMonth > period.toYearMonth;
+    const endYm = isConflict ? period.fromYearMonth : period.toYearMonth;
 
-    const { startInclusive } = getYearMonthRangeIso(startYm);
+    const { startInclusive } = getYearMonthRangeIso(period.fromYearMonth);
     const { endExclusive } = getYearMonthRangeIso(endYm);
     return { startInclusive, endExclusive };
 }
@@ -169,10 +168,11 @@ export function usePhotobookSelection(): UsePhotobookSelectionResult {
      * カレンダー期間選択: 期間モードに切り替え、年月タブの選択を解除
      */
     const selectDateRange = useCallback((params: { fromYearMonth: string; toYearMonth: string }) => {
+        const isConflict = params.fromYearMonth > params.toYearMonth;
         setPeriod({
             type: 'DATE_RANGE',
             fromYearMonth: params.fromYearMonth,
-            toYearMonth: params.toYearMonth,
+            toYearMonth: isConflict ? params.fromYearMonth : params.toYearMonth,
         });
     }, []);
 

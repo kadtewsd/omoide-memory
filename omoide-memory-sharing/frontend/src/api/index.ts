@@ -2,11 +2,7 @@
 import { MemoryFeedItem, Comment, AlbumSummary, AlbumDetail, FetchFeedParams, FetchRandomFillPhotosParams } from '../types';
 
 
-const API_BASE_URL =
-    import.meta.env.VITE_API_URL ||
-    (typeof window !== 'undefined'
-        ? `${window.location.protocol}//${window.location.hostname}:8080`
-        : 'http://localhost:8080');
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
 
 export const fetchFeed = async ({

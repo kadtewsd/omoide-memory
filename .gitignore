@@ -50,3 +50,8 @@ captures/
 
 **/log/
 spec/
+
+# Environment files
+.env
+.env.*
+!.env.example
