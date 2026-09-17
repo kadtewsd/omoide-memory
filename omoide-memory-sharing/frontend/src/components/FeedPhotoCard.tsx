@@ -22,7 +22,7 @@ export function FeedPhotoCard({ item, isSelected = false, onToggleSelect, onClic
                 <button
                     type="button"
                     aria-label={isSelected ? "写真の選択を解除" : "写真を選択"}
-                    className="absolute top-2 left-2 z-10 p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full focus:outline-none"
+                    className="absolute top-2 left-2 z-[2] p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full focus:outline-none"
                     onClick={(e) => {
                         e.stopPropagation();
                         onToggleSelect(e);

@@ -48,3 +48,22 @@ export interface FetchRandomFillPhotosParams {
     excludeIds: string[];
     count: number;
 }
+
+/** 期間選択の種別 */
+export type PeriodSelectionType = 'MONTH_TAB' | 'DATE_RANGE';
+
+/** 単一月タブによる期間指定 */
+export interface MonthTabPeriod {
+    type: 'MONTH_TAB';
+    yearMonth: string; // "YYYY-MM"
+}
+
+/** カレンダーによる期間（from ~ to）指定 */
+export interface DateRangePeriod {
+    type: 'DATE_RANGE';
+    fromYearMonth: string; // "YYYY-MM"
+    toYearMonth: string;   // "YYYY-MM"
+}
+
+export type PhotobookPeriod = MonthTabPeriod | DateRangePeriod;
+
