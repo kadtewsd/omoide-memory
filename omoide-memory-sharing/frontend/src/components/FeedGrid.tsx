@@ -7,7 +7,7 @@ interface Props {
     items: MemoryFeedItem[];
     filterMode: FilterMode;
     selectedPhotoIds: Set<string>;
-    onTogglePhotoSelect: (photoId: string) => void;
+    onTogglePhotoSelect?: (photoId: string) => void;
     onItemClick: (item: MemoryFeedItem) => void;
 }
 
@@ -18,6 +18,8 @@ export function FeedGrid({ items, filterMode, selectedPhotoIds, onTogglePhotoSel
         e.stopPropagation();
         setOpenCommentIds(prev => ({ ...prev, [id]: !prev[id] }));
     };
+
+    const isSelecting = !!onTogglePhotoSelect;
 
     return (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5 sm:gap-4 auto-rows-[160px] sm:auto-rows-[200px]">
@@ -36,8 +38,14 @@ export function FeedGrid({ items, filterMode, selectedPhotoIds, onTogglePhotoSel
                             <FeedPhotoCard
                                 item={item}
                                 isSelected={isSelected}
-                                onToggleSelect={isPhoto && item.id ? () => onTogglePhotoSelect(item.id!) : undefined}
-                                onClick={() => onItemClick(item)}
+                                onToggleSelect={isPhoto && item.id && onTogglePhotoSelect ? () => onTogglePhotoSelect(item.id!) : undefined}
+                                onClick={() => {
+                                    if (isSelecting && isPhoto && item.id && onTogglePhotoSelect) {
+                                        onTogglePhotoSelect(item.id);
+                                    } else {
+                                        onItemClick(item);
+                                    }
+                                }}
                             />
                         )}
 
