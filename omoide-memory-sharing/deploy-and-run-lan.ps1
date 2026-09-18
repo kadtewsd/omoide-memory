@@ -1,43 +1,28 @@
-<#
+﻿<#
 .SYNOPSIS
-    omoide-memory-sharing の LAN 公開用ワンストップ ビルド・起動スクリプト。
+    One-stop build and run script for omoide-memory-sharing on LAN.
 
 .DESCRIPTION
-    omoide-memory-sharing ディレクトリをカレントディレクトリとして実行します。
-    以下の処理を一括して自動実行します：
-    1. Windows Defender ファイアウォールでのポート開放（デフォルト: 5173）
-    2. Backend (Spring Boot) のビルド
-    3. Frontend (React 19 + Vite) のビルド
-    4. バックエンドおよびフロントエンドの自動起動
-
-.PARAMETER Mode
-    実行モードを指定します。
-    - "Production" (デフォルト): JAR ビルドおよび Vite preview / 静的配信で安定起動
-    - "Dev": bootRun および Vite 開発サーバーで即時起動
+    Builds the frontend and backend (if needed), and runs the application in preview mode (npm run preview).
+    All output and messages are in English to prevent encoding/parser errors.
 
 .PARAMETER FrontendPort
-    フロントエンドの公開ポート番号（デフォルト: 5173）
+    Port for the frontend server (default: 5173).
+
+.PARAMETER BackendPort
+    Port for the backend server (default: 8080).
 
 .PARAMETER SkipFirewall
-    ファイアウォールの設定をスキップします。
+    Skip Windows Firewall rule configuration.
+
+.PARAMETER SkipBuild
+    Skip building the frontend and backend.
 
 .PARAMETER NoLaunch
-    ビルドのみ行い、アプリの自動起動を行いません。
-
-.EXAMPLE
-    # 通常のワンストップビルド＆起動（推奨）
-    .\deploy-and-run-lan.ps1
-
-.EXAMPLE
-    # 開発モード（ホットリロード有効）
-    .\deploy-and-run-lan.ps1 -Mode Dev
+    Build only; do not start the servers.
 #>
 
 param (
-    [Parameter(Mandatory = $false)]
-    [ValidateSet("Production", "Dev")]
-    [string]$Mode = "Production",
-
     [Parameter(Mandatory = $false)]
     [int]$FrontendPort = 5173,
 
@@ -48,115 +33,108 @@ param (
     [switch]$SkipFirewall,
 
     [Parameter(Mandatory = $false)]
+    [switch]$SkipBuild,
+
+    [Parameter(Mandatory = $false)]
     [switch]$NoLaunch
 )
 
 $ErrorActionPreference = "Stop"
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
+
 $RepoRoot = $PSScriptRoot
 $BackendDir = Join-Path $RepoRoot "backend"
 $FrontendDir = Join-Path $RepoRoot "frontend"
 
 Write-Host "==========================================================" -ForegroundColor Cyan
-Write-Host "   omoide-memory-sharing LAN 公開デプロイメントツール   " -ForegroundColor Cyan
+Write-Host "   omoide-memory-sharing LAN Deployment Tool             " -ForegroundColor Cyan
 Write-Host "==========================================================" -ForegroundColor Cyan
-Write-Host "実行モード : $Mode" -ForegroundColor Yellow
-Write-Host "作業階層   : $RepoRoot" -ForegroundColor Yellow
+Write-Host "Frontend Port : $FrontendPort" -ForegroundColor Yellow
+Write-Host "Backend Port  : $BackendPort" -ForegroundColor Yellow
+Write-Host "Working Dir   : $RepoRoot" -ForegroundColor Yellow
 Write-Host ""
 
 # --------------------------------------------------
-# 1. 管理者権限チェック & ファイアウォール設定
+# 1. Firewall rules
 # --------------------------------------------------
 if (-not $SkipFirewall) {
     $currentPrincipal = [Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
     $isAdmin = $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 
     if ($isAdmin) {
-        Write-Host "[1/3] Windows ファイアウォールの受信規則を設定中 (Frontend: $FrontendPort, Backend: $BackendPort)..." -ForegroundColor Cyan
-        $frontendRule = "OmoideMemorySharingFrontend"
-        $backendRule = "OmoideMemorySharingBackend"
-        foreach ($rule in @($frontendRule, $backendRule)) {
-            $existingRule = Get-NetFirewallRule -Name $rule -ErrorAction SilentlyContinue
-            if ($existingRule) {
-                Remove-NetFirewallRule -Name $rule
+        Write-Host "[1/3] Configuring Windows Firewall inbound rules..." -ForegroundColor Cyan
+        $rules = @(
+            @{ Name = "OmoideMemorySharingFrontend"; Port = $FrontendPort },
+            @{ Name = "OmoideMemorySharingBackend"; Port = $BackendPort }
+        )
+        foreach ($r in $rules) {
+            $existing = Get-NetFirewallRule -Name $r.Name -ErrorAction SilentlyContinue
+            if ($existing) {
+                Remove-NetFirewallRule -Name $r.Name
             }
+            New-NetFirewallRule `
+                -Name $r.Name `
+                -DisplayName "$($r.Name) (Port $($r.Port))" `
+                -Direction Inbound `
+                -Action Allow `
+                -Protocol TCP `
+                -LocalPort $r.Port | Out-Null
         }
-        New-NetFirewallRule `
-            -Name $frontendRule `
-            -DisplayName "$frontendRule (Port $FrontendPort)" `
-            -Description "Omoide Memory Sharing Frontend Port $FrontendPort for LAN" `
-            -Direction Inbound `
-            -Action Allow `
-            -Protocol TCP `
-            -LocalPort $FrontendPort | Out-Null
-
-        New-NetFirewallRule `
-            -Name $backendRule `
-            -DisplayName "$backendRule (Port $BackendPort)" `
-            -Description "Omoide Memory Sharing Backend Port $BackendPort for LAN" `
-            -Direction Inbound `
-            -Action Allow `
-            -Protocol TCP `
-            -LocalPort $BackendPort | Out-Null
-
-        Write-Host "  -> ポート $FrontendPort (Frontend) および $BackendPort (Backend) の開放が完了しました。" -ForegroundColor Green
+        Write-Host "  -> Firewall rules configured successfully." -ForegroundColor Green
     } else {
-        Write-Host "[1/3] 注意: 管理者権限ではないためファイアウォール自動開放をスキップしました。" -ForegroundColor Yellow
-        Write-Host "  LAN 内の他端末からアクセスできない場合は、管理者権限 PowerShell で以下を実行してください:" -ForegroundColor Gray
-        Write-Host "  cd `"$FrontendDir`"; .\allow-frontend-firewall-port.ps1 -FrontendPort $FrontendPort -BackendPort $BackendPort" -ForegroundColor Gray
+        Write-Host "[1/3] Skipped firewall configuration (administrator privileges not detected)." -ForegroundColor Yellow
     }
 } else {
-    Write-Host "[1/3] ファイアウォール設定はスキップされました。" -ForegroundColor Gray
+    Write-Host "[1/3] Firewall configuration skipped." -ForegroundColor Gray
 }
 
 # --------------------------------------------------
-# 2. Backend のビルド / 準備
+# 2. Backend JAR
 # --------------------------------------------------
-Write-Host "`n[2/3] Backend (Spring Boot) を準備中..." -ForegroundColor Cyan
-Set-Location $BackendDir
+Write-Host "`n[2/3] Preparing Backend (Spring Boot)..." -ForegroundColor Cyan
+$buildJarDir = Join-Path $BackendDir "build\libs"
+$jarFile = Get-ChildItem -Path $buildJarDir -Filter "*.jar" -ErrorAction SilentlyContinue | Where-Object { $_.Name -notlike "*-plain.jar" } | Select-Object -First 1
 
-$backendJarPath = ""
-if ($Mode -eq "Production") {
-    Write-Host "  Gradle による JAR パッケージングを実行中 (build -x test)..." -ForegroundColor Gray
-    .\gradlew.bat build -x test
-
-    $buildJarDir = Join-Path $BackendDir "build\libs"
-    $jarFile = Get-ChildItem -Path $buildJarDir -Filter "*.jar" | Where-Object { $_.Name -notlike "*-plain.jar" } | Select-Object -First 1
-    if (-not $jarFile) {
-        Write-Error "Backend JAR ファイルのビルドに失敗しました ($buildJarDir に JAR が見つかりません)。"
-        exit 1
+if (-not $jarFile) {
+    if (-not $SkipBuild) {
+        Write-Host "  Backend JAR not found. Building Backend with gradlew..." -ForegroundColor Gray
+        Set-Location $BackendDir
+        .\gradlew.bat build -x test
+        $jarFile = Get-ChildItem -Path $buildJarDir -Filter "*.jar" -ErrorAction SilentlyContinue | Where-Object { $_.Name -notlike "*-plain.jar" } | Select-Object -First 1
     }
-    $backendJarPath = $jarFile.FullName
-    Write-Host "  -> Backend ビルド完了: $backendJarPath" -ForegroundColor Green
-} else {
-    Write-Host "  -> 開発モードのため JAR ビルドをスキップし、bootRun を使用します。" -ForegroundColor Green
 }
 
+if (-not $jarFile) {
+    Write-Error "Backend JAR file not found in $buildJarDir"
+    exit 1
+}
+$backendJarPath = $jarFile.FullName
+Write-Host "  -> Backend JAR ready: $backendJarPath" -ForegroundColor Green
+
 # --------------------------------------------------
-# 3. Frontend のビルド
+# 3. Frontend Build
 # --------------------------------------------------
-Write-Host "`n[3/3] Frontend (React + Vite) を準備中..." -ForegroundColor Cyan
+Write-Host "`n[3/3] Preparing Frontend (React + Vite)..." -ForegroundColor Cyan
 Set-Location $FrontendDir
 
-Write-Host "  npm install を実行中..." -ForegroundColor Gray
-npm install
-
-if ($Mode -eq "Production") {
-    Write-Host "  npm run build を実行中..." -ForegroundColor Gray
+if (-not $SkipBuild) {
+    Write-Host "  Running npm run build..." -ForegroundColor Gray
     npm run build
     $distDir = Join-Path $FrontendDir "dist"
     if (-not (Test-Path $distDir)) {
-        Write-Error "Frontend のビルド成果物 ($distDir) が見つかりません。"
+        Write-Error "Frontend dist directory not found: $distDir"
         exit 1
     }
-    Write-Host "  -> Frontend ビルド完了 (dist 生成済み)。" -ForegroundColor Green
+    Write-Host "  -> Frontend build completed." -ForegroundColor Green
 } else {
-    Write-Host "  -> 開発モードのため Vite 開発サーバーで即時実行します。" -ForegroundColor Green
+    Write-Host "  -> Frontend build skipped." -ForegroundColor Gray
 }
 
 Set-Location $RepoRoot
 
 # --------------------------------------------------
-# 接続 URL の案内生成
+# Access URL Information
 # --------------------------------------------------
 $computerName = $env:COMPUTERNAME
 $localIPs = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | `
@@ -165,94 +143,52 @@ $localIPs = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
 
 Write-Host ""
 Write-Host "==========================================================" -ForegroundColor Green
-Write-Host "   ビルド処理が正常に完了しました！                       " -ForegroundColor Green
+Write-Host "   Build completed successfully!                          " -ForegroundColor Green
 Write-Host "==========================================================" -ForegroundColor Green
-Write-Host "【LAN 内のスマートフォン・他端末からのアクセス先 URL】" -ForegroundColor Yellow
-Write-Host "  1. Wi-Fi ルーター名前解決 (推奨・mDNS):" -ForegroundColor Cyan
+Write-Host "LAN Access URLs for mobile and other devices:" -ForegroundColor Yellow
+Write-Host "  1. Hostname (mDNS):" -ForegroundColor Cyan
 Write-Host "     http://$($computerName.ToLower()).local:$FrontendPort" -ForegroundColor White
-Write-Host "  2. IP アドレス直接アクセス:" -ForegroundColor Cyan
+Write-Host "  2. Local IP addresses:" -ForegroundColor Cyan
 foreach ($ip in $localIPs) {
     Write-Host "     http://${ip}:$FrontendPort" -ForegroundColor White
 }
-Write-Host "----------------------------------------------------------" -ForegroundColor Gray
-Write-Host "※ 証明書 (HTTPS) は不要です。家庭内 Wi-Fi に接続したブラウザでアクセスしてください。" -ForegroundColor Gray
 Write-Host "==========================================================" -ForegroundColor Green
 Write-Host ""
 
 if ($NoLaunch) {
-    Write-Host "NoLaunch オプションが指定されたため、起動をスキップして終了します。" -ForegroundColor Yellow
+    Write-Host "NoLaunch flag is set. Exiting without starting servers." -ForegroundColor Yellow
     exit 0
 }
 
 # --------------------------------------------------
-# サービスの起動（別 Job で並列実行し、このウィンドウで両方のログを表示）
+# Launch Services
 # --------------------------------------------------
-Write-Host "Backend と Frontend を起動します..." -ForegroundColor Cyan
-Write-Host "（このウィンドウを閉じると両方のサービスが停止します）" -ForegroundColor Yellow
+Write-Host "Starting Backend and Frontend Preview..." -ForegroundColor Cyan
+Write-Host "Press Ctrl+C to stop both services." -ForegroundColor Yellow
 Write-Host ""
 
-if ($Mode -eq "Production") {
-    $backendJob = Start-Job -ScriptBlock {
-        param($jarPath)
-        java -jar $jarPath
-    } -ArgumentList $backendJarPath
-
-    $frontendJob = Start-Job -ScriptBlock {
-        param($frontendDir, $port)
-        Set-Location $frontendDir
-        npm run preview -- --host 0.0.0.0 --port $port
-    } -ArgumentList $FrontendDir, $FrontendPort
-} else {
-    $backendJob = Start-Job -ScriptBlock {
-        param($backendDir)
-        Set-Location $backendDir
-        .\gradlew.bat bootRun
-    } -ArgumentList $BackendDir
-
-    $frontendJob = Start-Job -ScriptBlock {
-        param($frontendDir, $port)
-        Set-Location $frontendDir
-        npm run dev -- --host 0.0.0.0 --port $port
-    } -ArgumentList $FrontendDir, $FrontendPort
-}
-
-Write-Host "[Backend ] Job ID: $($backendJob.Id)" -ForegroundColor Gray
-Write-Host "[Frontend] Job ID: $($frontendJob.Id)" -ForegroundColor Gray
-Write-Host ""
-Write-Host "ログをストリーミング中（Ctrl+C で停止）..." -ForegroundColor Cyan
-Write-Host "----------------------------------------------------------" -ForegroundColor Gray
+$backendProcess = $null
 
 try {
-    while ($true) {
-        $backendOutput  = Receive-Job -Job $backendJob  -ErrorAction SilentlyContinue
-        $frontendOutput = Receive-Job -Job $frontendJob -ErrorAction SilentlyContinue
-
-        foreach ($line in $backendOutput) {
-            Write-Host "[Backend ] $line" -ForegroundColor DarkGreen
-        }
-        foreach ($line in $frontendOutput) {
-            Write-Host "[Frontend] $line" -ForegroundColor DarkCyan
-        }
-
-        if ($backendJob.State -eq "Failed") {
-            Write-Host "[Backend ] ジョブが異常終了しました。" -ForegroundColor Red
-            Receive-Job -Job $backendJob -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "[Backend ] $_" -ForegroundColor Red }
-            break
-        }
-        if ($frontendJob.State -eq "Failed") {
-            Write-Host "[Frontend] ジョブが異常終了しました。" -ForegroundColor Red
-            Receive-Job -Job $frontendJob -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "[Frontend] $_" -ForegroundColor Red }
-            break
-        }
-
-        Start-Sleep -Milliseconds 500
+    # Check if backend port is already in use
+    $portActive = Get-NetTCPConnection -LocalPort $BackendPort -ErrorAction SilentlyContinue | Where-Object { $_.State -eq 'Listen' }
+    if ($portActive) {
+        Write-Host "Backend is already running on port $BackendPort. Skipping backend start." -ForegroundColor Yellow
+    } else {
+        Write-Host "Starting Backend on port $BackendPort..." -ForegroundColor Cyan
+        $backendProcess = Start-Process -FilePath "java" -ArgumentList "-jar", "`"$backendJarPath`"" -PassThru -NoNewWindow
+        Write-Host "Backend process started (PID: $($backendProcess.Id))." -ForegroundColor Green
     }
+
+    # Run frontend in preview mode (foreground)
+    Write-Host "Starting Frontend (npm run preview)..." -ForegroundColor Cyan
+    Set-Location $FrontendDir
+    npm run preview -- --host 0.0.0.0 --port $FrontendPort
 } finally {
-    Write-Host ""
-    Write-Host "サービスを停止しています..." -ForegroundColor Yellow
-    Stop-Job  -Job $backendJob  -ErrorAction SilentlyContinue
-    Stop-Job  -Job $frontendJob -ErrorAction SilentlyContinue
-    Remove-Job -Job $backendJob  -Force -ErrorAction SilentlyContinue
-    Remove-Job -Job $frontendJob -Force -ErrorAction SilentlyContinue
-    Write-Host "停止完了。" -ForegroundColor Green
+    Write-Host "`nStopping services..." -ForegroundColor Yellow
+    if ($backendProcess -and -not $backendProcess.HasExited) {
+        Write-Host "Stopping Backend (PID: $($backendProcess.Id))..." -ForegroundColor Yellow
+        Stop-Process -Id $backendProcess.Id -Force -ErrorAction SilentlyContinue
+    }
+    Write-Host "All services stopped." -ForegroundColor Green
 }
