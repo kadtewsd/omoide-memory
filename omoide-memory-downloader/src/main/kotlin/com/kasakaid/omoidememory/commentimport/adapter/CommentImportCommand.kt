@@ -1,9 +1,13 @@
 package com.kasakaid.omoidememory.commentimport.adapter
 
+import arrow.core.None
+import arrow.core.Option
+import arrow.core.some
 import com.kasakaid.omoidememory.APPLICATION_RUNNER_KEY
 import com.kasakaid.omoidememory.commentimport.domain.model.OmoideComment
 import com.kasakaid.omoidememory.commentimport.domain.model.OmoideCommentedDateFactory
 import com.kasakaid.omoidememory.commentimport.service.CommentImportService
+import com.kasakaid.omoidememory.commentimport.service.NoneExistenceContentName
 import com.kasakaid.omoidememory.domain.Extension
 import com.kasakaid.omoidememory.utility.MyUUIDGenerator
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -20,6 +24,7 @@ import reactor.core.publisher.Flux
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.UUID
+import kotlin.concurrent.atomics.AtomicArray
 
 @Component
 @ConditionalOnProperty(name = [APPLICATION_RUNNER_KEY], havingValue = "import-comments")
@@ -63,7 +68,14 @@ class CommentImportCommand(
                         // ここで新しいUUIDを「キー」に、行リストを「値」に変換
                         FileKey(fileName) to groupedLines
                     },
-            )
+            ).map {
+                Files.write(
+                    Path.of("./none_existence_files"),
+                    it.joinToString { "\n" }.toByteArray(),
+                    java.nio.file.StandardOpenOption.CREATE,
+                    java.nio.file.StandardOpenOption.TRUNCATE_EXISTING,
+                )
+            }
         }
         logger.info { "コメントインポート処理を終了しました" }
     }
@@ -75,8 +87,9 @@ class CommentImportCommand(
         val mediaType = Extension.of(name).mimeType
     }
 
-    private suspend fun importComment(groupedLines: Map<FileKey, Collection<String>>) {
-        groupedLines.entries.forEach { entry ->
+    private suspend fun importComment(groupedLines: Map<FileKey, Collection<String>>): Option<List<NoneExistenceContentName>> {
+        val fileNames = arrayOfNulls<Option<NoneExistenceContentName>>(groupedLines.size)
+        groupedLines.entries.forEachIndexed { index, entry ->
             val file = entry.key
             val fileLines = entry.value
             val comments =
@@ -119,12 +132,22 @@ class CommentImportCommand(
                         .concatMap { comment ->
                             mono {
                                 logger.info { "${comment.fileName}: ${comment.commenterName}" }
-                                commentImportService.importComment(comment)
+                                fileNames[index] = commentImportService.importComment(comment)
                             }
                         }.then(),
                 ).awaitFirstOrNull()
             }
         }
+        return fileNames
+            .mapNotNull {
+                it?.getOrNull()
+            }.let {
+                if (it.isNotEmpty()) {
+                    it.some()
+                } else {
+                    None
+                }
+            }
     }
 
     private fun parseCsvLine(line: String): List<String> {
