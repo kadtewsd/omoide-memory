@@ -2,15 +2,15 @@ package com.kasakaid.omoidememory.adapter
 
 import com.kasakaid.omoidememory.domain.model.FilePathFinder
 import com.kasakaid.omoidememory.service.query.CommentDto
-import com.kasakaid.omoidememory.service.query.MemoryFeedDto
-import com.kasakaid.omoidememory.service.query.MemoryWithCommentQueryService
-import com.kasakaid.omoidememory.service.query.OmoideMemoryQueryService
+import com.kasakaid.omoidememory.service.query.FeedCursor
+import com.kasakaid.omoidememory.service.query.FeedPageResponse
+import com.kasakaid.omoidememory.service.query.FilterMode
+import com.kasakaid.omoidememory.service.query.OmoideCondition
 import com.kasakaid.omoidememory.service.query.shared.MemoryCommentsQueryService
 import com.kasakaid.omoidememory.service.query.shared.MemoryContentsQueryService
 import com.kasakaid.omoidememory.service.query.shared.PhotoQueryService
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.reactive.awaitSingle
-import org.slf4j.LoggerFactory
 import org.springframework.format.annotation.DateTimeFormat
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
@@ -20,22 +20,15 @@ import java.nio.file.Files
 import java.time.OffsetDateTime
 import java.util.UUID
 
-enum class FilterMode {
-    COMMENT_ONLY,
-    ALL,
-}
-
 @RestController
 @CrossOrigin
 class MemorySharingController(
-    private val memoryWithCommentQueryService: MemoryWithCommentQueryService,
-    private val omoideMemoryQueryService: OmoideMemoryQueryService,
     private val memoryContentsQueryService: MemoryContentsQueryService,
     private val memoryCommentsQueryService: MemoryCommentsQueryService,
     private val photoQueryService: PhotoQueryService,
     private val filePathFinder: FilePathFinder,
 ) {
-    private val log = LoggerFactory.getLogger(MemorySharingController::class.java)
+    private val logger = KotlinLogging.logger {}
 
     @GetMapping("/feed")
     suspend fun getFeed(
@@ -45,16 +38,31 @@ class MemorySharingController(
         @RequestParam(required = false)
         @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
         endExclusive: OffsetDateTime?,
-        @RequestParam(defaultValue = "ALL") mode: FilterMode,
-    ): List<MemoryFeedDto> {
-        val items =
-            when (mode) {
-                FilterMode.COMMENT_ONLY -> memoryWithCommentQueryService.getFeed(startInclusive, endExclusive)
-                FilterMode.ALL -> omoideMemoryQueryService.getFeed(startInclusive, endExclusive)
+        @RequestParam(required = false)
+        @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+        cursorCaptureTime: OffsetDateTime?,
+        @RequestParam(required = false) cursorId: UUID?,
+        @RequestParam(required = false) mode: FilterMode?,
+        @RequestParam(required = false) limit: Int?,
+    ): FeedPageResponse {
+        val cursor =
+            if (cursorCaptureTime != null && cursorId != null) {
+                FeedCursor(captureTime = cursorCaptureTime, id = cursorId)
+            } else {
+                null
             }
-
-        log.info("[GET /feed Response] count=${items.size}")
-        return items
+        val condition =
+            OmoideCondition(
+                startInclusive = startInclusive,
+                endExclusive = endExclusive,
+                cursor = cursor,
+                filterMode = mode ?: FilterMode.ALL,
+            )
+        val pageSize = (limit ?: 25).coerceIn(1, 1000)
+        return memoryContentsQueryService.fetchFeedPage(
+            condition = condition,
+            limit = pageSize + 1,
+        )
     }
 
     @GetMapping("/content/{id}/image", produces = [MediaType.APPLICATION_OCTET_STREAM_VALUE])
@@ -62,17 +70,20 @@ class MemorySharingController(
         @PathVariable id: UUID,
     ): ResponseEntity<ByteArray> {
         val photos = photoQueryService.findPhotosByIds(listOf(id))
-        val photo = photos.firstOrNull()
-            ?: return ResponseEntity.notFound().build()
+        val photo =
+            photos.firstOrNull()
+                ?: return ResponseEntity.notFound().build()
 
-        val path = filePathFinder.findPath(photo.serverPath)
-            ?: return ResponseEntity.status(HttpStatus.NOT_FOUND).build()
+        val path =
+            filePathFinder.findPath(photo.serverPath)
+                ?: return ResponseEntity.status(HttpStatus.NOT_FOUND).build()
 
-        val bytes = try {
-            Files.readAllBytes(path)
-        } catch (_: Exception) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build()
-        }
+        val bytes =
+            try {
+                Files.readAllBytes(path)
+            } catch (_: Exception) {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build()
+            }
 
         val mimeType = Files.probeContentType(path) ?: "image/jpeg"
         return ResponseEntity
@@ -96,8 +107,6 @@ class MemorySharingController(
                 )
             }.collectList()
             .awaitSingle()
-
-    private val logger = KotlinLogging.logger {}
 
     @GetMapping("/contents-captured-ym")
     suspend fun getCapturedYearMonths(): List<OffsetDateTime> {

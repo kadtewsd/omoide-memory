@@ -39,6 +39,20 @@ export interface FetchFeedParams {
     startInclusive?: string;
     endExclusive?: string;
     mode?: FilterMode;
+    cursorCaptureTime?: string;
+    cursorId?: string;
+    limit?: number;
+}
+
+export interface FeedCursor {
+    captureTime: string;
+    id: string;
+}
+
+export interface FeedPageResponse {
+    items: MemoryFeedItem[];
+    nextCursor: FeedCursor | null;
+    hasNext: boolean;
 }
 
 /** `fetchRandomFillPhotos` のパラメータ */

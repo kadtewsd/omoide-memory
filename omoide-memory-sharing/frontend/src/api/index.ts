@@ -1,5 +1,5 @@
 /// <reference types="vite/client" />
-import { MemoryFeedItem, Comment, AlbumSummary, AlbumDetail, FetchFeedParams, FetchRandomFillPhotosParams } from '../types';
+import { MemoryFeedItem, Comment, AlbumSummary, AlbumDetail, FetchFeedParams, FetchRandomFillPhotosParams, FeedPageResponse } from '../types';
 
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
@@ -8,12 +8,18 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 export const fetchFeed = async ({
     startInclusive,
     endExclusive,
-    mode = 'COMMENT_ONLY',
-}: FetchFeedParams = {}): Promise<MemoryFeedItem[]> => {
+    mode,
+    cursorCaptureTime,
+    cursorId,
+    limit,
+}: FetchFeedParams): Promise<FeedPageResponse> => {
     const url = new URL('/feed', API_BASE_URL);
     if (startInclusive) url.searchParams.append('startInclusive', startInclusive);
     if (endExclusive) url.searchParams.append('endExclusive', endExclusive);
-    url.searchParams.append('mode', mode);
+    if (mode) url.searchParams.append('mode', mode);
+    if (cursorCaptureTime) url.searchParams.append('cursorCaptureTime', cursorCaptureTime);
+    if (cursorId) url.searchParams.append('cursorId', cursorId);
+    if (limit) url.searchParams.append('limit', String(limit));
 
     const response = await fetch(url.toString());
     if (!response.ok) throw new Error('Failed to fetch feed');
