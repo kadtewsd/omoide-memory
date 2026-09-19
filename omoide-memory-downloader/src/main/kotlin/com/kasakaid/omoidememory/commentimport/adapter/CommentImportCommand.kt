@@ -76,10 +76,10 @@ class CommentImportCommand(
     }
 
     private suspend fun importComment(groupedLines: Map<FileKey, Collection<String>>) {
-        groupedLines.entries
-            .flatMap { entry ->
-                val file = entry.key
-                val fileLines = entry.value
+        groupedLines.entries.forEach { entry ->
+            val file = entry.key
+            val fileLines = entry.value
+            val comments =
                 fileLines.mapNotNull { line ->
                     val parts = parseCsvLine(line)
                     if (parts.size >= 3) {
@@ -108,8 +108,12 @@ class CommentImportCommand(
                         null
                     }
                 }
-            }.let { comments ->
-                transactionalOperator.executeAndAwait {
+
+            transactionalOperator.executeAndAwait {
+                mono {
+                    logger.info { "${file.name}: 既存コメントを削除して再取り込みします" }
+                    commentImportService.deleteByFileName(file.name)
+                }.then(
                     Flux
                         .fromIterable(comments)
                         .concatMap { comment ->
@@ -117,10 +121,10 @@ class CommentImportCommand(
                                 logger.info { "${comment.fileName}: ${comment.commenterName}" }
                                 commentImportService.importComment(comment)
                             }
-                        }.then()
-                        .awaitFirstOrNull()
-                }
+                        }.then(),
+                ).awaitFirstOrNull()
             }
+        }
     }
 
     private fun parseCsvLine(line: String): List<String> {
