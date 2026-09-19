@@ -50,16 +50,10 @@ class JooqCommentRepository(
         }
     }
 
-    override suspend fun exists(omoideComment: OmoideComment): Boolean =
-        COMMENT_OMOIDE.run {
-            return (
-                dslContext
-                    .selectCount()
-                    .from(this)
-                    .where(FILE_NAME.eq(omoideComment.fileName))
-                    .and(COMMENT_BODY.eq(omoideComment.commentBody))
-                    .awaitFirstOrNull()
-                    ?.value1() ?: 0
-            ) > 0
-        }
+    override suspend fun deleteByFileName(fileName: String) {
+        dslContext
+            .deleteFrom(COMMENT_OMOIDE)
+            .where(COMMENT_OMOIDE.FILE_NAME.eq(fileName))
+            .awaitFirstOrNull()
+    }
 }
