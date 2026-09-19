@@ -84,7 +84,7 @@ class MemorySharingController(
         )
     }
 
-    @GetMapping("/content/{id}/image", produces = [MediaType.APPLICATION_OCTET_STREAM_VALUE])
+    @GetMapping("/content/{id}/image")
     suspend fun getImage(
         @PathVariable id: UUID,
     ): ResponseEntity<ByteArray> {

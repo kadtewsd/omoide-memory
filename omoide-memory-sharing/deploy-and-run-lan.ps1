@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     One-stop build and run script for omoide-memory-sharing on LAN.
 
@@ -94,16 +94,18 @@ if (-not $SkipFirewall) {
 # --------------------------------------------------
 Write-Host "`n[2/3] Preparing Backend (Spring Boot)..." -ForegroundColor Cyan
 $buildJarDir = Join-Path $BackendDir "build\libs"
-$jarFile = Get-ChildItem -Path $buildJarDir -Filter "*.jar" -ErrorAction SilentlyContinue | Where-Object { $_.Name -notlike "*-plain.jar" } | Select-Object -First 1
 
-if (-not $jarFile) {
-    if (-not $SkipBuild) {
-        Write-Host "  Backend JAR not found. Building Backend with gradlew..." -ForegroundColor Gray
-        Set-Location $BackendDir
+if (-not $SkipBuild) {
+    Write-Host "  Building Backend with gradlew..." -ForegroundColor Gray
+    Set-Location $BackendDir
+    if (Test-Path ".\gradlew.bat") {
         .\gradlew.bat build -x test
-        $jarFile = Get-ChildItem -Path $buildJarDir -Filter "*.jar" -ErrorAction SilentlyContinue | Where-Object { $_.Name -notlike "*-plain.jar" } | Select-Object -First 1
+    } else {
+        sh gradlew build -x test
     }
 }
+
+$jarFile = Get-ChildItem -Path $buildJarDir -Filter "*.jar" -ErrorAction SilentlyContinue | Where-Object { $_.Name -notlike "*-plain.jar" } | Select-Object -First 1
 
 if (-not $jarFile) {
     Write-Error "Backend JAR file not found in $buildJarDir"
@@ -173,12 +175,13 @@ try {
     # Check if backend port is already in use
     $portActive = Get-NetTCPConnection -LocalPort $BackendPort -ErrorAction SilentlyContinue | Where-Object { $_.State -eq 'Listen' }
     if ($portActive) {
-        Write-Host "Backend is already running on port $BackendPort. Skipping backend start." -ForegroundColor Yellow
-    } else {
-        Write-Host "Starting Backend on port $BackendPort..." -ForegroundColor Cyan
-        $backendProcess = Start-Process -FilePath "java" -ArgumentList "-jar", "`"$backendJarPath`"" -PassThru -NoNewWindow
-        Write-Host "Backend process started (PID: $($backendProcess.Id))." -ForegroundColor Green
+        Write-Host "Terminating existing process on port $BackendPort (PID: $($portActive.OwningProcess))..." -ForegroundColor Yellow
+        Stop-Process -Id $portActive.OwningProcess -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 2
     }
+    Write-Host "Starting Backend on port $BackendPort..." -ForegroundColor Cyan
+    $backendProcess = Start-Process -FilePath "java" -ArgumentList "-jar", "`"$backendJarPath`"" -PassThru -NoNewWindow
+    Write-Host "Backend process started (PID: $($backendProcess.Id))." -ForegroundColor Green
 
     # Run frontend in preview mode (foreground)
     Write-Host "Starting Frontend (npm run preview)..." -ForegroundColor Cyan

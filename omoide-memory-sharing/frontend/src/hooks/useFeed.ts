@@ -103,9 +103,10 @@ export function useFeed(): UseFeedResult {
         try {
             const { startInclusive, endExclusive } = getYearMonthRangeIso(ym);
             const res = await fetchFeed({ startInclusive, endExclusive, mode, limit: 25 });
-            setItems(res.items);
-            setNextCursor(res.nextCursor);
-            setHasNext(res.hasNext);
+            const feedItems = Array.isArray(res) ? res : (res?.items ?? []);
+            setItems(feedItems);
+            setNextCursor(Array.isArray(res) ? null : (res?.nextCursor ?? null));
+            setHasNext(Array.isArray(res) ? false : (res?.hasNext ?? false));
         } catch (err) {
             console.error('データの取得に失敗しました:', err);
             setItems([]);
@@ -127,9 +128,10 @@ export function useFeed(): UseFeedResult {
                 cursorId: nextCursor.id,
                 limit: 25,
             });
-            setItems(prev => [...prev, ...res.items]);
-            setNextCursor(res.nextCursor);
-            setHasNext(res.hasNext);
+            const feedItems = Array.isArray(res) ? res : (res?.items ?? []);
+            setItems(prev => [...prev, ...feedItems]);
+            setNextCursor(Array.isArray(res) ? null : (res?.nextCursor ?? null));
+            setHasNext(Array.isArray(res) ? false : (res?.hasNext ?? false));
         } catch (err) {
             console.error('追加データの取得に失敗しました:', err);
         } finally {
