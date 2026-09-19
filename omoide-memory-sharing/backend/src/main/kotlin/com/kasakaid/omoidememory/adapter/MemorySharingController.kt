@@ -125,15 +125,18 @@ class MemorySharingController(
         @PathVariable id: java.util.UUID,
     ): List<CommentDto> =
         memoryCommentsQueryService
-            .getComments(id) { commentPojo, commenterName, commenterIconBase64 ->
-                CommentDto(
-                    id = commentPojo.id,
-                    commenterName = commenterName,
-                    commenterIconBase64 = commenterIconBase64,
-                    commentBody = commentPojo.commentBody ?: "",
-                    commentedAt = commentPojo.commentedAt ?: OffsetDateTime.now(),
-                )
-            }.collectList()
+            .getComments(
+                contentId = id,
+                mapper = { commentPojo, commenterName, commenterIconBase64 ->
+                    CommentDto(
+                        id = commentPojo.id,
+                        commenterName = commenterName,
+                        commenterIconBase64 = commenterIconBase64,
+                        commentBody = commentPojo.commentBody ?: "",
+                        commentedAt = commentPojo.commentedAt ?: OffsetDateTime.now(),
+                    )
+                },
+            ).collectList()
             .awaitSingle()
 
     @GetMapping("/contents-captured-ym")

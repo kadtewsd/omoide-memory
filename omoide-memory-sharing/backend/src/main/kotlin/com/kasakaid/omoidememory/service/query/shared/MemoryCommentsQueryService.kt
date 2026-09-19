@@ -3,6 +3,8 @@ package com.kasakaid.omoidememory.service.query.shared
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.pojos.CommentOmoide
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.COMMENTER
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.COMMENT_OMOIDE
+import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_PHOTO
+import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_VIDEO
 import org.jooq.DSLContext
 import org.jooq.DatePart
 import org.jooq.Record
@@ -18,10 +20,22 @@ class MemoryCommentsQueryService(
     private val dslContext: DSLContext,
 ) {
     suspend fun <T : Any> getComments(
-        feedId: UUID,
+        contentId: UUID,
         mapper: (CommentOmoide, commenterName: String, commenterIconBase64: String?) -> T,
-    ): Flux<T> =
-        Flux
+    ): Flux<T> {
+        val mediaFileNameQuery =
+            DSL
+                .select(SYNCED_OMOIDE_PHOTO.FILE_NAME)
+                .from(SYNCED_OMOIDE_PHOTO)
+                .where(SYNCED_OMOIDE_PHOTO.ID.eq(contentId))
+                .unionAll(
+                    DSL
+                        .select(SYNCED_OMOIDE_VIDEO.FILE_NAME)
+                        .from(SYNCED_OMOIDE_VIDEO)
+                        .where(SYNCED_OMOIDE_VIDEO.ID.eq(contentId)),
+                )
+
+        return Flux
             .from(
                 dslContext
                     .select(
@@ -31,14 +45,18 @@ class MemoryCommentsQueryService(
                     ).from(COMMENT_OMOIDE)
                     .leftJoin(COMMENTER)
                     .on(COMMENT_OMOIDE.COMMENTER_ID.eq(COMMENTER.ID))
-                    .where(COMMENT_OMOIDE.FEED_ID.eq(feedId))
-                    .orderBy(COMMENT_OMOIDE.COMMENTED_AT.asc()),
+                    .where(
+                        COMMENT_OMOIDE.FILE_NAME
+                            .`in`(mediaFileNameQuery)
+                            .or(COMMENT_OMOIDE.FEED_ID.eq(contentId)),
+                    ).orderBy(COMMENT_OMOIDE.COMMENTED_AT.asc()),
             ).map { record: Record ->
                 val commentPojo = record.into(CommentOmoide::class.java)
                 val commenterName = record.get(COMMENTER.NAME, String::class.java) ?: ""
                 val commenterIcon = record.get(COMMENTER.ICON, String::class.java)
                 mapper(commentPojo, commenterName, commenterIcon)
             }
+    }
 
     fun getCommentCreatedYearMonths(): Mono<List<OffsetDateTime>> {
         val commentedAtYearMonthField = DSL.trunc(COMMENT_OMOIDE.COMMENTED_AT, DatePart.MONTH)
