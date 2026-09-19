@@ -5,8 +5,6 @@ export interface MemoryFeedItem {
     type: 'PHOTO' | 'VIDEO' | null;
     commentedAt: string; // ISO 8601 string from OffsetDateTime
     captureTime?: string | null;
-    thumbnailBase64?: string | null;
-    thumbnailMimeType?: string | null;
     commentCount?: number;
 }
 

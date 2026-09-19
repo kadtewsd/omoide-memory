@@ -9,6 +9,7 @@ import com.kasakaid.omoidememory.service.query.OmoideCondition
 import com.kasakaid.omoidememory.service.query.shared.MemoryCommentsQueryService
 import com.kasakaid.omoidememory.service.query.shared.MemoryContentsQueryService
 import com.kasakaid.omoidememory.service.query.shared.PhotoQueryService
+import com.kasakaid.omoidememory.service.query.shared.VideoQueryService
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.reactive.awaitSingle
 import org.springframework.format.annotation.DateTimeFormat
@@ -26,6 +27,7 @@ class MemorySharingController(
     private val memoryContentsQueryService: MemoryContentsQueryService,
     private val memoryCommentsQueryService: MemoryCommentsQueryService,
     private val photoQueryService: PhotoQueryService,
+    private val videoQueryService: VideoQueryService,
     private val filePathFinder: FilePathFinder,
 ) {
     private val logger = KotlinLogging.logger {}
@@ -51,10 +53,27 @@ class MemorySharingController(
             } else {
                 null
             }
+
+        val (resolvedStart, resolvedEnd) =
+            if (cursor == null && (startInclusive == null || endExclusive == null)) {
+                val latestYearMonth =
+                    memoryContentsQueryService.getCapturedYearMonths().firstOrNull()
+                        ?: OffsetDateTime.now()
+                val monthStart =
+                    latestYearMonth
+                        .withDayOfMonth(1)
+                        .toLocalDate()
+                        .atStartOfDay(latestYearMonth.offset)
+                        .toOffsetDateTime()
+                monthStart to monthStart.plusMonths(1)
+            } else {
+                startInclusive to endExclusive
+            }
+
         val condition =
             OmoideCondition(
-                startInclusive = startInclusive,
-                endExclusive = endExclusive,
+                startInclusive = resolvedStart,
+                endExclusive = resolvedEnd,
                 cursor = cursor,
                 filterMode = mode ?: FilterMode.ALL,
             )
@@ -70,26 +89,35 @@ class MemorySharingController(
         @PathVariable id: UUID,
     ): ResponseEntity<ByteArray> {
         val photos = photoQueryService.findPhotosByIds(listOf(id))
-        val photo =
-            photos.firstOrNull()
-                ?: return ResponseEntity.notFound().build()
+        val photo = photos.firstOrNull()
+        if (photo != null) {
+            val path =
+                filePathFinder.findPath(photo.serverPath)
+                    ?: return ResponseEntity.status(HttpStatus.NOT_FOUND).build()
 
-        val path =
-            filePathFinder.findPath(photo.serverPath)
-                ?: return ResponseEntity.status(HttpStatus.NOT_FOUND).build()
+            val bytes =
+                try {
+                    Files.readAllBytes(path)
+                } catch (_: Exception) {
+                    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build()
+                }
 
-        val bytes =
-            try {
-                Files.readAllBytes(path)
-            } catch (_: Exception) {
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build()
-            }
+            val mimeType = Files.probeContentType(path) ?: "image/jpeg"
+            return ResponseEntity
+                .ok()
+                .contentType(MediaType.parseMediaType(mimeType))
+                .body(bytes)
+        }
 
-        val mimeType = Files.probeContentType(path) ?: "image/jpeg"
-        return ResponseEntity
-            .ok()
-            .contentType(MediaType.parseMediaType(mimeType))
-            .body(bytes)
+        val videoThumbnail = videoQueryService.findThumbnailById(id)
+        if (videoThumbnail != null) {
+            return ResponseEntity
+                .ok()
+                .contentType(MediaType.parseMediaType(videoThumbnail.mimeType))
+                .body(videoThumbnail.bytes)
+        }
+
+        return ResponseEntity.notFound().build()
     }
 
     @GetMapping("/content/{id}/comments")

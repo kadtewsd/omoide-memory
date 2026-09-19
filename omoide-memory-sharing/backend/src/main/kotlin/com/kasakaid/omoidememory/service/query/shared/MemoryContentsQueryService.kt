@@ -11,7 +11,6 @@ import com.kasakaid.omoidememory.service.query.FeedPageResponse
 import com.kasakaid.omoidememory.service.query.FilterMode
 import com.kasakaid.omoidememory.service.query.MemoryFeedDto
 import com.kasakaid.omoidememory.service.query.OmoideCondition
-import com.kasakaid.omoidememory.service.query.toDataUriBase64
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.map
@@ -188,8 +187,6 @@ fun DSLContext.createUnionQuery(
             omoideMemory.type,
             omoideMemory.fileName,
             omoideMemory.captureTime,
-            omoideMemory.thumbnailImage,
-            omoideMemory.thumbnailMimeType,
         ),
     ).from(omoideMemory.table)
         .where(
@@ -217,17 +214,6 @@ class OmoideUnionRecordList(
                 type = record.get("type", String::class.java),
                 commentedAt = record.get(SYNCED_OMOIDE_PHOTO.CAPTURE_TIME) ?: OffsetDateTime.now(),
                 captureTime = record.get(SYNCED_OMOIDE_PHOTO.CAPTURE_TIME),
-                thumbnailBase64 =
-                    if (record.get("type", String::class.java) == "VIDEO") {
-                        record.get(SYNCED_OMOIDE_VIDEO.THUMBNAIL_IMAGE)?.toDataUriBase64(
-                            record.get(
-                                SYNCED_OMOIDE_VIDEO.THUMBNAIL_MIME_TYPE,
-                            ) ?: "image/jpeg",
-                        )
-                    } else {
-                        null
-                    },
-                thumbnailMimeType = record.get(SYNCED_OMOIDE_VIDEO.THUMBNAIL_MIME_TYPE),
                 commentCount = commentCounts[record.get(SYNCED_OMOIDE_PHOTO.FILE_NAME) ?: ""] ?: 0,
             )
         }

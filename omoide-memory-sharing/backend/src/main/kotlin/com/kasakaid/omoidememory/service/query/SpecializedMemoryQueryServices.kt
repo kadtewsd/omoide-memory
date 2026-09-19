@@ -12,7 +12,6 @@ import org.jooq.impl.DSL
 import org.springframework.stereotype.Component
 import org.springframework.stereotype.Service
 import java.time.OffsetDateTime
-import java.util.Base64
 
 @Service
 class MemoryWithCommentQueryService(
@@ -126,8 +125,6 @@ class MemoryFeedDtoConverter {
                     type = null,
                     commentedAt = commentList.mapNotNull { it.commentedAt }.minOrNull() ?: OffsetDateTime.now(),
                     captureTime = null,
-                    thumbnailBase64 = null,
-                    thumbnailMimeType = null,
                     commentCount = commentList.size,
                 )
             }
@@ -147,8 +144,6 @@ class MemoryFeedDtoConverter {
             type = "PHOTO",
             commentedAt = comments.mapNotNull { it.commentedAt }.minOrNull() ?: photo.captureTime ?: OffsetDateTime.now(),
             captureTime = photo.captureTime,
-            thumbnailBase64 = null,
-            thumbnailMimeType = null,
             commentCount = comments.size,
         )
 
@@ -156,19 +151,13 @@ class MemoryFeedDtoConverter {
         video: SyncedOmoideVideo,
         comments: List<CommentOmoide>,
     ): MemoryFeedDto {
-        val thumbnailMimeType = video.thumbnailMimeType ?: "image/jpeg"
         val commentedAt = comments.mapNotNull { it.commentedAt }.minOrNull() ?: video.captureTime ?: OffsetDateTime.now()
-
-        val thumbnailBase64 =
-            video.thumbnailImage?.toDataUriBase64(thumbnailMimeType)
 
         return MemoryFeedDto(
             id = video.id,
             type = "VIDEO",
             commentedAt = commentedAt,
             captureTime = video.captureTime,
-            thumbnailBase64 = thumbnailBase64,
-            thumbnailMimeType = thumbnailMimeType,
             commentCount = comments.size,
         )
     }

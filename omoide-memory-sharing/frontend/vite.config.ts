@@ -34,5 +34,8 @@ export default defineConfig(({ mode }) => {
       allowedHosts,
       proxy: proxyConfig,
     },
+    build: {
+      sourcemap: true,
+    },
   }
 })
