@@ -4,8 +4,8 @@ import arrow.core.None
 import arrow.core.Option
 import arrow.core.some
 import com.kasakaid.omoidememory.APPLICATION_RUNNER_KEY
-import com.kasakaid.omoidememory.commentimport.domain.model.FileLine
 import com.kasakaid.omoidememory.commentimport.domain.model.FileName
+import com.kasakaid.omoidememory.commentimport.domain.model.OmoideComment
 import com.kasakaid.omoidememory.commentimport.service.CommentImportService
 import com.kasakaid.omoidememory.commentimport.service.NoneExistenceContentName
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -56,16 +56,28 @@ class CommentImportCommand(
 
         // ID の付与を読み込み順で行いたいので順列で処理していく
         runBlocking {
-            importComment(
+            val parsed =
                 lines
-                    .map {
-                        FileLine(it)
-                    }.filterIndexed { index, line ->
+                    .filterIndexed { index, line ->
                         // ヘッダー行の除去
-                        !(index == 0 && line.line.startsWith("コンテンツ")) && line.line.isNotBlank()
-                    }.groupBy { line ->
-                        line.fileName
-                    },
+                        !(index == 0 && line.startsWith("コンテンツ")) && line.isNotBlank()
+                    }.map {
+                        OmoideComment.parse(it)
+                    }
+            // エラーと成功に分解。orNull と mapNotNull でどっちかにわかれるだろうということ。!! をつかってもいいが、心理的にやだ、というあほらしい理由でこれにしている... 果たしてそこまで頑張る意味があるのだろうか？と思わせるコード
+            val (errors, omoideComment) =
+                parsed.partition { it.isLeft() }.let { (l, r) ->
+                    l.mapNotNull { it.leftOrNull() } to
+                        r.mapNotNull { it.getOrNull() }
+                }
+            if (errors.isNotEmpty()) {
+                val message = errors.joinToString("\n") { error -> error.message }
+                throw IllegalStateException(message)
+            }
+            importComment(
+                omoideComment.groupBy { line ->
+                    line.fileName
+                },
             ).map {
                 Files.write(
                     Path.of(commentDuplicationPath),
@@ -78,14 +90,14 @@ class CommentImportCommand(
         logger.info { "コメントインポート処理を終了しました" }
     }
 
-    private suspend fun importComment(groupedLines: Map<FileName, Collection<FileLine>>): Option<List<NoneExistenceContentName>> {
+    private suspend fun importComment(groupedLines: Map<FileName, Collection<OmoideComment>>): Option<List<NoneExistenceContentName>> {
         val fileNames = arrayOfNulls<Option<NoneExistenceContentName>>(groupedLines.size)
         groupedLines.entries.forEachIndexed { index, entry ->
             transactionalOperator.executeAndAwait {
                 fileNames[index] =
                     commentImportService.importComment(
                         fileName = entry.key,
-                        fileLines = entry.value,
+                        omoideComments = entry.value,
                     )
             }
         }
