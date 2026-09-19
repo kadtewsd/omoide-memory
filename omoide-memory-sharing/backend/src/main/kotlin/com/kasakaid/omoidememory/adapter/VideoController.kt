@@ -38,7 +38,7 @@ class VideoController(
             ?: throw NotFoundException("Video file not found for path: ${record.serverPath}")
     }
 
-    @GetMapping("/video/{id}/thumbnail", produces = [MediaType.APPLICATION_OCTET_STREAM_VALUE])
+    @GetMapping("/video/{id}/thumbnail")
     suspend fun getVideoThumbnail(
         @PathVariable id: UUID,
     ): ResponseEntity<ByteArray> {

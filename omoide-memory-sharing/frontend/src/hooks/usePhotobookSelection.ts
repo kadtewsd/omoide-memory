@@ -211,7 +211,8 @@ export function usePhotobookPhotos(period: PhotobookPeriod) {
             try {
                 // バックエンドの FilterMode は PHOTOBOOK を持たないため ALL として送信する
                 const fetched = await fetchFeed({ startInclusive, endExclusive, mode: 'ALL', limit: 1000 });
-                setPhotos(fetched.items.filter(item => item.type === 'PHOTO'));
+                const feedItems = Array.isArray(fetched) ? fetched : (fetched?.items ?? []);
+                setPhotos(feedItems.filter(item => item.type === 'PHOTO'));
             } catch (err) {
                 console.error('写真の取得に失敗しました:', err);
                 setPhotos([]);
