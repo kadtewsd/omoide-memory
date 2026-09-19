@@ -169,10 +169,26 @@ fun DSLContext.createUnionQuery(
     val commentCondition =
         when (condition.filterMode) {
             FilterMode.COMMENT_ONLY -> {
+                val commentDateCondition =
+                    when {
+                        condition.startInclusive != null && condition.endExclusive != null -> {
+                            COMMENT_OMOIDE.COMMENTED_AT
+                                .ge(condition.startInclusive)
+                                .and(COMMENT_OMOIDE.COMMENTED_AT.lt(condition.endExclusive))
+                        }
+
+                        else -> {
+                            DSL.noCondition()
+                        }
+                    }
                 DSL.exists(
                     selectOne()
                         .from(COMMENT_OMOIDE)
-                        .where(COMMENT_OMOIDE.FILE_NAME.eq(omoideMemory.fileName)),
+                        .where(
+                            COMMENT_OMOIDE.FILE_NAME
+                                .eq(omoideMemory.fileName)
+                                .and(commentDateCondition),
+                        ),
                 )
             }
 
