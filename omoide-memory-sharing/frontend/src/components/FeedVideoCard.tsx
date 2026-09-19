@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { MemoryFeedItem } from '../types';
 import { ContentNotFound } from './ContentNotFound';
+import { getVideoThumbnailUrl } from '../api';
 
 interface Props {
     item: MemoryFeedItem;
@@ -7,15 +9,21 @@ interface Props {
 }
 
 export function FeedVideoCard({ item, onClick }: Props) {
-    const imgSrc = item.thumbnailBase64 || null;
+    const [hasError, setHasError] = useState(false);
 
     return (
         <div
             className="group relative rounded-2xl overflow-hidden cursor-pointer bg-gray-100 transition-transform active:scale-95 aspect-square"
             onClick={onClick}
         >
-            {imgSrc ? (
-                <img src={imgSrc} alt="" className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-500" loading="lazy" />
+            {item.id && !hasError ? (
+                <img
+                    src={getVideoThumbnailUrl(item.id)}
+                    alt=""
+                    className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-500"
+                    loading="lazy"
+                    onError={() => setHasError(true)}
+                />
             ) : (
                 <ContentNotFound />
             )}

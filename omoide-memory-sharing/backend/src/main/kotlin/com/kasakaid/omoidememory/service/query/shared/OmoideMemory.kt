@@ -7,7 +7,6 @@ import com.kasakaid.omoidememory.jooq.omoide_memory.tables.SyncedOmoideVideo.Com
 import org.jooq.Field
 import org.jooq.Table
 import org.jooq.impl.DSL
-import org.jooq.impl.SQLDataType
 import java.time.OffsetDateTime
 import java.util.UUID
 
@@ -17,8 +16,6 @@ interface OmoideMemory {
     val type: Field<String>
     val fileName: Field<String?>
     val captureTime: Field<OffsetDateTime?>
-    val thumbnailImage: Field<ByteArray?>
-    val thumbnailMimeType: Field<String?>
 }
 
 class SyncedOmoideMemoryPhoto : OmoideMemory {
@@ -28,8 +25,6 @@ class SyncedOmoideMemoryPhoto : OmoideMemory {
     override val type: Field<String> = DSL.inline("PHOTO").`as`("type")
     override val fileName: Field<String?> = targetTable.FILE_NAME
     override val captureTime: Field<OffsetDateTime?> = targetTable.CAPTURE_TIME
-    override val thumbnailImage: Field<ByteArray?> = DSL.castNull(SQLDataType.BLOB).`as`(SYNCED_OMOIDE_VIDEO.THUMBNAIL_IMAGE)
-    override val thumbnailMimeType: Field<String?> = DSL.castNull(SQLDataType.VARCHAR).`as`(SYNCED_OMOIDE_VIDEO.THUMBNAIL_MIME_TYPE)
 }
 
 class SyncedOmoideMemoryVideo : OmoideMemory {
@@ -39,6 +34,4 @@ class SyncedOmoideMemoryVideo : OmoideMemory {
     override val type: Field<String> = DSL.inline("VIDEO").`as`("type")
     override val fileName: Field<String?> = targetTable.FILE_NAME
     override val captureTime: Field<OffsetDateTime?> = targetTable.CAPTURE_TIME
-    override val thumbnailImage: Field<ByteArray?> = targetTable.THUMBNAIL_IMAGE
-    override val thumbnailMimeType: Field<String?> = targetTable.THUMBNAIL_MIME_TYPE
 }

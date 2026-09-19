@@ -102,7 +102,7 @@ export function useFeed(): UseFeedResult {
         setHasNext(false);
         try {
             const { startInclusive, endExclusive } = getYearMonthRangeIso(ym);
-            const res = await fetchFeed({ startInclusive, endExclusive, mode });
+            const res = await fetchFeed({ startInclusive, endExclusive, mode, limit: 25 });
             setItems(res.items);
             setNextCursor(res.nextCursor);
             setHasNext(res.hasNext);
@@ -125,6 +125,7 @@ export function useFeed(): UseFeedResult {
                 mode: filterMode,
                 cursorCaptureTime: nextCursor.captureTime,
                 cursorId: nextCursor.id,
+                limit: 25,
             });
             setItems(prev => [...prev, ...res.items]);
             setNextCursor(res.nextCursor);

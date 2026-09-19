@@ -8,8 +8,6 @@ class MemoryFeedDto(
     val type: String?,
     val commentedAt: OffsetDateTime,
     val captureTime: OffsetDateTime?,
-    val thumbnailBase64: String?,
-    val thumbnailMimeType: String?,
     val commentCount: Int,
 )
 

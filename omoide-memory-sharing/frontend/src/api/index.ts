@@ -53,6 +53,10 @@ export const getVideoStreamUrl = (id: string): string => {
     return `${API_BASE_URL}/video/${id}/stream`;
 };
 
+export const getVideoThumbnailUrl = (id: string): string => {
+    return `${API_BASE_URL}/video/${id}/thumbnail`;
+};
+
 export const getImageUrl = (id: string): string => {
     return `${API_BASE_URL}/content/${id}/image`;
 };

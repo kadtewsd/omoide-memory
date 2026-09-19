@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { MemoryFeedItem } from '../types';
 import { ContentNotFound } from './ContentNotFound';
 import { getImageUrl } from '../api';
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export function FeedPhotoCard({ item, isSelected = false, onToggleSelect, onClick }: Props) {
+    const [hasError, setHasError] = useState(false);
     return (
         <div
             className={`group relative rounded-2xl overflow-hidden cursor-pointer bg-gray-100 transition-transform active:scale-95 aspect-square ${
@@ -42,12 +44,13 @@ export function FeedPhotoCard({ item, isSelected = false, onToggleSelect, onClic
                 </button>
             )}
 
-            {item.id ? (
+            {item.id && !hasError ? (
                 <img
                     src={getImageUrl(item.id)}
                     alt="Memory"
                     className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-500"
                     loading="lazy"
+                    onError={() => setHasError(true)}
                 />
             ) : (
                 <ContentNotFound />

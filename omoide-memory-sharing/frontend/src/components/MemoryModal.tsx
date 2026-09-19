@@ -2,7 +2,7 @@ import { MemoryFeedItem, Comment } from '../types';
 import { CommentPanel } from './CommentPanel';
 import { ContentNotFound } from './ContentNotFound';
 import { VideoPlayer } from './VideoPlayer';
-import { getImageUrl } from '../api';
+import { getImageUrl, getVideoThumbnailUrl } from '../api';
 
 interface Props {
     selectedItem: MemoryFeedItem | null;
@@ -42,7 +42,7 @@ export function MemoryModal({ selectedItem, comments, commentsLoading, onClose }
                     {selectedItem.type === 'VIDEO' && selectedItem.id ? (
                         <VideoPlayer
                             videoId={selectedItem.id}
-                            poster={selectedItem.thumbnailBase64}
+                            poster={getVideoThumbnailUrl(selectedItem.id)}
                         />
                     ) : selectedItem.type === 'PHOTO' && selectedItem.id ? (
                         <img
