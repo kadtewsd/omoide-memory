@@ -160,9 +160,7 @@ class MemoryFeedDtoConverter {
         val commentedAt = comments.mapNotNull { it.commentedAt }.minOrNull() ?: video.captureTime ?: OffsetDateTime.now()
 
         val thumbnailBase64 =
-            video.thumbnailImage?.let { bytes ->
-                "data:$thumbnailMimeType;base64,${Base64.getEncoder().encodeToString(bytes)}"
-            }
+            video.thumbnailImage?.toDataUriBase64(thumbnailMimeType)
 
         return MemoryFeedDto(
             id = video.id,

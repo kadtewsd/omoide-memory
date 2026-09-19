@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { fetchFeed, fetchCapturedYearMonths, fetchCommentCreatedYearMonths } from '../api';
-import { MemoryFeedItem, FilterMode } from '../types';
+import { FeedCursor, FilterMode, MemoryFeedItem } from '../types';
 
 export function getCurrentYearMonth(): string {
     const now = new Date();
@@ -38,12 +38,29 @@ export function isoToJstYearMonth(isoStr: string): string {
     return `${year}-${month}`;
 }
 
-export function useFeed() {
+export interface UseFeedResult {
+    items: MemoryFeedItem[];
+    hasNext: boolean;
+    loadingInitial: boolean;
+    loadingMore: boolean;
+    loadMore: () => Promise<void>;
+    filterMode: FilterMode;
+    currentYearMonth: string;
+    monthTabs: string[];
+    selectMonthTab: (ym: string) => void;
+    changeFilterMode: (mode: FilterMode) => void;
+}
+
+export function useFeed(): UseFeedResult {
     const [filterMode, setFilterMode] = useState<FilterMode>('ALL');
     const [currentYearMonth, setCurrentYearMonth] = useState<string>('');
     const [monthTabs, setMonthTabs] = useState<string[]>([]);
+
     const [items, setItems] = useState<MemoryFeedItem[]>([]);
-    const [loading, setLoading] = useState(false);
+    const [nextCursor, setNextCursor] = useState<FeedCursor | null>(null);
+    const [hasNext, setHasNext] = useState(false);
+    const [loadingInitial, setLoadingInitial] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
 
     useEffect(() => {
         const initYearMonths = async () => {
@@ -77,26 +94,53 @@ export function useFeed() {
         initYearMonths();
     }, [filterMode]);
 
-    const loadMonthData = useCallback(async (ym: string, mode: FilterMode) => {
+    const loadInitial = useCallback(async (ym: string, mode: FilterMode) => {
         if (!ym) return;
-        setLoading(true);
+        setLoadingInitial(true);
+        setItems([]);
+        setNextCursor(null);
+        setHasNext(false);
         try {
             const { startInclusive, endExclusive } = getYearMonthRangeIso(ym);
-            const fetched = await fetchFeed({ startInclusive, endExclusive, mode });
-            setItems(fetched);
+            const res = await fetchFeed({ startInclusive, endExclusive, mode });
+            setItems(res.items);
+            setNextCursor(res.nextCursor);
+            setHasNext(res.hasNext);
         } catch (err) {
             console.error('データの取得に失敗しました:', err);
             setItems([]);
         } finally {
-            setLoading(false);
+            setLoadingInitial(false);
         }
     }, []);
 
+    const loadMore = useCallback(async () => {
+        if (!hasNext || loadingMore || loadingInitial || !nextCursor || !currentYearMonth) return;
+        setLoadingMore(true);
+        try {
+            const { startInclusive, endExclusive } = getYearMonthRangeIso(currentYearMonth);
+            const res = await fetchFeed({
+                startInclusive,
+                endExclusive,
+                mode: filterMode,
+                cursorCaptureTime: nextCursor.captureTime,
+                cursorId: nextCursor.id,
+            });
+            setItems(prev => [...prev, ...res.items]);
+            setNextCursor(res.nextCursor);
+            setHasNext(res.hasNext);
+        } catch (err) {
+            console.error('追加データの取得に失敗しました:', err);
+        } finally {
+            setLoadingMore(false);
+        }
+    }, [hasNext, loadingMore, loadingInitial, nextCursor, currentYearMonth, filterMode]);
+
     useEffect(() => {
         if (currentYearMonth) {
-            loadMonthData(currentYearMonth, filterMode);
+            loadInitial(currentYearMonth, filterMode);
         }
-    }, [currentYearMonth, filterMode, loadMonthData]);
+    }, [currentYearMonth, filterMode, loadInitial]);
 
     const selectMonthTab = useCallback((ym: string) => {
         setCurrentYearMonth(ym);
@@ -108,7 +152,10 @@ export function useFeed() {
 
     return {
         items,
-        loading,
+        hasNext,
+        loadingInitial,
+        loadingMore,
+        loadMore,
         filterMode,
         currentYearMonth,
         monthTabs,
@@ -116,4 +163,3 @@ export function useFeed() {
         changeFilterMode,
     };
 }
-

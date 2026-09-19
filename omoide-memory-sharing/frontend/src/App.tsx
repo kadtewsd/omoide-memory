@@ -5,6 +5,7 @@ import { useComments } from './hooks/useComments';
 import { usePhotoSelection } from './hooks/usePhotoSelection';
 import { usePhotobookSelection } from './hooks/usePhotobookSelection';
 import { FeedGrid } from './components/FeedGrid';
+import { InfiniteScrollLoader } from './components/InfiniteScrollLoader';
 import { MemoryModal } from './components/MemoryModal';
 import { CreateAlbumModal } from './components/CreateAlbumModal';
 import { PhotobookSelectionView } from './components/PhotobookSelectionView';
@@ -20,7 +21,10 @@ type PhotobookPhase = 'select' | 'preview';
 function App() {
     const {
         items,
-        loading,
+        hasNext,
+        loadingInitial,
+        loadingMore,
+        loadMore,
         filterMode,
         currentYearMonth,
         monthTabs,
@@ -278,18 +282,25 @@ function App() {
             <main className="p-4 sm:p-6 lg:p-8">
                 {filterMode === 'ALBUM' ? (
                     <AlbumGrid onPhotoClick={openModal} />
-                ) : loading ? (
+                ) : loadingInitial ? (
                     <div className="flex justify-center py-20">
                         <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
                     </div>
                 ) : items.length > 0 ? (
-                    <FeedGrid
-                        items={items}
-                        filterMode={filterMode}
-                        selectedPhotoIds={selectedPhotoIds}
-                        onTogglePhotoSelect={isSelectMode ? togglePhotoSelection : undefined}
-                        onItemClick={openModal}
-                    />
+                    <>
+                        <FeedGrid
+                            items={items}
+                            filterMode={filterMode}
+                            selectedPhotoIds={selectedPhotoIds}
+                            onTogglePhotoSelect={isSelectMode ? togglePhotoSelection : undefined}
+                            onItemClick={openModal}
+                        />
+                        <InfiniteScrollLoader
+                            onLoadMore={loadMore}
+                            hasMore={hasNext}
+                            loading={loadingMore}
+                        />
+                    </>
                 ) : (
                     <div className="flex flex-col items-center justify-center py-20 text-gray-400">
                         <svg className="w-16 h-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
