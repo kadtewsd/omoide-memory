@@ -15,5 +15,5 @@ class OmoideComment(
 interface OmoideCommentRepository {
     suspend fun add(omoideComment: OmoideComment)
 
-    suspend fun deleteByFileName(fileName: String)
+    suspend fun deleteByFileName(fileName: FileName)
 }
