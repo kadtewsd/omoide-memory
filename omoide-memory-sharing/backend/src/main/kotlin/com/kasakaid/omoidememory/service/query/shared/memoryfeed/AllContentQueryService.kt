@@ -3,6 +3,7 @@ package com.kasakaid.omoidememory.service.query.shared.memoryfeed
 import com.kasakaid.omoidememory.domain.model.CommentCount
 import com.kasakaid.omoidememory.domain.model.ContentName
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_PHOTO
+import com.kasakaid.omoidememory.r2dbc.logging.withMdc
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.reactive.asFlow
 import org.jooq.DSLContext
@@ -31,6 +32,7 @@ class AllContentQueryService(
 
         val rawRecords: List<Record> =
             dslContext
+                .withMdc()
                 .selectFrom(unionSelect.asTable("feed_union"))
                 .orderBy(captureTimeField.desc(), idField.desc())
                 .limit(limit)

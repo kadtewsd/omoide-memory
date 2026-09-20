@@ -3,6 +3,7 @@ package com.kasakaid.omoidememory.service.query.shared.memoryfeed
 import com.kasakaid.omoidememory.domain.model.CommentCount
 import com.kasakaid.omoidememory.domain.model.ContentName
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.COMMENT_OMOIDE
+import com.kasakaid.omoidememory.r2dbc.logging.withMdc
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.reactive.asFlow
 import org.jooq.DSLContext
@@ -18,6 +19,7 @@ class CommentCountQuery(
 ) {
     suspend fun fetch(fileNames: Set<ContentName>): Map<ContentName, CommentCount> =
         dslContext
+            .withMdc()
             .select(COMMENT_OMOIDE.FILE_NAME, DSL.count())
             .from(COMMENT_OMOIDE)
             .where(COMMENT_OMOIDE.FILE_NAME.`in`(fileNames))

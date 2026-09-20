@@ -1,5 +1,6 @@
 package com.kasakaid.omoidememory.shared.spring
 
+import com.kasakaid.omoidememory.adapter.filter.MdcFilterKey
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.micrometer.context.ContextRegistry
 import io.micrometer.context.ThreadLocalAccessor
@@ -28,7 +29,7 @@ class MdcAccessorPopulate : ApplicationListener<ApplicationReadyEvent> {
 }
 
 class Slf4jThreadLocalAccessor : ThreadLocalAccessor<Map<String, String>> {
-    override fun key() = "mdc"
+    override fun key() = MdcFilterKey.MDC_DATA_KEY
 
     override fun getValue(): Map<String, String>? = MDC.getCopyOfContextMap()
 

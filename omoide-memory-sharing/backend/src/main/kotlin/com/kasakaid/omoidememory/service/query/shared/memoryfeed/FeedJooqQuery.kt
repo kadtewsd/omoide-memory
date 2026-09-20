@@ -1,6 +1,7 @@
 package com.kasakaid.omoidememory.service.query.shared.memoryfeed
 
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.COMMENT_OMOIDE
+import com.kasakaid.omoidememory.r2dbc.logging.withMdc
 import com.kasakaid.omoidememory.service.query.shared.OmoideMemoryTable
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.reactive.asFlow
@@ -88,7 +89,8 @@ suspend fun DSLContext.executeWithContentOrder(
     condition: OmoideCondition,
     limit: Int,
 ): List<Record> =
-    createMemoryQuery(omoideMemory = omoideMemoryTable, condition = condition)
+    withMdc()
+        .createMemoryQuery(omoideMemory = omoideMemoryTable, condition = condition)
         .orderBy(
             omoideMemoryTable.captureTime.desc(),
             omoideMemoryTable.id.desc(),
