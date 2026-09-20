@@ -2,8 +2,8 @@ package com.kasakaid.omoidememory.service.query.shared.memoryfeed
 
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.COMMENT_OMOIDE
 import com.kasakaid.omoidememory.service.query.shared.OmoideMemoryTable
-import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.reactive.asFlow
 import org.jooq.DSLContext
 import org.jooq.Record
 import org.jooq.SelectConditionStep
