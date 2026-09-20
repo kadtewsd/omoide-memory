@@ -12,6 +12,7 @@ export const fetchFeed = async ({
     cursorCaptureTime,
     cursorId,
     limit,
+    contentType,
 }: FetchFeedParams): Promise<FeedPageResponse> => {
     const url = new URL('/feed', API_BASE_URL);
     if (startInclusive) url.searchParams.append('startInclusive', startInclusive);
@@ -20,6 +21,7 @@ export const fetchFeed = async ({
     if (cursorCaptureTime) url.searchParams.append('cursorCaptureTime', cursorCaptureTime);
     if (cursorId) url.searchParams.append('cursorId', cursorId);
     if (limit) url.searchParams.append('limit', String(limit));
+    if (contentType) url.searchParams.append('contentType', contentType);
 
     const response = await fetch(url.toString());
     if (!response.ok) throw new Error('Failed to fetch feed');

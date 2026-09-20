@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { fetchCapturedYearMonths, fetchFeed, fetchRandomFillPhotos } from '../api';
 import { MemoryFeedItem, PhotobookPeriod } from '../types';
 import { isoToJstYearMonth, getYearMonthRangeIso, getCurrentYearMonth } from './useFeed';
+import { isValidIsoDate } from '../shared/date';
 
 /** フォトブック選択の絶対上限枚数（サービス仕様の制限値） */
 export const PHOTOBOOK_ABSOLUTE_MAX = 200;
@@ -207,6 +208,10 @@ export function usePhotobookPhotos(period: PhotobookPeriod) {
 
     useEffect(() => {
         const load = async () => {
+            if (!isValidIsoDate(startInclusive) || !isValidIsoDate(endExclusive)) {
+                setLoading(false);
+                return;
+            }
             setLoading(true);
             try {
                 // バックエンドの FilterMode は PHOTOBOOK を持たないため ALL として送信する
