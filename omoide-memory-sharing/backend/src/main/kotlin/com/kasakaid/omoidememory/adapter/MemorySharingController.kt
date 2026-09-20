@@ -1,15 +1,17 @@
 package com.kasakaid.omoidememory.adapter
 
 import com.kasakaid.omoidememory.domain.model.FilePathFinder
-import com.kasakaid.omoidememory.service.query.CommentDto
-import com.kasakaid.omoidememory.service.query.FeedCursor
-import com.kasakaid.omoidememory.service.query.FeedPageResponse
-import com.kasakaid.omoidememory.service.query.FilterMode
-import com.kasakaid.omoidememory.service.query.OmoideCondition
 import com.kasakaid.omoidememory.service.query.shared.MemoryCommentsQueryService
 import com.kasakaid.omoidememory.service.query.shared.MemoryContentsQueryService
 import com.kasakaid.omoidememory.service.query.shared.PhotoQueryService
 import com.kasakaid.omoidememory.service.query.shared.VideoQueryService
+import com.kasakaid.omoidememory.service.query.shared.memoryfeed.CommentDto
+import com.kasakaid.omoidememory.service.query.shared.memoryfeed.ContentType
+import com.kasakaid.omoidememory.service.query.shared.memoryfeed.FeedCursor
+import com.kasakaid.omoidememory.service.query.shared.memoryfeed.FeedPageResponse
+import com.kasakaid.omoidememory.service.query.shared.memoryfeed.FilterMode
+import com.kasakaid.omoidememory.service.query.shared.memoryfeed.OmoideCondition
+import com.kasakaid.omoidememory.service.query.shared.memoryfeed.OmoideMemoryFeedQueryService
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.reactive.awaitSingle
 import org.springframework.format.annotation.DateTimeFormat
@@ -25,6 +27,7 @@ import java.util.UUID
 @CrossOrigin
 class MemorySharingController(
     private val memoryContentsQueryService: MemoryContentsQueryService,
+    private val memmoryFeedQueryService: OmoideMemoryFeedQueryService,
     private val memoryCommentsQueryService: MemoryCommentsQueryService,
     private val photoQueryService: PhotoQueryService,
     private val videoQueryService: VideoQueryService,
@@ -44,7 +47,8 @@ class MemorySharingController(
         @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
         cursorCaptureTime: OffsetDateTime?,
         @RequestParam(required = false) cursorId: UUID?,
-        @RequestParam(required = false) mode: FilterMode?,
+        @RequestParam(required = false) mode: FilterMode = FilterMode.ALL,
+        @RequestParam(required = false) contentType: ContentType = ContentType.ALL,
         @RequestParam(required = false) limit: Int?,
     ): FeedPageResponse {
         val cursor =
@@ -75,10 +79,11 @@ class MemorySharingController(
                 startInclusive = resolvedStart,
                 endExclusive = resolvedEnd,
                 cursor = cursor,
-                filterMode = mode ?: FilterMode.ALL,
+                filterMode = mode,
+                contentType = contentType,
             )
         val pageSize = (limit ?: 25).coerceIn(1, 1000)
-        return memoryContentsQueryService.fetchFeedPage(
+        return memmoryFeedQueryService.fetchFeedPage(
             condition = condition,
             limit = pageSize + 1,
         )

@@ -4,8 +4,8 @@ import com.kasakaid.omoidememory.jooq.omoide_memory.tables.pojos.CommentOmoide
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.pojos.SyncedOmoideVideo
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.ALBUM_PHOTO
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_PHOTO
-import com.kasakaid.omoidememory.service.query.MemoryFeedDtoConverter
 import com.kasakaid.omoidememory.service.query.shared.MemoryContentsQueryService
+import com.kasakaid.omoidememory.service.query.shared.memoryfeed.MemoryFeedDtoConverter
 import com.kasakaid.omoidememory.shared.adapter.NotFoundException
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.reactive.asFlow
@@ -18,7 +18,6 @@ import java.util.UUID
 class AlbumQueryService(
     private val dslContext: DSLContext,
     private val memoryContentsQueryService: MemoryContentsQueryService,
-    private val memoryFeedDtoConverter: MemoryFeedDtoConverter,
 ) {
     suspend fun getAlbums(): List<AlbumSummaryDto> {
         val albumPhotoRecords =
@@ -73,7 +72,7 @@ class AlbumQueryService(
                 emptyList()
             }
 
-        val feedDtos = memoryFeedDtoConverter.convert(Triple(photos, emptyList<SyncedOmoideVideo>(), emptyList<CommentOmoide>()))
+        val feedDtos = MemoryFeedDtoConverter.convert(Triple(photos, emptyList<SyncedOmoideVideo>(), emptyList<CommentOmoide>()))
 
         return AlbumDetailDto(
             albumId = albumId,
