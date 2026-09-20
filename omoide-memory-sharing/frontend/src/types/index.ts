@@ -1,4 +1,5 @@
 export type FilterMode = 'COMMENT_ONLY' | 'ALL' | 'ALBUM' | 'PHOTOBOOK';
+export type ContentType = 'ALL' | 'PHOTO' | 'VIDEO';
 
 export interface MemoryFeedItem {
     id: string | null; // From UUID
@@ -40,6 +41,7 @@ export interface FetchFeedParams {
     cursorCaptureTime?: string;
     cursorId?: string;
     limit?: number;
+    contentType?: ContentType;
 }
 
 export interface FeedCursor {

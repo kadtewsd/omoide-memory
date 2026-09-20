@@ -9,6 +9,9 @@ import org.jooq.DSLContext
 import org.jooq.impl.DSL
 import org.springframework.stereotype.Service
 
+/**
+ * コンテンツに対してどの程度コメントが入っているかを調べることができるクエリ
+ */
 @Service
 class CommentCountQuery(
     private val dslContext: DSLContext,
