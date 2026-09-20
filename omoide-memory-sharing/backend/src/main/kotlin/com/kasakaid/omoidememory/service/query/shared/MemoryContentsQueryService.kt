@@ -6,6 +6,7 @@ import com.kasakaid.omoidememory.jooq.omoide_memory.tables.pojos.SyncedOmoideVid
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.COMMENT_OMOIDE
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_PHOTO
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_VIDEO
+import com.kasakaid.omoidememory.r2dbc.logging.withMdc
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.map
@@ -37,6 +38,7 @@ class MemoryContentsQueryService(
 
     suspend fun fetchPhoto(condition: Condition): List<SyncedOmoidePhoto> =
         dslContext
+            .withMdc()
             .selectFrom(SYNCED_OMOIDE_PHOTO)
             .where(condition)
             .asFlow()
@@ -45,6 +47,7 @@ class MemoryContentsQueryService(
 
     suspend fun fetchVideo(condition: Condition): List<SyncedOmoideVideo> =
         dslContext
+            .withMdc()
             .selectFrom(SYNCED_OMOIDE_VIDEO)
             .where(condition)
             .asFlow()
@@ -53,6 +56,7 @@ class MemoryContentsQueryService(
 
     suspend fun fetchComment(condition: Condition): List<CommentOmoide> =
         dslContext
+            .withMdc()
             .selectFrom(COMMENT_OMOIDE)
             .where(condition)
             .asFlow()
@@ -65,6 +69,7 @@ class MemoryContentsQueryService(
 
         val photoYearMonths =
             dslContext
+                .withMdc()
                 .selectDistinct(photoYearMonthField)
                 .from(SYNCED_OMOIDE_PHOTO)
                 .where(SYNCED_OMOIDE_PHOTO.CAPTURE_TIME.isNotNull)
@@ -74,6 +79,7 @@ class MemoryContentsQueryService(
 
         val videoYearMonths =
             dslContext
+                .withMdc()
                 .selectDistinct(videoYearMonthField)
                 .from(SYNCED_OMOIDE_VIDEO)
                 .where(SYNCED_OMOIDE_VIDEO.CAPTURE_TIME.isNotNull)

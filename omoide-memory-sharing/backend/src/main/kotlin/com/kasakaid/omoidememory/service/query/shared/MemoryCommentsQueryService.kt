@@ -5,6 +5,7 @@ import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.COMMENTER
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.COMMENT_OMOIDE
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_PHOTO
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_VIDEO
+import com.kasakaid.omoidememory.r2dbc.logging.withMdc
 import org.jooq.DSLContext
 import org.jooq.DatePart
 import org.jooq.Record
@@ -38,6 +39,7 @@ class MemoryCommentsQueryService(
         return Flux
             .from(
                 dslContext
+                    .withMdc()
                     .select(
                         COMMENT_OMOIDE.asterisk(),
                         COMMENTER.NAME,

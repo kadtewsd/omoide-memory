@@ -1,5 +1,6 @@
 package com.kasakaid.omoidememory.r2dbc
 
+import com.kasakaid.omoidememory.r2dbc.logging.R2DBCLoggingConnectionFactory
 import io.r2dbc.spi.ConnectionFactories
 import io.r2dbc.spi.ConnectionFactory
 import io.r2dbc.spi.ConnectionFactoryOptions.*

@@ -9,3 +9,5 @@ logging:
   pattern:
 
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger:%line - requestId=%X{requestId} requestUrl=%X{requestUrl} requestMethod=%X{requestMethod} userAgent=%X{userAgent} - %msg%n"
+  reactor:
+      context-propagation: auto

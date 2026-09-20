@@ -31,6 +31,10 @@ dependencies {
     runtimeOnly("org.postgresql:postgresql")
     implementation("org.postgresql:r2dbc-postgresql")
 
+    // logging for webflux
+    implementation("io.micrometer:context-propagation")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-slf4j")
+
     // jOOQ (depend on the monorepo project)
     implementation(project(":omoide-memory-jooq"))
 
@@ -39,7 +43,6 @@ dependencies {
     // Logging
     implementation("io.github.oshai:kotlin-logging-jvm:7.0.3")
     implementation("ch.qos.logback:logback-classic")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-slf4j")
 
     implementation("io.arrow-kt:arrow-core:2.2.0")
 

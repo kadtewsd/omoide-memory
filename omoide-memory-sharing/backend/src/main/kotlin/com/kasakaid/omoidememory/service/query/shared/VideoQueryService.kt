@@ -1,6 +1,7 @@
 package com.kasakaid.omoidememory.service.query.shared
 
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_VIDEO
+import com.kasakaid.omoidememory.r2dbc.logging.withMdc
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.reactive.asFlow
@@ -19,6 +20,7 @@ class VideoQueryService(
 ) {
     suspend fun findThumbnailById(id: UUID): VideoThumbnail? =
         dslContext
+            .withMdc()
             .select(SYNCED_OMOIDE_VIDEO.THUMBNAIL_IMAGE, SYNCED_OMOIDE_VIDEO.THUMBNAIL_MIME_TYPE)
             .from(SYNCED_OMOIDE_VIDEO)
             .where(SYNCED_OMOIDE_VIDEO.ID.eq(id))
