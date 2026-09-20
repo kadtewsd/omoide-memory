@@ -30,6 +30,7 @@ dependencies {
     implementation("tools.jackson.module:jackson-module-kotlin")
     runtimeOnly("org.postgresql:postgresql")
     implementation("org.postgresql:r2dbc-postgresql")
+    implementation("io.micrometer:context-propagation")
 
     // jOOQ (depend on the monorepo project)
     implementation(project(":omoide-memory-jooq"))
