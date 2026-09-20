@@ -1,6 +1,6 @@
 package com.kasakaid.omoidememory.service.query.album
 
-import com.kasakaid.omoidememory.service.query.MemoryFeedDto
+import com.kasakaid.omoidememory.service.query.shared.memoryfeed.MemoryFeedDto
 import java.time.OffsetDateTime
 import java.util.UUID
 

@@ -1,9 +1,9 @@
 package com.kasakaid.omoidememory.service.query.photobook
 
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_PHOTO
-import com.kasakaid.omoidememory.service.query.MemoryFeedDto
-import com.kasakaid.omoidememory.service.query.MemoryFeedDtoConverter
 import com.kasakaid.omoidememory.service.query.shared.MemoryContentsQueryService
+import com.kasakaid.omoidememory.service.query.shared.memoryfeed.MemoryFeedDto
+import com.kasakaid.omoidememory.service.query.shared.memoryfeed.MemoryFeedDtoConverter
 import org.jooq.impl.DSL
 import org.springframework.stereotype.Service
 import java.time.OffsetDateTime
@@ -22,7 +22,6 @@ import java.util.UUID
 @Service
 class PhotoRandomFillQueryService(
     private val memoryContentsQueryService: MemoryContentsQueryService,
-    private val memoryFeedDtoConverter: MemoryFeedDtoConverter,
 ) {
     /**
      * 指定期間内の写真から [excludeIds] を除いたものをランダムに [count] 件返す。
@@ -59,7 +58,7 @@ class PhotoRandomFillQueryService(
             .shuffled()
             .take(count)
             .map { photo ->
-                memoryFeedDtoConverter.transformPhotoToDto(
+                MemoryFeedDtoConverter.transformPhotoToDto(
                     photo = photo,
                     comments = emptyList(),
                 )

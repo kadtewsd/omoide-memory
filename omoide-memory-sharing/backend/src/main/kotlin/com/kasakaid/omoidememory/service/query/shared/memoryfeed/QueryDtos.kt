@@ -1,4 +1,4 @@
-package com.kasakaid.omoidememory.service.query
+package com.kasakaid.omoidememory.service.query.shared.memoryfeed
 
 import java.time.OffsetDateTime
 import java.util.UUID
@@ -35,9 +35,16 @@ enum class FilterMode {
     ALL,
 }
 
+enum class ContentType {
+    PHOTO,
+    VIDEO,
+    ALL,
+}
+
 class OmoideCondition(
     val startInclusive: OffsetDateTime?,
     val endExclusive: OffsetDateTime?,
     val cursor: FeedCursor?,
     val filterMode: FilterMode,
+    val contentType: ContentType,
 )

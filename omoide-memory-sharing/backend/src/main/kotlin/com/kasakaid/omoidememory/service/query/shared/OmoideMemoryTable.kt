@@ -10,7 +10,7 @@ import org.jooq.impl.DSL
 import java.time.OffsetDateTime
 import java.util.UUID
 
-interface OmoideMemory {
+interface OmoideMemoryTable {
     val table: Table<*>
     val id: Field<UUID?>
     val type: Field<String>
@@ -18,7 +18,7 @@ interface OmoideMemory {
     val captureTime: Field<OffsetDateTime?>
 }
 
-class SyncedOmoideMemoryPhoto : OmoideMemory {
+object SyncedOmoideMemoryPhoto : OmoideMemoryTable {
     private val targetTable: SyncedOmoidePhoto = SYNCED_OMOIDE_PHOTO
     override val table: Table<*> = targetTable
     override val id: Field<UUID?> = targetTable.ID
@@ -27,7 +27,7 @@ class SyncedOmoideMemoryPhoto : OmoideMemory {
     override val captureTime: Field<OffsetDateTime?> = targetTable.CAPTURE_TIME
 }
 
-class SyncedOmoideMemoryVideo : OmoideMemory {
+object SyncedOmoideMemoryVideo : OmoideMemoryTable {
     private val targetTable: SyncedOmoideVideo = SYNCED_OMOIDE_VIDEO
     override val table: Table<*> = targetTable
     override val id: Field<UUID?> = targetTable.ID

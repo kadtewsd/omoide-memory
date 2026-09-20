@@ -1,7 +1,7 @@
 package com.kasakaid.omoidememory.adapter
 
-import com.kasakaid.omoidememory.service.query.MemoryFeedDto
 import com.kasakaid.omoidememory.service.query.photobook.PhotoRandomFillQueryService
+import com.kasakaid.omoidememory.service.query.shared.memoryfeed.MemoryFeedDto
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.format.annotation.DateTimeFormat
 import org.springframework.web.bind.annotation.CrossOrigin
