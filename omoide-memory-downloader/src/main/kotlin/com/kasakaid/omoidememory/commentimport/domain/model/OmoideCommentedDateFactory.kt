@@ -52,7 +52,7 @@ object OmoideCommentedDateFactory {
                         )
                     val inferredDate: LocalDate = LocalDate.of(fileMonth.year, fileMonth.monthValue, 1)
 
-                    if (monthDay.monthValue < (fileMonth.toLocalDate().monthValue)) {
+                    if (monthDay.monthValue < fileMonth.toLocalDate().monthValue) {
                         // 年またぎ（翌年のコメント）として補正する
                         // さらに、撮影月の翌月（expectedMonth）を基準に CSV の月と3ヶ月以上乖離している場合は
                         // 月名の誤認識（例: "Jun"=6 が実際は "Jan"=1）と判断して expectedMonth を採用する
