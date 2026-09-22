@@ -1,11 +1,10 @@
 package com.kasakaid.omoidememory.service.query.shared
 
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_VIDEO
-import com.kasakaid.omoidememory.r2dbc.logging.withMdc
+import com.kasakaid.omoidememory.r2dbc.DSLGenerator
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.reactive.asFlow
-import org.jooq.DSLContext
 import org.springframework.stereotype.Service
 import java.util.UUID
 
@@ -16,11 +15,11 @@ class VideoThumbnail(
 
 @Service
 class VideoQueryService(
-    private val dslContext: DSLContext,
+    private val dslContext: DSLGenerator,
 ) {
     suspend fun findThumbnailById(id: UUID): VideoThumbnail? =
         dslContext
-            .withMdc()
+            .invoke()
             .select(SYNCED_OMOIDE_VIDEO.THUMBNAIL_IMAGE, SYNCED_OMOIDE_VIDEO.THUMBNAIL_MIME_TYPE)
             .from(SYNCED_OMOIDE_VIDEO)
             .where(SYNCED_OMOIDE_VIDEO.ID.eq(id))

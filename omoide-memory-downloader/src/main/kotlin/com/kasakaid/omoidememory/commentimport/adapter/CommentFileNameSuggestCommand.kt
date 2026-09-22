@@ -33,27 +33,15 @@ class CommentFileNameSuggestCommand(
             return
         }
 
-        val commentCsvPathStr = System.getenv("OMOIDE_COMMENT_FILE_PATH")
-        if (commentCsvPathStr.isNullOrBlank()) {
-            logger.error { "環境変数 OMOIDE_COMMENT_FILE_PATH が設定されていません" }
-            return
-        }
-
-        val candidateOutputPathStr = System.getenv("COMMENT_CANDIDATE_OUTPUT_FILE_PATH")
-        if (candidateOutputPathStr.isNullOrBlank()) {
-            logger.error { "環境変数 COMMENT_CANDIDATE_OUTPUT_FILE_PATH が設定されていません" }
-            return
-        }
-
         val orphanFilePath = Path.of(orphanFilePathStr)
         if (!Files.exists(orphanFilePath)) {
             logger.error { "指定された orphan ファイルが存在しません: $orphanFilePathStr" }
             return
         }
 
-        val commentCsvPath = Path.of(commentCsvPathStr)
-        if (!Files.exists(commentCsvPath)) {
-            logger.error { "指定されたコメント CSV ファイルが存在しません: $commentCsvPathStr" }
+        val candidateOutputPathStr = System.getenv("COMMENT_CANDIDATE_OUTPUT_FILE_PATH")
+        if (candidateOutputPathStr.isNullOrBlank()) {
+            logger.error { "環境変数 COMMENT_CANDIDATE_OUTPUT_FILE_PATH が設定されていません" }
             return
         }
 

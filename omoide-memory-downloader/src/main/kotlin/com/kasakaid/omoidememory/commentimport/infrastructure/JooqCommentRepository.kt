@@ -2,11 +2,9 @@ package com.kasakaid.omoidememory.commentimport.infrastructure
 
 import com.kasakaid.omoidememory.commentimport.domain.model.OmoideComment
 import com.kasakaid.omoidememory.commentimport.domain.model.OmoideCommentRepository
-import com.kasakaid.omoidememory.commentimport.domain.model.commentintegrity.MatchedFile
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.COMMENTER
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.COMMENT_OMOIDE
-import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_PHOTO
-import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_VIDEO
+import com.kasakaid.omoidememory.r2dbc.DSLGenerator
 import com.kasakaid.omoidememory.utility.MyUUIDGenerator
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
@@ -16,14 +14,12 @@ import kotlinx.coroutines.reactive.awaitSingle
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.jooq.Condition
-import org.jooq.DSLContext
-import org.jooq.impl.DSL
 import org.springframework.stereotype.Repository
 import java.time.OffsetDateTime
 
 @Repository
 class JooqCommentRepository(
-    private val dslContext: DSLContext,
+    private val dslContext: DSLGenerator,
     private val commenterDao: JooqCommenterDao,
 ) : OmoideCommentRepository {
     private var commenters: Map<String, Number>? = null
@@ -33,6 +29,7 @@ class JooqCommentRepository(
         commenters ?: mutex.withLock {
             // ロック取得後に再チェック（二重初期化防止）
             commenters ?: dslContext
+                .invoke()
                 .selectFrom(COMMENTER)
                 .asFlow()
                 .toList()
@@ -43,6 +40,7 @@ class JooqCommentRepository(
     override suspend fun add(omoideComment: OmoideComment) {
         COMMENT_OMOIDE.run {
             dslContext
+                .invoke()
                 .insertInto(COMMENT_OMOIDE)
                 .set(ID, MyUUIDGenerator.generateUUIDv7())
                 .set(FEED_ID, omoideComment.feedId)
@@ -59,6 +57,7 @@ class JooqCommentRepository(
 
     override suspend fun deleteByFileName(fileName: String) {
         dslContext
+            .invoke()
             .deleteFrom(COMMENT_OMOIDE)
             .where(COMMENT_OMOIDE.FILE_NAME.eq(fileName))
             .awaitFirstOrNull()
@@ -70,6 +69,7 @@ class JooqCommentRepository(
 
     private suspend fun fetchBy(condition: Condition): List<OmoideComment> =
         dslContext
+            .invoke()
             .selectFrom(COMMENT_OMOIDE)
             .where(condition)
             .asFlow()

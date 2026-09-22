@@ -7,6 +7,8 @@ import com.kasakaid.omoidememory.commentimport.domain.model.commentintegrity.Mat
 import com.kasakaid.omoidememory.commentimport.domain.model.commentintegrity.Missed
 import com.kasakaid.omoidememory.commentimport.domain.model.commentintegrity.OrphanFile
 import com.kasakaid.omoidememory.commentimport.domain.model.commentintegrity.OrphanFileFactory
+import com.kasakaid.omoidememory.utility.CoroutineHelper.mapWithCoroutine
+import kotlinx.coroutines.sync.Semaphore
 import org.springframework.stereotype.Service
 
 /**
@@ -27,13 +29,13 @@ class OrphanCandidateSuggestService(
      * @param orphanFileNames  未マッチファイル名（重複除去・空行除去済み）
      */
     suspend fun suggest(orphanFileNames: List<String>): List<CommentIntegrity> {
-        return orphanFileNames.map { rawFileName ->
+        return orphanFileNames.mapWithCoroutine(Semaphore(50)) { rawFileName ->
             val result =
                 omoideCommentRepository.findByFileName(
                     rawFileName,
                 )
             if (result.isNotEmpty()) {
-                return@map ExactlyMatched(
+                return@mapWithCoroutine ExactlyMatched(
                     fileName = rawFileName,
                     mediaType = result.first().mediaType,
                 )

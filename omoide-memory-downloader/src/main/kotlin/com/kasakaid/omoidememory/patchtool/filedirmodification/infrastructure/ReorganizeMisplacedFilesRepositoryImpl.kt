@@ -4,17 +4,18 @@ import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMO
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_VIDEO
 import com.kasakaid.omoidememory.patchtool.filedirmodification.domain.ReorganizeMisplacedFilesRepository
 import com.kasakaid.omoidememory.patchtool.filedirmodification.domain.ReorganizedFile
+import com.kasakaid.omoidememory.r2dbc.DSLGenerator
 import kotlinx.coroutines.reactive.awaitFirstOrNull
-import org.jooq.DSLContext
 import org.springframework.stereotype.Repository
 
 @Repository
 class ReorganizeMisplacedFilesRepositoryImpl(
-    private val dslContext: DSLContext,
+    private val dslContext: DSLGenerator,
 ) : ReorganizeMisplacedFilesRepository {
     override suspend fun update(reorganizedFile: ReorganizedFile) {
         val photoUpdated =
             dslContext
+                .invoke()
                 .update(SYNCED_OMOIDE_PHOTO)
                 .set(SYNCED_OMOIDE_PHOTO.SERVER_PATH, reorganizedFile.filePath.toAbsolutePath().toString())
                 .set(SYNCED_OMOIDE_PHOTO.CAPTURE_TIME, reorganizedFile.captureTime)
@@ -24,6 +25,7 @@ class ReorganizeMisplacedFilesRepositoryImpl(
         if (photoUpdated == 0) {
             val videoUpdated =
                 dslContext
+                    .invoke()
                     .update(SYNCED_OMOIDE_VIDEO)
                     .set(SYNCED_OMOIDE_VIDEO.SERVER_PATH, reorganizedFile.filePath.toAbsolutePath().toString())
                     .set(SYNCED_OMOIDE_VIDEO.CAPTURE_TIME, reorganizedFile.captureTime)

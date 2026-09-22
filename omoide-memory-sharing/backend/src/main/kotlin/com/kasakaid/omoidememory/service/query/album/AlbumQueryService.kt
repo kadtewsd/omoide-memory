@@ -4,24 +4,25 @@ import com.kasakaid.omoidememory.jooq.omoide_memory.tables.pojos.CommentOmoide
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.pojos.SyncedOmoideVideo
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.ALBUM_PHOTO
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_PHOTO
+import com.kasakaid.omoidememory.r2dbc.DSLGenerator
 import com.kasakaid.omoidememory.service.query.shared.MemoryContentsQueryService
 import com.kasakaid.omoidememory.service.query.shared.memoryfeed.MemoryFeedDtoConverter
 import com.kasakaid.omoidememory.shared.adapter.NotFoundException
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.reactive.asFlow
-import org.jooq.DSLContext
 import org.springframework.stereotype.Service
 import java.time.OffsetDateTime
 import java.util.UUID
 
 @Service
 class AlbumQueryService(
-    private val dslContext: DSLContext,
+    private val dslContext: DSLGenerator,
     private val memoryContentsQueryService: MemoryContentsQueryService,
 ) {
     suspend fun getAlbums(): List<AlbumSummaryDto> {
         val albumPhotoRecords =
             dslContext
+                .invoke()
                 .selectFrom(ALBUM_PHOTO)
                 .asFlow()
                 .toList()
@@ -51,6 +52,7 @@ class AlbumQueryService(
     suspend fun getAlbumDetail(albumId: UUID): AlbumDetailDto {
         val albumPhotoRecords =
             dslContext
+                .invoke()
                 .selectFrom(ALBUM_PHOTO)
                 .where(ALBUM_PHOTO.ALBUM_ID.eq(albumId))
                 .asFlow()

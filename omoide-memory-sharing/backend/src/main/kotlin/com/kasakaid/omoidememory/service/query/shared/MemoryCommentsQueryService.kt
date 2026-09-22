@@ -5,8 +5,7 @@ import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.COMMENTER
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.COMMENT_OMOIDE
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_PHOTO
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_VIDEO
-import com.kasakaid.omoidememory.r2dbc.logging.withMdc
-import org.jooq.DSLContext
+import com.kasakaid.omoidememory.r2dbc.DSLGenerator
 import org.jooq.DatePart
 import org.jooq.Record
 import org.jooq.impl.DSL
@@ -18,7 +17,7 @@ import java.util.UUID
 
 @Service
 class MemoryCommentsQueryService(
-    private val dslContext: DSLContext,
+    private val dslContext: DSLGenerator,
 ) {
     suspend fun <T : Any> getComments(
         contentId: UUID,
@@ -39,7 +38,7 @@ class MemoryCommentsQueryService(
         return Flux
             .from(
                 dslContext
-                    .withMdc()
+                    .invoke()
                     .select(
                         COMMENT_OMOIDE.asterisk(),
                         COMMENTER.NAME,
@@ -60,11 +59,12 @@ class MemoryCommentsQueryService(
             }
     }
 
-    fun getCommentCreatedYearMonths(): Mono<List<OffsetDateTime>> {
+    suspend fun getCommentCreatedYearMonths(): Mono<List<OffsetDateTime>> {
         val commentedAtYearMonthField = DSL.trunc(COMMENT_OMOIDE.COMMENTED_AT, DatePart.MONTH)
         return Flux
             .from(
                 dslContext
+                    .invoke()
                     .selectDistinct(commentedAtYearMonthField)
                     .from(COMMENT_OMOIDE)
                     .where(COMMENT_OMOIDE.COMMENTED_AT.isNotNull)

@@ -3,10 +3,9 @@ package com.kasakaid.omoidememory.service.query.shared.memoryfeed
 import com.kasakaid.omoidememory.domain.model.CommentCount
 import com.kasakaid.omoidememory.domain.model.ContentName
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_PHOTO
-import com.kasakaid.omoidememory.r2dbc.logging.withMdc
+import com.kasakaid.omoidememory.r2dbc.DSLGenerator
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.reactive.asFlow
-import org.jooq.DSLContext
 import org.jooq.Record
 import org.jooq.impl.DSL
 import org.springframework.stereotype.Service
@@ -17,7 +16,7 @@ import com.kasakaid.omoidememory.service.query.shared.SyncedOmoideMemoryVideo as
 
 @Service
 class AllContentQueryService(
-    private val dslContext: DSLContext,
+    private val dslContext: DSLGenerator,
     private val commentCountQuery: CommentCountQuery,
 ) {
     suspend fun fetchPage(
@@ -32,7 +31,7 @@ class AllContentQueryService(
 
         val rawRecords: List<Record> =
             dslContext
-                .withMdc()
+                .invoke()
                 .selectFrom(unionSelect.asTable("feed_union"))
                 .orderBy(captureTimeField.desc(), idField.desc())
                 .limit(limit)

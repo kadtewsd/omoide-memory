@@ -1,11 +1,11 @@
 package com.kasakaid.omoidememory.adapter
 
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_VIDEO
+import com.kasakaid.omoidememory.r2dbc.DSLGenerator
 import com.kasakaid.omoidememory.service.query.shared.VideoQueryService
 import com.kasakaid.omoidememory.shared.adapter.NotFoundException
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.reactive.asFlow
-import org.jooq.DSLContext
 import org.springframework.core.io.support.ResourceRegion
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
@@ -18,7 +18,7 @@ import java.util.UUID
 @RestController
 @CrossOrigin
 class VideoController(
-    private val dslContext: DSLContext,
+    private val dslContext: DSLGenerator,
     private val videoQueryService: VideoQueryService,
 ) {
     @GetMapping("/video/{id}/stream")
@@ -27,6 +27,7 @@ class VideoController(
     ): ResourceRegion {
         val record =
             dslContext
+                .invoke()
                 .selectFrom(SYNCED_OMOIDE_VIDEO)
                 .where(SYNCED_OMOIDE_VIDEO.ID.eq(id))
                 .asFlow()
