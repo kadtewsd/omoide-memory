@@ -2,22 +2,29 @@ package com.kasakaid.omoidememory.commentimport.infrastructure
 
 import com.kasakaid.omoidememory.commentimport.domain.model.OmoideComment
 import com.kasakaid.omoidememory.commentimport.domain.model.OmoideCommentRepository
+import com.kasakaid.omoidememory.commentimport.domain.model.commentintegrity.MatchedFile
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.COMMENTER
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.COMMENT_OMOIDE
+import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_PHOTO
+import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_VIDEO
 import com.kasakaid.omoidememory.utility.MyUUIDGenerator
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.reactive.asFlow
 import kotlinx.coroutines.reactive.awaitFirstOrNull
 import kotlinx.coroutines.reactive.awaitSingle
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import org.jooq.Condition
 import org.jooq.DSLContext
+import org.jooq.impl.DSL
 import org.springframework.stereotype.Repository
 import java.time.OffsetDateTime
 
 @Repository
 class JooqCommentRepository(
     private val dslContext: DSLContext,
+    private val commenterDao: JooqCommenterDao,
 ) : OmoideCommentRepository {
     private var commenters: Map<String, Number>? = null
     private val mutex = Mutex()
@@ -56,4 +63,20 @@ class JooqCommentRepository(
             .where(COMMENT_OMOIDE.FILE_NAME.eq(fileName))
             .awaitFirstOrNull()
     }
+
+    override suspend fun findByFileName(fileName: String): List<OmoideComment> = fetchBy(COMMENT_OMOIDE.FILE_NAME.eq(fileName))
+
+    override suspend fun findByFileNameLike(fileName: String): List<OmoideComment> = fetchBy(COMMENT_OMOIDE.FILE_NAME.like("%$fileName%"))
+
+    private suspend fun fetchBy(condition: Condition): List<OmoideComment> =
+        dslContext
+            .selectFrom(COMMENT_OMOIDE)
+            .where(condition)
+            .asFlow()
+            .map { record ->
+                OmoideCommentTranslator.translate(
+                    record = record,
+                    commenterRecord = commenterDao.findAll(),
+                )
+            }.toList()
 }

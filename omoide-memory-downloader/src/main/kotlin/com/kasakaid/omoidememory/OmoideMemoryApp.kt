@@ -7,9 +7,11 @@ import org.springframework.boot.WebApplicationType
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.builder.SpringApplicationBuilder
 import org.springframework.boot.context.properties.ConfigurationPropertiesScan
+import org.springframework.cache.annotation.EnableCaching
 
 @SpringBootApplication
 @ConfigurationPropertiesScan
+@EnableCaching
 class OmoideMemoryApp
 
 const val APPLICATION_RUNNER_KEY = "runnerName"
