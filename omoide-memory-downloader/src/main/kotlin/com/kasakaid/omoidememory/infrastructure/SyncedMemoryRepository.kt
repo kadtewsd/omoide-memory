@@ -1,13 +1,18 @@
 package com.kasakaid.omoidememory.infrastructure
 
+import com.kasakaid.omoidememory.commentimport.domain.model.FileName
 import com.kasakaid.omoidememory.domain.OmoideMemory
 import com.kasakaid.omoidememory.domain.OmoideMemoryRepository
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_PHOTO
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_VIDEO
 import com.kasakaid.omoidememory.r2dbc.DSLGenerator
 import com.kasakaid.omoidememory.utility.MyUUIDGenerator
+import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.reactive.asFlow
 import kotlinx.coroutines.reactive.awaitFirstOrNull
 import kotlinx.coroutines.reactive.awaitSingle
+import org.jooq.Condition
 import org.springframework.stereotype.Repository
 import java.time.OffsetDateTime
 
@@ -137,4 +142,38 @@ class SyncedMemoryRepository(
 
         return videoExists > 0
     }
+
+    private suspend fun fetchVideoBy(condition: Condition): OmoideMemory? =
+        dslContext
+            .invoke()
+            .selectFrom(SYNCED_OMOIDE_VIDEO)
+            .where(condition)
+            .asFlow()
+            .map {
+                OmoideMemoryTranslator.translateVideo(it)
+            }.firstOrNull()
+
+    override suspend fun findByFileName(fileName: FileName): OmoideMemory? =
+        fetchPhotoBy(
+            SYNCED_OMOIDE_PHOTO.FILE_NAME.eq(fileName),
+        ) ?: fetchVideoBy(
+            SYNCED_OMOIDE_VIDEO.FILE_NAME.eq(fileName),
+        )
+
+    override suspend fun findByLikeFileName(fileName: FileName): OmoideMemory? =
+        fetchPhotoBy(
+            SYNCED_OMOIDE_PHOTO.FILE_NAME.like("%$fileName%", '\\'),
+        ) ?: fetchVideoBy(
+            SYNCED_OMOIDE_VIDEO.FILE_NAME.like("%$fileName%", '\\'),
+        )
+
+    private suspend fun fetchPhotoBy(condition: Condition): OmoideMemory? =
+        dslContext
+            .invoke()
+            .selectFrom(SYNCED_OMOIDE_PHOTO)
+            .where(condition)
+            .asFlow()
+            .map {
+                OmoideMemoryTranslator.translatePhoto(it)
+            }.firstOrNull()
 }

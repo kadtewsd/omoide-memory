@@ -32,7 +32,7 @@ object CoroutineHelper {
             }.awaitAll()
         }
 
-    suspend fun <K, V, Y> Collection<Map.Entry<K, V>>.forEachIndexedWithCoroutine(
+    suspend fun <K, V> Collection<Map.Entry<K, V>>.forEachIndexedWithCoroutine(
         semaphore: Semaphore,
         uniqueIdGetter: (K, V) -> String = { key, _ -> key.toString() },
         block: suspend (Int, Map.Entry<K, V>) -> Unit,

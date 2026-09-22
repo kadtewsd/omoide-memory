@@ -1,7 +1,6 @@
 package com.kasakaid.omoidememory.commentimport.adapter
 
 import com.kasakaid.omoidememory.APPLICATION_RUNNER_KEY
-import com.kasakaid.omoidememory.commentimport.domain.model.commentintegrity.CommentIntegrity
 import com.kasakaid.omoidememory.commentimport.domain.model.commentintegrity.ExactlyMatched
 import com.kasakaid.omoidememory.commentimport.domain.model.commentintegrity.MatchedFile
 import com.kasakaid.omoidememory.commentimport.domain.model.commentintegrity.Missed
@@ -52,7 +51,7 @@ class CommentFileNameSuggestCommand(
                 .filter { it.isNotBlank() }
                 .distinct()
 
-        val integrities =
+        val checkResults =
             runBlocking {
                 orphanCandidateSuggestService.suggest(
                     orphanFileNames = orphanFileNames,
@@ -60,7 +59,14 @@ class CommentFileNameSuggestCommand(
             }
 
         val csvLines =
-            listOf("オリジナルファイル名,種類,検索結果区分,ヒットしたファイル名") + integrities.map { it.toCsvRow() }
+            listOf("コメントファイルのコンテンツ名,曖昧検索でのパターン,DBファイル名,試行結果の型") +
+                checkResults.map { result ->
+                    when (result) {
+                        is ExactlyMatched -> "${result.fileName},,,${result::class.simpleName}"
+                        is MatchedFile -> "${result.fileName},${result.likePattern},${result.actualFileName},${result::class.simpleName}"
+                        is Missed -> "${result.fileName},,,${result::class.simpleName}"
+                    }
+                }
 
         Files.write(
             Path.of(candidateOutputPathStr),
@@ -69,38 +75,13 @@ class CommentFileNameSuggestCommand(
             StandardOpenOption.TRUNCATE_EXISTING,
         )
 
-        val exactlyMatchedCount = integrities.count { it is ExactlyMatched }
-        val matchedCount = integrities.count { it is MatchedFile }
-        val missedCount = integrities.count { it is Missed }
+        val matchedCount = checkResults.count { it is MatchedFile }
         logger.info {
             "修正候補出力完了 " +
-                "未マッチ総数=${integrities.size} " +
-                "EXACT_MATCH=$exactlyMatchedCount " +
+                "入力総数=${checkResults.size} " +
+                "EXACT_MATCH=${checkResults.count { it is ExactlyMatched }} " +
                 "MATCH=$matchedCount " +
-                "MISS=$missedCount"
+                "MISS=${checkResults.count { it is Missed }}"
         }
     }
-
-    /**
-     * CommentIntegrity 1件を CSV の1行に変換する。
-     * 「検索結果区分」と「ヒットしたファイル名」は型ごとに内容が変わる。
-     */
-    private fun CommentIntegrity.toCsvRow(): String {
-        val (statusLabel, hitFileName) =
-            when (this) {
-                is ExactlyMatched -> "EXACT_MATCH" to ""
-                is MatchedFile -> "MATCH" to hitPattern
-                is Missed -> "MISS" to ""
-            }
-
-        return listOf(fileName, mediaType, statusLabel, hitFileName)
-            .joinToString(",") { escapeCsvField(it) }
-    }
-
-    private fun escapeCsvField(raw: String): String =
-        if (raw.contains(',') || raw.contains('"') || raw.contains('\n')) {
-            "\"${raw.replace("\"", "\"\"")}\""
-        } else {
-            raw
-        }
 }

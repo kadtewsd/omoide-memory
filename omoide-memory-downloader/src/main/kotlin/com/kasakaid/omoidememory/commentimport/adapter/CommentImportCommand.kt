@@ -96,7 +96,7 @@ class CommentImportCommand(
 
     private suspend fun importComment(groupedLines: Map<FileName, Collection<OmoideCommentFile>>): Option<List<NoneExistenceContentName>> {
         val fileNames = arrayOfNulls<Option<NoneExistenceContentName>>(groupedLines.size)
-        groupedLines.entries.forEachIndexedWithCoroutine<FileName, Collection<OmoideCommentFile>, Int>(Semaphore(30)) { index, entry ->
+        groupedLines.entries.forEachIndexedWithCoroutine(Semaphore(30)) { index, entry ->
             transactionalOperator.executeAndAwait {
                 fileNames[index] =
                     commentImportService.importComment(
