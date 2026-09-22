@@ -69,6 +69,7 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("io.projectreactor:reactor-test")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 
     // R2DBC Proxy for logging
@@ -76,6 +77,11 @@ dependencies {
 
     // Arrow-kt
     implementation("io.arrow-kt:arrow-core:2.2.0")
+
+    implementation("com.ibm.icu:icu4j:78.3")
+
+    // cache
+    implementation("org.springframework.boot:spring-boot-starter-cache")
 }
 
 kotlin {

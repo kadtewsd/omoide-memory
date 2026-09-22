@@ -6,6 +6,8 @@ import arrow.core.some
 import com.kasakaid.omoidememory.APPLICATION_RUNNER_KEY
 import com.kasakaid.omoidememory.commentimport.domain.model.FileName
 import com.kasakaid.omoidememory.commentimport.domain.model.OmoideComment
+import com.kasakaid.omoidememory.commentimport.domain.model.OmoideCommentFile
+import com.kasakaid.omoidememory.commentimport.domain.model.OmoideCommentFileFactory
 import com.kasakaid.omoidememory.commentimport.service.CommentImportService
 import com.kasakaid.omoidememory.commentimport.service.NoneExistenceContentName
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -48,9 +50,9 @@ class CommentImportCommand(
             return
         }
 
-        val commentDuplicationPath = System.getenv("COMMENT_DUPLICATEION_FILE_PATH")
-        if (commentDuplicationPath.isNullOrBlank()) {
-            logger.error { "環境変数 COMMENT_DUPLICATEION_FILE_PATH が設定されていません" }
+        val orphanFilePath = System.getenv("COMMENT_ORPHAN_FILE_PATH")
+        if (orphanFilePath.isNullOrBlank()) {
+            logger.error { "環境変数 COMMENT_ORPHAN_FILE_PATH が設定されていません" }
             return
         }
 
@@ -62,7 +64,7 @@ class CommentImportCommand(
                         // ヘッダー行の除去
                         !(index == 0 && line.startsWith("コンテンツ")) && line.isNotBlank()
                     }.map {
-                        OmoideComment.parse(it)
+                        OmoideCommentFileFactory.create(it)
                     }
             // エラーと成功に分解。orNull と mapNotNull でどっちかにわかれるだろうということ。!! をつかってもいいが、心理的にやだ、というあほらしい理由でこれにしている... 果たしてそこまで頑張る意味があるのだろうか？と思わせるコード
             val (errors, omoideComment) =
@@ -76,11 +78,11 @@ class CommentImportCommand(
             }
             importComment(
                 omoideComment.groupBy { line ->
-                    line.fileName
+                    line.omoideComment.fileName
                 },
             ).map {
                 Files.write(
-                    Path.of(commentDuplicationPath),
+                    Path.of(orphanFilePath),
                     it.joinToString("\n") { fileName -> fileName }.toByteArray(),
                     java.nio.file.StandardOpenOption.CREATE,
                     java.nio.file.StandardOpenOption.TRUNCATE_EXISTING,
@@ -90,14 +92,14 @@ class CommentImportCommand(
         logger.info { "コメントインポート処理を終了しました" }
     }
 
-    private suspend fun importComment(groupedLines: Map<FileName, Collection<OmoideComment>>): Option<List<NoneExistenceContentName>> {
+    private suspend fun importComment(groupedLines: Map<FileName, Collection<OmoideCommentFile>>): Option<List<NoneExistenceContentName>> {
         val fileNames = arrayOfNulls<Option<NoneExistenceContentName>>(groupedLines.size)
         groupedLines.entries.forEachIndexed { index, entry ->
             transactionalOperator.executeAndAwait {
                 fileNames[index] =
                     commentImportService.importComment(
                         fileName = entry.key,
-                        omoideComments = entry.value,
+                        omoideComments = entry.value.map { it.omoideComment }.toSet(),
                     )
             }
         }
