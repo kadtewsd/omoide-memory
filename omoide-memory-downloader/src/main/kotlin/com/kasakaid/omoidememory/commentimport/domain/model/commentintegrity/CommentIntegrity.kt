@@ -2,7 +2,6 @@ package com.kasakaid.omoidememory.commentimport.domain.model.commentintegrity
 
 sealed interface CommentIntegrity {
     val fileName: String
-    val mediaType: String
 }
 
 /**
@@ -10,7 +9,6 @@ sealed interface CommentIntegrity {
  */
 class ExactlyMatched(
     override val fileName: String,
-    override val mediaType: String,
 ) : CommentIntegrity
 
 /**
@@ -18,8 +16,8 @@ class ExactlyMatched(
  */
 class MatchedFile(
     override val fileName: String,
-    val hitPattern: String,
-    override val mediaType: String,
+    val likePattern: String,
+    val actualFileName: String,
 ) : CommentIntegrity
 
 /**
@@ -27,5 +25,4 @@ class MatchedFile(
  */
 class Missed(
     override val fileName: String,
-    override val mediaType: String,
 ) : CommentIntegrity

@@ -1,23 +1,23 @@
 package com.kasakaid.omoidememory.commentimport.domain.model.commentintegrity
 
-import com.ibm.icu.text.Normalizer
+import com.ibm.icu.text.Normalizer2
+import com.kasakaid.omoidememory.commentimport.domain.model.FileName
 
 /**
- * 1 件の orphan ファイル名に対して「試せる LIKE パターン文字列」を保持する。
+ * 1 件の orphan ファイル名に対して「試せる候補文字列」を保持する。
  *
- * このオブジェクト自体は候補パターンの入れ物であり、
- * どの候補が実際に DB とマッチしたかは呼び出し元（サービス層）が
- * `likePatterns` を順に LIKE 検索して決定する。
+ * likePatterns は % を含まない純粋な文字列。
+ * 呼び出し元（リポジトリ）が %candidate% で囲んで中間一致 LIKE 検索する。
  */
 class OrphanFile(
     val orphanFileName: String,
     val likePatterns: List<String>,
-    val mediaType: String,
 )
 
 object OrphanFileFactory {
     /**
-     * LIKE のワイルドカード文字（\, %, _）を ESCAPE '\' でエスケープする。
+     * LIKE のワイルドカード文字（\, %）を ESCAPE '\' でエスケープする。
+     * '_' は検索パターン自体に含まれるファイル名の区切り文字として必要なためエスケープする。
      */
     private fun escapeLike(raw: String): String =
         raw
@@ -25,55 +25,47 @@ object OrphanFileFactory {
             .replace("%", "\\%")
             .replace("_", "\\_")
 
-    /**
-     * 末尾サフィックス除去パターンの Regex。
-     * (1)、-edited、-COLLAGE、-ANIMATION、~数字、 - コピー を対象とする。
-     */
-    private val trailingSuffixRegex = Regex("""(\(\d+\)|-edited|-COLLAGE|-ANIMATION|~\d+| - コピー)+$""")
-
-    private const val MIN_BASE_LENGTH = 12
-    private const val MAX_TRIM_CHARS = 3
+    /** 先頭の英字列＋アンダースコアによる接頭辞（PXL_, IMG_, VID_ 等）にマッチする。 */
+    private val leadingPrefixRegex = Regex("""^[A-Za-z]+_""")
 
     /**
-     * 入力ファイル名から、マッチング試行順の LIKE パターン一覧を生成する（DB 非依存の純粋関数）。
+     * 入力ファイル名から、中間一致 LIKE 検索に使う候補文字列一覧を生成する（DB 非依存の純粋関数）。
+     *
+     * 処理手順:
+     * 1. 複合拡張子を完全除去（最初の '.' 以降を切り捨て）
+     * 2. 先頭の英字接頭辞を除去（PXL_, IMG_ 等）
+     * 3. 末尾から 1 文字ずつ削りながら、'_' が消えるまでパターンを列挙（最大 10 件）
+     *
+     * 例: PXL_20260405_002855758.TS.mp4
+     *   → 接頭辞除去後: 20260405_002855758
+     *   → パターン: 20260405_002855758, 20260405_00285575, 20260405_0028557, ...（最大10件）
      *
      * @param rawFileName CSV 上のファイル名（未加工）
-     * @return 1件の orphan ファイル名に紐づく LIKE パターン文字列（優先順）
+     * @return orphan ファイル名に紐づく候補文字列（絞り込みが強い順）
      */
-    fun create(
-        rawFileName: String,
-        mediaType: String,
-    ): OrphanFile {
-        val normalized = Normalizer.normalize(rawFileName.trim(), Normalizer.NFC)
-        val dotIndex = normalized.lastIndexOf('.')
-        val base = if (dotIndex >= 0) normalized.substring(0, dotIndex) else normalized
+    fun create(rawFileName: FileName): OrphanFile {
+        val normalized = Normalizer2.getNFCInstance().normalize(rawFileName.trim())
 
-        val patterns = mutableListOf<String>()
+        // 拡張子をすべて除去: 最初の '.' 以降を切り捨て（.TS.mp4 等の複合拡張子対応）
+        val dotIndex = normalized.indexOf('.')
+        val fullBase = if (dotIndex >= 0) normalized.substring(0, dotIndex) else normalized
 
-        // パターン 1: 大文字小文字無視の完全一致
-        patterns.add(escapeLike(normalized))
+        // 接頭辞除去: PXL_, IMG_, VID_ などの英字列 + '_' を除去
+        val baseWithoutPrefix = leadingPrefixRegex.replace(fullBase, "")
 
-        // パターン 2: base の前方一致
-        patterns.add("${escapeLike(base)}%")
-
-        // パターン 3: 末尾サフィックス除去後の前方一致
-        val strippedBase = trailingSuffixRegex.replace(base, "")
-        if (strippedBase != base) {
-            patterns.add("${escapeLike(strippedBase)}%")
-        }
-
-        // パターン 4〜6: base の末尾を 1〜MAX_TRIM_CHARS 文字削った前方一致
-        for (trimCount in 1..MAX_TRIM_CHARS) {
-            val trimmedBase = base.dropLast(trimCount)
-            if (trimmedBase.length >= MIN_BASE_LENGTH) {
-                patterns.add("${escapeLike(trimmedBase)}%")
+        // 末尾から 1 文字ずつ削り、'_' が消えるまでパターンを列挙（最大 10 件）
+        val likePatterns =
+            buildList {
+                var current = baseWithoutPrefix
+                while (size < 10 && current.contains('_')) {
+                    add(escapeLike(current))
+                    current = current.dropLast(1)
+                }
             }
-        }
 
         return OrphanFile(
             orphanFileName = rawFileName,
-            likePatterns = patterns,
-            mediaType = mediaType,
+            likePatterns = likePatterns,
         )
     }
 }
