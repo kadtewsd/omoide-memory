@@ -3,10 +3,9 @@ package com.kasakaid.omoidememory.service.query.shared.memoryfeed
 import com.kasakaid.omoidememory.domain.model.CommentCount
 import com.kasakaid.omoidememory.domain.model.ContentName
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.COMMENT_OMOIDE
-import com.kasakaid.omoidememory.r2dbc.logging.withMdc
+import com.kasakaid.omoidememory.r2dbc.DSLGenerator
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.reactive.asFlow
-import org.jooq.DSLContext
 import org.jooq.impl.DSL
 import org.springframework.stereotype.Service
 
@@ -15,11 +14,11 @@ import org.springframework.stereotype.Service
  */
 @Service
 class CommentCountQuery(
-    private val dslContext: DSLContext,
+    private val dslContext: DSLGenerator,
 ) {
     suspend fun fetch(fileNames: Set<ContentName>): Map<ContentName, CommentCount> =
         dslContext
-            .withMdc()
+            .invoke()
             .select(COMMENT_OMOIDE.FILE_NAME, DSL.count())
             .from(COMMENT_OMOIDE)
             .where(COMMENT_OMOIDE.FILE_NAME.`in`(fileNames))

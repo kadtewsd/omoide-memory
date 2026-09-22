@@ -1,14 +1,14 @@
 package com.kasakaid.omoidememory.infrastructure
 
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.LOCATION_CACHE
+import com.kasakaid.omoidememory.r2dbc.DSLGenerator
 import kotlinx.coroutines.reactive.awaitFirstOrNull
-import org.jooq.DSLContext
 import org.springframework.stereotype.Repository
 import java.time.OffsetDateTime
 
 @Repository
 class LocationCacheRepository(
-    private val dslContext: DSLContext,
+    private val dslContext: DSLGenerator,
 ) {
     suspend fun findLocation(
         roundedLatitude: Double,
@@ -17,6 +17,7 @@ class LocationCacheRepository(
         LOCATION_CACHE.run {
             val record =
                 dslContext
+                    .invoke()
                     .select(ADDRESS)
                     .from(this)
                     .where(ROUNDED_LATITUDE.eq(roundedLatitude.toBigDecimal()))
@@ -33,6 +34,7 @@ class LocationCacheRepository(
     ) {
         LOCATION_CACHE.run {
             dslContext
+                .invoke()
                 .insertInto(this)
                 .set(ROUNDED_LATITUDE, roundedLatitude.toBigDecimal())
                 .set(ROUNDED_LONGITUDE, roundedLongitude.toBigDecimal())

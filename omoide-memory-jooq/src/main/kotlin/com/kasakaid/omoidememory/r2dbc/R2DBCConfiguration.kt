@@ -4,7 +4,6 @@ import com.kasakaid.omoidememory.r2dbc.logging.R2DBCLoggingConnectionFactory
 import io.r2dbc.spi.ConnectionFactories
 import io.r2dbc.spi.ConnectionFactory
 import io.r2dbc.spi.ConnectionFactoryOptions.*
-import org.jooq.DSLContext
 import org.jooq.SQLDialect
 import org.jooq.impl.DSL
 import org.jooq.impl.DefaultConfiguration
@@ -50,13 +49,16 @@ class R2DBCConfiguration(
     }
 
     @Bean
-    fun dslContext(connectionFactory: ConnectionFactory): DSLContext =
-        DSL.using(
-            connectionFactory,
-            SQLDialect.POSTGRES,
-            DefaultConfiguration()
-                .apply {
-                    setSQLDialect(SQLDialect.POSTGRES)
-                }.settings(),
-        )
+    fun dslContext(connectionFactory: ConnectionFactory): DSLGenerator =
+        DSL
+            .using(
+                connectionFactory,
+                SQLDialect.POSTGRES,
+                DefaultConfiguration()
+                    .apply {
+                        setSQLDialect(SQLDialect.POSTGRES)
+                    }.settings(),
+            ).let {
+                DSLGenerator(it)
+            }
 }

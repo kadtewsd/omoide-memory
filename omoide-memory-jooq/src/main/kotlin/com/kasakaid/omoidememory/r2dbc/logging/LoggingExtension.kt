@@ -29,7 +29,7 @@ import org.jooq.DSLContext
  */
 private val logger = KotlinLogging.logger {}
 
-suspend fun DSLContext.withMdc(): DSLContext {
+internal suspend fun DSLContext.withMdc(): DSLContext {
     val snapshot =
         currentCoroutineContext()[ReactorContext]
             ?.context

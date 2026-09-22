@@ -10,8 +10,10 @@ import com.kasakaid.omoidememory.commentimport.domain.model.OmoideCommentFile
 import com.kasakaid.omoidememory.commentimport.domain.model.OmoideCommentFileFactory
 import com.kasakaid.omoidememory.commentimport.service.CommentImportService
 import com.kasakaid.omoidememory.commentimport.service.NoneExistenceContentName
+import com.kasakaid.omoidememory.utility.CoroutineHelper.forEachIndexedWithCoroutine
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.Semaphore
 import org.springframework.boot.ApplicationArguments
 import org.springframework.boot.ApplicationRunner
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -94,7 +96,7 @@ class CommentImportCommand(
 
     private suspend fun importComment(groupedLines: Map<FileName, Collection<OmoideCommentFile>>): Option<List<NoneExistenceContentName>> {
         val fileNames = arrayOfNulls<Option<NoneExistenceContentName>>(groupedLines.size)
-        groupedLines.entries.forEachIndexed { index, entry ->
+        groupedLines.entries.forEachIndexedWithCoroutine<FileName, Collection<OmoideCommentFile>, Int>(Semaphore(30)) { index, entry ->
             transactionalOperator.executeAndAwait {
                 fileNames[index] =
                     commentImportService.importComment(

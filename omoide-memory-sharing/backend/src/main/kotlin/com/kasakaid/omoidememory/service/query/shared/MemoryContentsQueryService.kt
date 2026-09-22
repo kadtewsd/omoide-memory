@@ -6,7 +6,7 @@ import com.kasakaid.omoidememory.jooq.omoide_memory.tables.pojos.SyncedOmoideVid
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.COMMENT_OMOIDE
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_PHOTO
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_VIDEO
-import com.kasakaid.omoidememory.r2dbc.logging.withMdc
+import com.kasakaid.omoidememory.r2dbc.DSLGenerator
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.map
@@ -14,14 +14,13 @@ import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.reactive.asFlow
 import org.jooq.Condition
-import org.jooq.DSLContext
 import org.jooq.impl.DSL
 import org.springframework.stereotype.Service
 import java.time.OffsetDateTime
 
 @Service
 class MemoryContentsQueryService(
-    private val dslContext: DSLContext,
+    private val dslContext: DSLGenerator,
 ) {
     suspend fun fetchOmoideMemory(
         photoCondition: Condition,
@@ -38,7 +37,7 @@ class MemoryContentsQueryService(
 
     suspend fun fetchPhoto(condition: Condition): List<SyncedOmoidePhoto> =
         dslContext
-            .withMdc()
+            .invoke()
             .selectFrom(SYNCED_OMOIDE_PHOTO)
             .where(condition)
             .asFlow()
@@ -47,7 +46,7 @@ class MemoryContentsQueryService(
 
     suspend fun fetchVideo(condition: Condition): List<SyncedOmoideVideo> =
         dslContext
-            .withMdc()
+            .invoke()
             .selectFrom(SYNCED_OMOIDE_VIDEO)
             .where(condition)
             .asFlow()
@@ -56,7 +55,7 @@ class MemoryContentsQueryService(
 
     suspend fun fetchComment(condition: Condition): List<CommentOmoide> =
         dslContext
-            .withMdc()
+            .invoke()
             .selectFrom(COMMENT_OMOIDE)
             .where(condition)
             .asFlow()
@@ -69,7 +68,7 @@ class MemoryContentsQueryService(
 
         val photoYearMonths =
             dslContext
-                .withMdc()
+                .invoke()
                 .selectDistinct(photoYearMonthField)
                 .from(SYNCED_OMOIDE_PHOTO)
                 .where(SYNCED_OMOIDE_PHOTO.CAPTURE_TIME.isNotNull)
@@ -79,7 +78,7 @@ class MemoryContentsQueryService(
 
         val videoYearMonths =
             dslContext
-                .withMdc()
+                .invoke()
                 .selectDistinct(videoYearMonthField)
                 .from(SYNCED_OMOIDE_VIDEO)
                 .where(SYNCED_OMOIDE_VIDEO.CAPTURE_TIME.isNotNull)

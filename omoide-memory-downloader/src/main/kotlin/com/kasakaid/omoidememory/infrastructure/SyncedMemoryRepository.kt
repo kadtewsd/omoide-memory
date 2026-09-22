@@ -4,18 +4,16 @@ import com.kasakaid.omoidememory.domain.OmoideMemory
 import com.kasakaid.omoidememory.domain.OmoideMemoryRepository
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_PHOTO
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_VIDEO
+import com.kasakaid.omoidememory.r2dbc.DSLGenerator
 import com.kasakaid.omoidememory.utility.MyUUIDGenerator
 import kotlinx.coroutines.reactive.awaitFirstOrNull
 import kotlinx.coroutines.reactive.awaitSingle
-import org.jooq.DSLContext
-import org.springframework.core.env.Environment
 import org.springframework.stereotype.Repository
 import java.time.OffsetDateTime
 
 @Repository
 class SyncedMemoryRepository(
-    private val dslContext: DSLContext,
-    environment: Environment,
+    private val dslContext: DSLGenerator,
 ) : OmoideMemoryRepository {
     /**
      * 呼び出し元では、 TransactionalOperator.executeAndAwait から実行されることにより、本クラスの awaitSingle などを実行すると、
@@ -37,6 +35,7 @@ class SyncedMemoryRepository(
     private suspend fun savePhoto(memory: OmoideMemory.Photo) {
         SYNCED_OMOIDE_PHOTO.run {
             dslContext
+                .invoke()
                 .insertInto(this)
                 .set(ID, MyUUIDGenerator.generateUUIDv7())
                 .set(FILE_NAME, memory.name)
@@ -103,6 +102,7 @@ class SyncedMemoryRepository(
                     )
                 }
             dslContext
+                .invoke()
                 .insertInto(this)
                 .set(baseFields + metadataFields)
                 .onDuplicateKeyIgnore()
@@ -115,6 +115,7 @@ class SyncedMemoryRepository(
         // Check both tables
         val photoExists =
             dslContext
+                .invoke()
                 .selectCount()
                 .from(SYNCED_OMOIDE_PHOTO)
                 .where(SYNCED_OMOIDE_PHOTO.FILE_NAME.eq(fileName))
@@ -127,6 +128,7 @@ class SyncedMemoryRepository(
     override suspend fun existsVideoByFileName(fileName: String): Boolean {
         val videoExists =
             dslContext
+                .invoke()
                 .selectCount()
                 .from(SYNCED_OMOIDE_VIDEO)
                 .where(SYNCED_OMOIDE_VIDEO.FILE_NAME.eq(fileName))

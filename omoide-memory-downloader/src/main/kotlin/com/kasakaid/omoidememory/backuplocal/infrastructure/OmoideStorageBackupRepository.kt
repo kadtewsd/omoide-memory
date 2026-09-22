@@ -2,20 +2,21 @@ package com.kasakaid.omoidememory.backuplocal.infrastructure
 
 import com.kasakaid.omoidememory.backuplocal.domain.model.BackupStrategy
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.OMOIDE_STORAGE_BACKUP
+import com.kasakaid.omoidememory.r2dbc.DSLGenerator
 import com.kasakaid.omoidememory.utility.MyUUIDGenerator
 import kotlinx.coroutines.reactive.awaitFirstOrNull
 import kotlinx.coroutines.reactive.awaitSingle
-import org.jooq.DSLContext
 import org.springframework.stereotype.Repository
 import java.time.OffsetDateTime
 
 @Repository
 class OmoideStorageBackupRepository(
-    private val dslContext: DSLContext,
+    private val dslContext: DSLGenerator,
 ) {
     suspend fun exists(backupPath: java.nio.file.Path): Boolean {
         val count =
             dslContext
+                .invoke()
                 .selectCount()
                 .from(OMOIDE_STORAGE_BACKUP)
                 .where(OMOIDE_STORAGE_BACKUP.BACKUP_PATH.eq(backupPath.toString()))
@@ -27,6 +28,7 @@ class OmoideStorageBackupRepository(
     suspend fun saveBackupRecord(backupStrategy: BackupStrategy) =
         backupStrategy.run {
             dslContext
+                .invoke()
                 .insertInto(OMOIDE_STORAGE_BACKUP)
                 .set(OMOIDE_STORAGE_BACKUP.ID, MyUUIDGenerator.generateUUIDv7())
                 .set(OMOIDE_STORAGE_BACKUP.FILE_NAME, sourceAbsolutePath.toString())

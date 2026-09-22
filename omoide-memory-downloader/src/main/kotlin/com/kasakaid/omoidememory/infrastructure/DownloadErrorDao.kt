@@ -1,9 +1,8 @@
 package com.kasakaid.omoidememory.infrastructure
 
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.DOWNLOAD_ERROR
-import com.kasakaid.omoidememory.r2dbc.transaction.RollbackException
+import com.kasakaid.omoidememory.r2dbc.DSLGenerator
 import kotlinx.coroutines.reactive.awaitFirstOrNull
-import org.jooq.DSLContext
 import org.springframework.stereotype.Repository
 import java.time.OffsetDateTime
 
@@ -20,7 +19,7 @@ fun Throwable.toErrorLog(): ErrorLog =
 
 @Repository
 class DownloadErrorDao(
-    private val dslContext: DSLContext,
+    private val dslContext: DSLGenerator,
 ) {
     suspend fun save(
         fileName: String,
@@ -29,6 +28,7 @@ class DownloadErrorDao(
         val current = OffsetDateTime.now()
         DOWNLOAD_ERROR.run {
             dslContext
+                .invoke()
                 .insertInto(this)
                 .set(FILE_NAME, fileName)
                 .set(ERROR_MESSAGE, errorLog.errorMessage)
@@ -46,6 +46,7 @@ class DownloadErrorDao(
     suspend fun delete(fileName: String) {
         DOWNLOAD_ERROR.run {
             dslContext
+                .invoke()
                 .deleteFrom(this)
                 .where(FILE_NAME.eq(fileName))
                 .awaitFirstOrNull()

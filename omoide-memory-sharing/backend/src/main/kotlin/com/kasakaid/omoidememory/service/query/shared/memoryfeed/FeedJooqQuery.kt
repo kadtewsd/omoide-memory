@@ -1,16 +1,15 @@
 package com.kasakaid.omoidememory.service.query.shared.memoryfeed
 
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.COMMENT_OMOIDE
-import com.kasakaid.omoidememory.r2dbc.logging.withMdc
+import com.kasakaid.omoidememory.r2dbc.DSLGenerator
 import com.kasakaid.omoidememory.service.query.shared.OmoideMemoryTable
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.reactive.asFlow
-import org.jooq.DSLContext
 import org.jooq.Record
 import org.jooq.SelectConditionStep
 import org.jooq.impl.DSL
 
-fun DSLContext.createMemoryQuery(
+suspend fun DSLGenerator.createMemoryQuery(
     omoideMemory: OmoideMemoryTable,
     condition: OmoideCondition,
 ): SelectConditionStep<Record> {
@@ -54,7 +53,8 @@ fun DSLContext.createMemoryQuery(
                         }
                     }
                 DSL.exists(
-                    selectOne()
+                    DSL
+                        .selectOne()
                         .from(COMMENT_OMOIDE)
                         .where(
                             COMMENT_OMOIDE.FILE_NAME
@@ -69,14 +69,15 @@ fun DSLContext.createMemoryQuery(
             }
         }
 
-    return select(
-        listOf(
-            omoideMemory.id,
-            omoideMemory.type,
-            omoideMemory.fileName,
-            omoideMemory.captureTime,
-        ),
-    ).from(omoideMemory.table)
+    return invoke()
+        .select(
+            listOf(
+                omoideMemory.id,
+                omoideMemory.type,
+                omoideMemory.fileName,
+                omoideMemory.captureTime,
+            ),
+        ).from(omoideMemory.table)
         .where(
             dateCondition
                 .and(cursorCondition)
@@ -84,13 +85,12 @@ fun DSLContext.createMemoryQuery(
         )
 }
 
-suspend fun DSLContext.executeWithContentOrder(
+suspend fun DSLGenerator.executeWithContentOrder(
     omoideMemoryTable: OmoideMemoryTable,
     condition: OmoideCondition,
     limit: Int,
 ): List<Record> =
-    withMdc()
-        .createMemoryQuery(omoideMemory = omoideMemoryTable, condition = condition)
+    createMemoryQuery(omoideMemory = omoideMemoryTable, condition = condition)
         .orderBy(
             omoideMemoryTable.captureTime.desc(),
             omoideMemoryTable.id.desc(),
