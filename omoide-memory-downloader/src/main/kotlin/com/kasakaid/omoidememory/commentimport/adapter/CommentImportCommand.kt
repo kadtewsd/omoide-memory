@@ -78,18 +78,27 @@ class CommentImportCommand(
                 val message = errors.joinToString("\n") { error -> error.message }
                 throw IllegalStateException(message)
             }
-            importComment(
-                omoideComment.groupBy { line ->
-                    line.omoideComment.fileName
-                },
-            ).map {
-                Files.write(
-                    Path.of(orphanFilePath),
-                    it.joinToString("\n") { fileName -> fileName }.toByteArray(),
-                    java.nio.file.StandardOpenOption.CREATE,
-                    java.nio.file.StandardOpenOption.TRUNCATE_EXISTING,
-                )
-            }
+            val orphanFileNameSet =
+                importComment(
+                    omoideComment.groupBy { line -> line.omoideComment.fileName },
+                ).fold(ifEmpty = { emptySet() }, ifSome = { it.toSet() })
+
+            Files.write(
+                Path.of(orphanFilePath),
+                omoideComment
+                    .filter { it.omoideComment.fileName in orphanFileNameSet }
+                    .joinToString("\n") { file ->
+                        file.parsedLines.joinToString(",") { field ->
+                            if (field.contains(',') || field.contains('"') || field.contains('\n')) {
+                                "\"${field.replace("\"", "\"\"")}\""
+                            } else {
+                                field
+                            }
+                        }
+                    }.toByteArray(),
+                java.nio.file.StandardOpenOption.CREATE,
+                java.nio.file.StandardOpenOption.TRUNCATE_EXISTING,
+            )
         }
         logger.info { "コメントインポート処理を終了しました" }
     }
