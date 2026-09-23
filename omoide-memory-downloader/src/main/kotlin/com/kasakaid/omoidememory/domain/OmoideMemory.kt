@@ -16,7 +16,13 @@ sealed interface OmoideMemory {
     val captureTime: OffsetDateTime
     val fileSize: Long
 
-    class Photo(
+    /**
+     * メタデータ抽出済みのインスタンスに対し、配置先パスだけを確定させる。
+     * captureTime 等の抽出結果はそのまま維持し、localPath のみ差し替える。
+     */
+    fun fixPath(newPath: Path): OmoideMemory
+
+    data class Photo(
         override val localPath: Path,
         override val name: String,
         override val familyId: String,
@@ -39,9 +45,11 @@ sealed interface OmoideMemory {
         override val captureTime: OffsetDateTime,
         val deviceMake: String?,
         val deviceModel: String?,
-    ) : OmoideMemory
+    ) : OmoideMemory {
+        override fun fixPath(newPath: Path): OmoideMemory = copy(localPath = newPath)
+    }
 
-    class Video(
+    data class Video(
         override val localPath: Path,
         override val name: String,
         override val familyId: String,
@@ -50,5 +58,7 @@ sealed interface OmoideMemory {
         override val fileSize: Long,
         val metadata: VideoMetadataDto,
         override val captureTime: OffsetDateTime,
-    ) : OmoideMemory
+    ) : OmoideMemory {
+        override fun fixPath(newPath: Path): OmoideMemory = copy(localPath = newPath)
+    }
 }

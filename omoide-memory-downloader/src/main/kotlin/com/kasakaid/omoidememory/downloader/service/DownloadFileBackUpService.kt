@@ -3,11 +3,12 @@ package com.kasakaid.omoidememory.downloader.service
 import arrow.core.Either
 import arrow.core.raise.either
 import arrow.core.right
+import com.kasakaid.omoidememory.domain.FileOrganizeService
 import com.kasakaid.omoidememory.domain.OmoideMemoryRepository
 import com.kasakaid.omoidememory.domain.SourceFile
 import com.kasakaid.omoidememory.downloader.domain.DriveService
 import com.kasakaid.omoidememory.downloader.domain.MediaType
-import com.kasakaid.omoidememory.downloader.domain.OmoideMemoryExportService
+import com.kasakaid.omoidememory.downloader.domain.OmoideMemoryFactory
 import com.kasakaid.omoidememory.utility.OneLineLogFormatter
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.nio.file.Files
@@ -20,7 +21,7 @@ import java.util.UUID
  */
 class DownloadFileBackUpService(
     private val syncedMemoryRepository: OmoideMemoryRepository,
-    private val omoideMemoryExportService: OmoideMemoryExportService,
+    private val omoideMemoryFactory: OmoideMemoryFactory,
     private val driveService: DriveService,
     private val omoideBackupPath: Path,
 ) {
@@ -73,10 +74,9 @@ class DownloadFileBackUpService(
                     }
 
                 val omoideMemory =
-                    omoideMemoryExportService
-                        .export(
-                            tempPath = tempPath,
-                            fileName = sourceFile.name,
+                    omoideMemoryFactory
+                        .createOmoideMemoryFrom(
+                            sourcePath = tempPath,
                             sourceFile = sourceFile,
                             omoideBackupPath = omoideBackupPath,
                             mediaType = type,
@@ -87,6 +87,11 @@ class DownloadFileBackUpService(
                 Either
                     .catch {
                         syncedMemoryRepository.save(omoideMemory)
+                        // 永続化後にファイル移動
+                        FileOrganizeService.moveToTarget(
+                            sourcePath = tempPath,
+                            targetPath = omoideMemory.localPath,
+                        )
                         logger.info { "処理完了: ${sourceFile.name} -> ${omoideMemory.localPath}" }
                         FileIOFinish.Success(omoideMemory.localPath)
                     }.mapLeft {

@@ -15,4 +15,6 @@ interface OmoideMemoryRepository {
     suspend fun findByFileName(fileName: FileName): OmoideMemory?
 
     suspend fun findByLikeFileName(fileName: FileName): OmoideMemory?
+
+    suspend fun deleteByFileName(fileName: FileName)
 }

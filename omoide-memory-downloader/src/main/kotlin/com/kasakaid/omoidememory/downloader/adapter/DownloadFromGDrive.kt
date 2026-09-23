@@ -6,12 +6,11 @@ import com.kasakaid.omoidememory.domain.OmoideMemoryRepository
 import com.kasakaid.omoidememory.domain.SourceFile
 import com.kasakaid.omoidememory.downloader.adapter.google.*
 import com.kasakaid.omoidememory.downloader.domain.DriveService
-import com.kasakaid.omoidememory.downloader.domain.OmoideMemoryExportService
+import com.kasakaid.omoidememory.downloader.domain.OmoideMemoryFactory
 import com.kasakaid.omoidememory.downloader.domain.RefreshTokenDriveService
 import com.kasakaid.omoidememory.downloader.domain.SaDriveService
 import com.kasakaid.omoidememory.downloader.service.DownloadFileBackUpService
 import com.kasakaid.omoidememory.infrastructure.DownloadErrorDao
-import com.kasakaid.omoidememory.infrastructure.ErrorLog
 import com.kasakaid.omoidememory.infrastructure.toErrorLog
 import com.kasakaid.omoidememory.r2dbc.transaction.RollbackException
 import com.kasakaid.omoidememory.utility.CoroutineHelper.mapWithCoroutine
@@ -75,14 +74,14 @@ class DownloadFromGDrive(
                     GoogleTokenCollector.refreshTokens to RefreshTokenDriveService
                 }
 
-            val omoideMemoryExportService =
-                OmoideMemoryExportService(
+            val omoideMemoryFactory =
+                OmoideMemoryFactory(
                     locationService = locationService,
                 )
             val downloadFileBackUpService =
                 DownloadFileBackUpService(
                     syncedMemoryRepository = syncedMemoryRepository,
-                    omoideMemoryExportService = omoideMemoryExportService,
+                    omoideMemoryFactory = omoideMemoryFactory,
                     driveService = driveService,
                     omoideBackupPath = Path.of(destination),
                 )

@@ -4,6 +4,7 @@ import com.kasakaid.omoidememory.APPLICATION_RUNNER_KEY
 import com.kasakaid.omoidememory.downloader.adapter.PostProcess
 import com.kasakaid.omoidememory.downloader.domain.DriveService
 import com.kasakaid.omoidememory.importfromlocal.service.ImportLocalFileService
+import com.kasakaid.omoidememory.importfromlocal.service.ImportMode
 import com.kasakaid.omoidememory.r2dbc.transaction.RollbackException
 import com.kasakaid.omoidememory.utility.CoroutineHelper.mapWithCoroutine
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -30,16 +31,39 @@ class ImportFromLocal(
     override fun run(args: ApplicationArguments): Unit =
         runBlocking {
             logger.info { "ローカルファイルからのインポート処理を開始します" }
-            val sourceDir =
-                environment.getProperty("OMOIDE_BACKUP_DIRECTORY")
-                    ?: throw IllegalArgumentException("環境変数 OMOIDE_BACKUP_DIRECTORY が設定されていません")
 
             val familyId =
                 environment.getProperty("OMOIDE_FAMILY_ID")
                     ?: throw IllegalArgumentException("環境変数 OMOIDE_FAMILY_ID が設定されていません")
-            logger.info { "対象ディレクトリ: $sourceDir" }
 
-            // ディレクトリ配下の全ファイルを取得
+            val sourceDir =
+                environment.getProperty("OMOIDE_SOURCE_DIRECTORY")
+                    ?: throw IllegalArgumentException("環境変数 OMOIDE_SOURCE_DIRECTORY が設定されていません")
+
+            // OMOIDE_BACKUP_DIRECTORY の有無で動作モードを決定する。
+            // 未設定の場合は DBメンテナンスモード:
+            //   ファイルの再配置は行わず、取込元パスのままメタデータを抽出してDBに登録する。
+            //   不正なデータや重複データが生じた際に DB のレコードを洗い替えする際に使用する。
+            // 設定済みの場合は ファイル取り込みモード:
+            //   取込元ファイルを OMOIDE_BACKUP_DIRECTORY 配下の正式な格納先（GDrive 側と同じ配置ルール）に
+            //   コピーし、コピー先のパスを DB に登録する。
+            val importMode =
+                environment
+                    .getProperty("OMOIDE_BACKUP_DIRECTORY")
+                    ?.let { ImportMode.FileImport(omoideBackupPath = Path.of(it)) }
+                    ?: ImportMode.DbMaintenance(omoideBackupPath = Path.of(sourceDir))
+
+            when (importMode) {
+                is ImportMode.DbMaintenance -> {
+                    logger.info { "モード: DBメンテナンス（ファイル再配置なし）/ 取込元ディレクトリ: $sourceDir" }
+                }
+
+                is ImportMode.FileImport -> {
+                    logger.info { "モード: ファイル取り込み / 取込元ディレクトリ: $sourceDir / バックアップ先: ${importMode.omoideBackupPath}" }
+                }
+            }
+
+            // 取込元ディレクトリ配下の全ファイルを取得
             val localFiles = importLocalFileService.scanDirectory(Path.of(sourceDir))
             logger.info { "対象ファイル数: ${localFiles.size}件" }
 
@@ -51,8 +75,11 @@ class ImportFromLocal(
                             // ReactiveTransaction が引数で入ってくるが、Repository などに渡す必要なし
                             // Spring の TransactionalOperator は、トランザクション情報を Reactor Context という「目に見えない箱」に入れて、リアクティブなパイプライン（Flux/Mono）の上流から下流まで伝播させます。
                             importLocalFileService
-                                .execute(localFile, familyId)
-                                .onRight {
+                                .execute(
+                                    localFile = localFile,
+                                    familyId = familyId,
+                                    importMode = importMode,
+                                ).onRight {
                                     PostProcess.onSuccess(it)
                                 }.onLeft {
                                     throw RollbackException(it)
