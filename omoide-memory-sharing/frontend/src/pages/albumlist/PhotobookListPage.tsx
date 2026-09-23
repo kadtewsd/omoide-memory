@@ -1,6 +1,6 @@
-import { useComments } from '../hooks/useComments';
-import { AlbumGrid } from '../components/AlbumGrid';
-import { MemoryModal } from '../components/MemoryModal';
+import { useComments } from '@/shared/hooks/useComments';
+import { AlbumGrid } from '@/shared/components/AlbumGrid';
+import { MemoryModal } from '@/shared/components/MemoryModal';
 
 export function PhotobookListPage() {
     const { selectedItem, comments, commentsLoading, openModal, closeModal } = useComments();
@@ -10,7 +10,6 @@ export function PhotobookListPage() {
             <main className="p-4 sm:p-6 lg:p-8">
                 <AlbumGrid onPhotoClick={openModal} />
             </main>
-
             <MemoryModal
                 selectedItem={selectedItem}
                 comments={comments}

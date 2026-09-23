@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { usePhotobookSelection } from '../hooks/usePhotobookSelection';
-import { PhotobookSelectionView } from '../components/PhotobookSelectionView';
-import { PhotobookPreviewView } from '../components/PhotobookPreviewView';
-import { downloadAlbumZip } from '../api';
+import { usePhotobookSelection } from '@/pages/albums/hooks/usePhotobookSelection';
+import { PhotobookSelectionView } from '@/pages/albums/components/PhotobookSelectionView';
+import { PhotobookPreviewView } from './components/PhotobookPreviewView';
+import { downloadAlbumZip } from '@/shared/api';
 
 type PhotobookPhase = 'select' | 'preview';
 

@@ -1,5 +1,5 @@
 /// <reference types="vite/client" />
-import { MemoryFeedItem, Comment, AlbumSummary, AlbumDetail, FetchFeedParams, FetchRandomFillPhotosParams, FeedPageResponse } from '../types';
+import { MemoryFeedItem, Comment, AlbumSummary, AlbumDetail, FetchFeedParams, FetchRandomFillPhotosParams, FeedPageResponse } from '@/shared/types';
 
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';

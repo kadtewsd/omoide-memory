@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { fetchFeed, fetchCapturedYearMonths, fetchCommentCreatedYearMonths } from '../api';
-import { FeedCursor, FilterMode, MemoryFeedItem } from '../types';
+import { fetchFeed, fetchCapturedYearMonths, fetchCommentCreatedYearMonths } from '@/shared/api';
+import { FeedCursor, FilterMode, MemoryFeedItem } from '@/shared/types';
 
 export function getCurrentYearMonth(): string {
     const now = new Date();

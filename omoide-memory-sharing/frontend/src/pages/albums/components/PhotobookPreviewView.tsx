@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { MemoryFeedItem } from '../types';
-import { ContentNotFound } from './ContentNotFound';
-import { getImageUrl } from '../api';
+import { MemoryFeedItem } from '@/shared/types';
+import { ContentNotFound } from '@/shared/components/ContentNotFound';
+import { getImageUrl } from '@/shared/api';
 
 /** アクションシートで選択中の写真ID（null = 非表示） */
 type ActionTargetId = string | null;

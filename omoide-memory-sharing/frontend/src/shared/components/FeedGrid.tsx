@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { MemoryFeedItem, FilterMode } from '../types';
+import { MemoryFeedItem, FilterMode } from '@/shared/types';
 import { FeedPhotoCard } from './FeedPhotoCard';
 import { FeedVideoCard } from './FeedVideoCard';
 

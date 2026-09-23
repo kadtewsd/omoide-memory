@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { MemoryFeedItem } from '../types';
-import { ContentNotFound } from './ContentNotFound';
-import { getVideoThumbnailUrl } from '../api';
+import { MemoryFeedItem } from '@/shared/types';
+import { ContentNotFound } from '@/shared/components/ContentNotFound';
+import { getVideoThumbnailUrl } from '@/shared/api';
 
 interface Props {
     item: MemoryFeedItem;

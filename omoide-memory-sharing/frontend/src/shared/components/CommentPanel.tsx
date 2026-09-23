@@ -1,4 +1,4 @@
-import { Comment } from '../types';
+import { Comment } from '@/shared/types';
 
 interface Props {
     comments: Comment[];

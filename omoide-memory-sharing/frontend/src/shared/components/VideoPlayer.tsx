@@ -1,4 +1,4 @@
-import { getVideoStreamUrl } from '../api';
+import { getVideoStreamUrl } from '@/shared/api';
 
 interface VideoPlayerProps {
     videoId: string;
