@@ -1,6 +1,7 @@
 package com.kasakaid.omoidememory.commentimport.adapter
 
 import com.kasakaid.omoidememory.APPLICATION_RUNNER_KEY
+import com.kasakaid.omoidememory.commentimport.domain.model.OmoideCommentFileFactory
 import com.kasakaid.omoidememory.commentimport.domain.model.commentintegrity.ExactlyMatched
 import com.kasakaid.omoidememory.commentimport.domain.model.commentintegrity.MatchedFile
 import com.kasakaid.omoidememory.commentimport.domain.model.commentintegrity.Missed
@@ -44,27 +45,29 @@ class CommentFileNameSuggestCommand(
             return
         }
 
-        val orphanFileNames =
+        // 孤立ファイルは元CSV の全列形式。OmoideCommentFileFactory でパースして使う
+        val orphanRecords =
             Files
                 .readAllLines(orphanFilePath, StandardCharsets.UTF_8)
                 .map { it.trim() }
                 .filter { it.isNotBlank() }
-                .distinct()
+                .mapNotNull { line -> OmoideCommentFileFactory.create(line).getOrNull() }
 
         val checkResults =
             runBlocking {
                 orphanCandidateSuggestService.suggest(
-                    orphanFileNames = orphanFileNames,
+                    orphanFileNames = orphanRecords.map { it.omoideComment.fileName },
                 )
             }
 
         val csvLines =
-            listOf("コメントファイルのコンテンツ名,曖昧検索でのパターン,DBファイル名,試行結果の型") +
-                checkResults.map { result ->
+            listOf("コメントファイルのコンテンツ名,コメント内容,曖昧検索でのパターン,DBファイル名,試行結果の型") +
+                checkResults.zip(orphanRecords).map { (result, record) ->
+                    val commentBody = record.omoideComment.commentBody
                     when (result) {
-                        is ExactlyMatched -> "${result.fileName},,,${result::class.simpleName}"
-                        is MatchedFile -> "${result.fileName},${result.likePattern},${result.actualFileName},${result::class.simpleName}"
-                        is Missed -> "${result.fileName},,,${result::class.simpleName}"
+                        is ExactlyMatched -> "${result.fileName},$commentBody,,,${result::class.simpleName}"
+                        is MatchedFile -> "${result.fileName},$commentBody,${result.likePattern},${result.actualFileName},${result::class.simpleName}"
+                        is Missed -> "${result.fileName},$commentBody,,,${result::class.simpleName}"
                     }
                 }
 
