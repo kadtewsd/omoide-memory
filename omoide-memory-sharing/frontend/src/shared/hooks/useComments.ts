@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { fetchComments } from '../api';
-import { MemoryFeedItem, Comment } from '../types';
+import { fetchComments } from '@/shared/api';
+import { MemoryFeedItem, Comment } from '@/shared/types';
 
 export function useComments() {
     const [selectedItem, setSelectedItem] = useState<MemoryFeedItem | null>(null);

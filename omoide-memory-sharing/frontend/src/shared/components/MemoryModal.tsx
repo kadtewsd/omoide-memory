@@ -1,8 +1,8 @@
-import { MemoryFeedItem, Comment } from '../types';
+import { MemoryFeedItem, Comment } from '@/shared/types';
 import { CommentPanel } from './CommentPanel';
-import { ContentNotFound } from './ContentNotFound';
+import { ContentNotFound } from '@/shared/components/ContentNotFound';
 import { VideoPlayer } from './VideoPlayer';
-import { getImageUrl, getVideoThumbnailUrl } from '../api';
+import { getImageUrl, getVideoThumbnailUrl } from '@/shared/api';
 
 interface Props {
     selectedItem: MemoryFeedItem | null;

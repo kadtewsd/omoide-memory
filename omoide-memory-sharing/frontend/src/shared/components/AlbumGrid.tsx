@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { AlbumSummary, AlbumDetail } from '../types';
-import { fetchAlbums, fetchAlbumDetail, downloadAlbumZip, getImageUrl } from '../api';
-import { MemoryFeedItem } from '../types';
+import { AlbumSummary, AlbumDetail } from '@/shared/types';
+import { fetchAlbums, fetchAlbumDetail, downloadAlbumZip, getImageUrl } from '@/shared/api';
+import { MemoryFeedItem } from '@/shared/types';
 import { FeedPhotoCard } from './FeedPhotoCard';
 
 interface Props {

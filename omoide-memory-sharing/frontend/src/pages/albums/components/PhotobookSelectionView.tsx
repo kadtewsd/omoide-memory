@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { MemoryFeedItem, PhotobookPeriod } from '../types';
-import { FeedPhotoCard } from './FeedPhotoCard';
-import { PeriodSelector, PeriodRange } from './PeriodSelector';
-import { CountBox } from './CountBox';
-import { formatYearMonthDisplay, getCurrentYearMonth } from '../hooks/useFeed';
-import { usePhotobookPhotos } from '../hooks/usePhotobookSelection';
-import { PHOTOBOOK_ABSOLUTE_MAX } from '../hooks/usePhotobookSelection';
+import { MemoryFeedItem, PhotobookPeriod } from '@/shared/types';
+import { FeedPhotoCard } from '@/shared/components/FeedPhotoCard';
+import { PeriodSelector, PeriodRange } from '@/shared/components/PeriodSelector';
+import { CountBox } from '@/shared/components/CountBox';
+import { formatYearMonthDisplay, getCurrentYearMonth } from '@/shared/hooks/useFeed';
+import { usePhotobookPhotos } from '@/pages/albums/hooks/usePhotobookSelection';
+import { PHOTOBOOK_ABSOLUTE_MAX } from '@/pages/albums/hooks/usePhotobookSelection';
 
 interface Props {
     selectedPhotoIds: Set<string>;
@@ -137,11 +137,10 @@ export function PhotobookSelectionView({
                                     key={ym}
                                     type="button"
                                     onClick={() => onSelectMonthTab(ym)}
-                                    className={`px-4 py-2 text-xs sm:text-sm font-bold rounded-full whitespace-nowrap transition-colors min-h-[40px] flex items-center justify-center ${
-                                        isSelectedTab
-                                            ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-600/30'
-                                            : 'bg-gray-100 text-gray-800 hover:bg-gray-200 border border-gray-200'
-                                    }`}
+                                    className={`px-4 py-2 text-xs sm:text-sm font-bold rounded-full whitespace-nowrap transition-colors min-h-[40px] flex items-center justify-center ${isSelectedTab
+                                        ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-600/30'
+                                        : 'bg-gray-100 text-gray-800 hover:bg-gray-200 border border-gray-200'
+                                        }`}
                                 >
                                     {formatYearMonthDisplay(ym)}
                                 </button>

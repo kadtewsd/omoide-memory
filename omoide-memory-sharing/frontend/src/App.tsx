@@ -1,9 +1,9 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { Layout } from './components/Layout';
-import { AllContentsPage } from './pages/all-contents';
-import { ContentWithCommentPage } from './pages/content-with-comment';
-import { PhotobookListPage } from './pages/photobook-list';
-import { PhotobookPage } from './pages/photobook';
+import { Layout } from '@/shared/components/Layout';
+import { AllContentsPage } from '@/pages/feed/AllContents.tsx';
+import { ContentWithCommentPage } from '@/pages/feed/ContentsWithComment.tsx';
+import { PhotobookListPage } from '@/pages/albumlist/PhotobookListPage';
+import { PhotobookPage } from '@/pages/albums/PhotobookPage';
 
 function App() {
     return (

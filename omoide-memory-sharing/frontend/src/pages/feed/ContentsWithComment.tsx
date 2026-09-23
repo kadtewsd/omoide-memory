@@ -1,14 +1,14 @@
 import { useState } from 'react';
-import { useFeed, formatYearMonthDisplay } from '../hooks/useFeed';
-import { useComments } from '../hooks/useComments';
-import { usePhotoSelection } from '../hooks/usePhotoSelection';
-import { FeedGrid } from '../components/FeedGrid';
-import { InfiniteScrollLoader } from '../components/InfiniteScrollLoader';
-import { MemoryModal } from '../components/MemoryModal';
-import { CreateAlbumModal } from '../components/CreateAlbumModal';
-import { saveAlbum, downloadAlbumZip } from '../api';
+import { useFeed, formatYearMonthDisplay } from '@/shared/hooks/useFeed';
+import { useComments } from '@/shared/hooks/useComments';
+import { usePhotoSelection } from '@/shared/hooks/usePhotoSelection';
+import { FeedGrid } from '@/shared/components/FeedGrid';
+import { InfiniteScrollLoader } from '@/shared/components/InfiniteScrollLoader';
+import { MemoryModal } from '@/shared/components/MemoryModal';
+import { CreateAlbumModal } from '@/shared/components/CreateAlbumModal';
+import { saveAlbum, downloadAlbumZip } from '@/shared/api';
 
-export function AllContentsPage() {
+export function ContentWithCommentPage() {
     const {
         items,
         hasNext,
@@ -18,38 +18,47 @@ export function AllContentsPage() {
         currentYearMonth,
         monthTabs,
         selectMonthTab,
-    } = useFeed('ALL');
+    } = useFeed('COMMENT_ONLY');
     const { selectedItem, comments, commentsLoading, openModal, closeModal } = useComments();
     const { selectedPhotoIds, togglePhotoSelection, clearSelection } = usePhotoSelection();
     const [isAlbumModalOpen, setIsAlbumModalOpen] = useState(false);
     const [isSelectMode, setIsSelectMode] = useState(false);
 
+    const handleCreateAlbumSubmit = async (albumName: string) => {
+        const photoIds = Array.from(selectedPhotoIds);
+        await saveAlbum(albumName, photoIds);
+        const blob = await downloadAlbumZip(albumName, photoIds);
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${albumName}.zip`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        clearSelection();
+        setIsSelectMode(false);
+    };
+
     return (
         <div className="min-h-screen bg-gray-50 text-gray-900">
             <div className="sticky top-[69px] z-20 bg-white/95 backdrop-blur-md border-b border-gray-200 px-4 sm:px-6 py-2 space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                        {isSelectMode && (
-                            <div className="flex items-center gap-2 bg-blue-100 text-blue-900 px-3 py-1.5 rounded-full text-xs font-bold border border-blue-200">
-                                <span>{selectedPhotoIds.size} 枚選択中</span>
-                                {selectedPhotoIds.size > 0 && (
-                                    <button
-                                        type="button"
-                                        onClick={clearSelection}
-                                        aria-label="選択をクリア"
-                                        className="hover:text-blue-700 p-1 min-h-[36px] min-w-[36px] flex items-center justify-center font-bold"
-                                    >
-                                        ✕
-                                    </button>
-                                )}
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                        {isSelectMode ? (
-                            <>
-                                {selectedPhotoIds.size > 0 && (
+                <div className="flex items-center justify-end gap-2">
+                    {isSelectMode ? (
+                        <div className="flex items-center gap-2">
+                            {selectedPhotoIds.size > 0 && (
+                                <>
+                                    <div className="flex items-center gap-2 bg-blue-100 text-blue-900 px-3 py-1.5 rounded-full text-xs font-bold border border-blue-200">
+                                        <span>{selectedPhotoIds.size} 枚選択中</span>
+                                        <button
+                                            type="button"
+                                            onClick={clearSelection}
+                                            aria-label="選択をクリア"
+                                            className="hover:text-blue-700 p-1 min-h-[36px] min-w-[36px] flex items-center justify-center font-bold"
+                                        >
+                                            ✕
+                                        </button>
+                                    </div>
                                     <button
                                         type="button"
                                         onClick={() => setIsAlbumModalOpen(true)}
@@ -60,28 +69,28 @@ export function AllContentsPage() {
                                         </svg>
                                         <span>アルバムを作成</span>
                                     </button>
-                                )}
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setIsSelectMode(false);
-                                        clearSelection();
-                                    }}
-                                    className="px-3 py-2 text-xs sm:text-sm font-semibold text-gray-700 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors min-h-[44px]"
-                                >
-                                    選択を終了
-                                </button>
-                            </>
-                        ) : (
+                                </>
+                            )}
                             <button
                                 type="button"
-                                onClick={() => setIsSelectMode(true)}
-                                className="px-3.5 py-2 text-xs sm:text-sm font-semibold text-gray-700 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors min-h-[44px]"
+                                onClick={() => {
+                                    setIsSelectMode(false);
+                                    clearSelection();
+                                }}
+                                className="px-3 py-2 text-xs sm:text-sm font-semibold text-gray-700 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors min-h-[44px]"
                             >
-                                写真を選択
+                                選択を終了
                             </button>
-                        )}
-                    </div>
+                        </div>
+                    ) : (
+                        <button
+                            type="button"
+                            onClick={() => setIsSelectMode(true)}
+                            className="px-3.5 py-2 text-xs sm:text-sm font-semibold text-gray-700 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors min-h-[44px]"
+                        >
+                            写真を選択
+                        </button>
+                    )}
                 </div>
 
                 <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0">
@@ -93,11 +102,10 @@ export function AllContentsPage() {
                                     key={ym}
                                     type="button"
                                     onClick={() => selectMonthTab(ym)}
-                                    className={`px-4 py-2 text-xs sm:text-sm font-bold rounded-full whitespace-nowrap transition-colors min-h-[40px] flex items-center justify-center ${
-                                        isSelected
-                                            ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-600/30'
-                                            : 'bg-gray-100 text-gray-800 hover:bg-gray-200 border border-gray-200'
-                                    }`}
+                                    className={`px-4 py-2 text-xs sm:text-sm font-bold rounded-full whitespace-nowrap transition-colors min-h-[40px] flex items-center justify-center ${isSelected
+                                        ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-600/30'
+                                        : 'bg-gray-100 text-gray-800 hover:bg-gray-200 border border-gray-200'
+                                        }`}
                                 >
                                     {formatYearMonthDisplay(ym)}
                                 </button>
@@ -116,7 +124,7 @@ export function AllContentsPage() {
                     <>
                         <FeedGrid
                             items={items || []}
-                            filterMode="ALL"
+                            filterMode="COMMENT_ONLY"
                             selectedPhotoIds={selectedPhotoIds}
                             onTogglePhotoSelect={isSelectMode ? togglePhotoSelection : undefined}
                             onItemClick={openModal}
@@ -148,21 +156,7 @@ export function AllContentsPage() {
                 isOpen={isAlbumModalOpen}
                 selectedCount={selectedPhotoIds.size}
                 onClose={() => setIsAlbumModalOpen(false)}
-                onSubmit={async (albumName) => {
-                    const photoIds = Array.from(selectedPhotoIds);
-                    await saveAlbum(albumName, photoIds);
-                    const blob = await downloadAlbumZip(albumName, photoIds);
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `${albumName}.zip`;
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                    document.body.removeChild(a);
-                    clearSelection();
-                    setIsSelectMode(false);
-                }}
+                onSubmit={handleCreateAlbumSubmit}
             />
         </div>
     );

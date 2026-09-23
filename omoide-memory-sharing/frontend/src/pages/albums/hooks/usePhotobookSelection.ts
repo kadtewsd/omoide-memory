@@ -1,8 +1,8 @@
 import { useState, useCallback, useEffect } from 'react';
-import { fetchCapturedYearMonths, fetchFeed, fetchRandomFillPhotos } from '../api';
-import { MemoryFeedItem, PhotobookPeriod } from '../types';
-import { isoToJstYearMonth, getYearMonthRangeIso, getCurrentYearMonth } from './useFeed';
-import { isValidIsoDate } from '../shared/date';
+import { fetchCapturedYearMonths, fetchFeed, fetchRandomFillPhotos } from '@/shared/api';
+import { MemoryFeedItem, PhotobookPeriod } from '@/shared/types';
+import { isoToJstYearMonth, getYearMonthRangeIso, getCurrentYearMonth } from '@/shared/hooks/useFeed';
+import { isValidIsoDate } from '@/shared/date';
 
 /** フォトブック選択の絶対上限枚数（サービス仕様の制限値） */
 export const PHOTOBOOK_ABSOLUTE_MAX = 200;
