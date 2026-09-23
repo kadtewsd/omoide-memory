@@ -1,13 +1,14 @@
 package com.kasakaid.omoidememory.importfromlocal.service
 
 import arrow.core.Either
-import arrow.core.raise.context.bind
-import arrow.core.raise.context.either
 import arrow.core.right
+import com.kasakaid.omoidememory.domain.FileOrganizeService
 import com.kasakaid.omoidememory.domain.LocalFile
-import com.kasakaid.omoidememory.domain.MetadataExtractError
-import com.kasakaid.omoidememory.domain.OmoideMemoryMetadataService
+import com.kasakaid.omoidememory.domain.OmoideMemory
+import com.kasakaid.omoidememory.domain.SourceFile
+import com.kasakaid.omoidememory.downloader.domain.DriveService
 import com.kasakaid.omoidememory.downloader.domain.MediaType
+import com.kasakaid.omoidememory.downloader.domain.OmoideMemoryFactory
 import com.kasakaid.omoidememory.downloader.service.FileIOFinish
 import com.kasakaid.omoidememory.infrastructure.SyncedMemoryRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -22,7 +23,7 @@ private val logger = KotlinLogging.logger {}
 @Service
 class ImportLocalFileService(
     private val syncedMemoryRepository: SyncedMemoryRepository,
-    private val omoideMemoryMetadataService: OmoideMemoryMetadataService,
+    private val omoideMemoryFactory: OmoideMemoryFactory,
 ) {
     /**
      * 指定ディレクトリ配下の全ファイルを再帰的に走査
@@ -47,52 +48,63 @@ class ImportLocalFileService(
     }
 
     /**
-     * 単一ファイルのインポート処理
+     * 単一ファイルのインポート処理。
+     *
+     * [importMode] によって動作が切り替わる。
+     * - [ImportMode.DbMaintenance]: ファイルを再配置せず、取込元パスのままDBに登録する
+     * - [ImportMode.FileImport]: GDrive 側と同じ配置ルールで omoideBackupPath 配下にコピーしてDBに登録する
      */
     suspend fun execute(
         localFile: LocalFile,
         familyId: String,
-    ): Either<MetadataExtractError, FileIOFinish> =
-        either {
-            logger.info { "インポート開始: ${localFile.name}" }
+        importMode: ImportMode,
+    ): Either<DriveService.WriteError, FileIOFinish> {
+        logger.info { "インポート開始: ${localFile.name}" }
 
-            // メディアタイプを判定
-            val mediaType =
-                MediaType.of(localFile.name).getOrNull()
-                    ?: return FileIOFinish
-                        .Skip(
-                            reason = "サポートされていないファイル形式",
-                            filePath = localFile.path,
-                        ).right()
-
-            // 既にDBに存在するかチェック
-            val exists =
-                when (mediaType) {
-                    MediaType.PHOTO -> syncedMemoryRepository.existsPhotoByFileName(localFile.name)
-                    MediaType.VIDEO -> syncedMemoryRepository.existsVideoByFileName(localFile.name)
-                }
-
-            if (exists) {
-                return FileIOFinish
+        val mediaType =
+            MediaType.of(localFile.name).getOrNull()
+                ?: return FileIOFinish
                     .Skip(
-                        reason = "ファイルは既に存在します",
+                        reason = "サポートされていないファイル形式",
                         filePath = localFile.path,
                     ).right()
+
+        val exists =
+            when (mediaType) {
+                MediaType.PHOTO -> syncedMemoryRepository.existsPhotoByFileName(localFile.name)
+                MediaType.VIDEO -> syncedMemoryRepository.existsVideoByFileName(localFile.name)
             }
 
-            // メタデータを抽出
-            val omoideMemory =
-                omoideMemoryMetadataService
-                    .extractOmoideMemoryFromLocalFile(
-                        localFile = localFile,
-                        mediaType = mediaType,
-                        familyId = familyId,
-                    ).bind()
+        if (exists) {
+            syncedMemoryRepository.deleteByFileName(localFile.name)
+        }
 
-            // DBに保存
+        val omoideMemory: Either<DriveService.WriteError, OmoideMemory> =
+            omoideMemoryFactory.createOmoideMemoryFrom(
+                sourcePath = localFile.path,
+                sourceFile = SourceFile.fromLocalFile(localFile.path),
+                omoideBackupPath = importMode.omoideBackupPath,
+                mediaType = mediaType,
+                familyId = familyId,
+            )
+
+        return omoideMemory.map { omoideMemory ->
             syncedMemoryRepository.save(omoideMemory)
 
+            when (importMode) {
+                is ImportMode.DbMaintenance -> {
+                    logger.debug { "Maintenance モードであるのでファイルの移動は実施しません" }
+                }
+
+                is ImportMode.FileImport -> {
+                    FileOrganizeService.copyToTarget(
+                        sourcePath = localFile.path,
+                        targetPath = omoideMemory.localPath,
+                    )
+                }
+            }
             logger.info { "インポート完了: ${localFile.name} -> ${omoideMemory.localPath}" }
             FileIOFinish.Success(filePath = omoideMemory.localPath)
         }
+    }
 }

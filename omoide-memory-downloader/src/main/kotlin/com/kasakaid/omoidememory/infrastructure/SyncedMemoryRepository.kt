@@ -167,6 +167,22 @@ class SyncedMemoryRepository(
             SYNCED_OMOIDE_VIDEO.FILE_NAME.like("%$fileName%", '\\'),
         )
 
+    override suspend fun deleteByFileName(fileName: FileName) {
+        dslContext
+            .invoke()
+            .deleteFrom(SYNCED_OMOIDE_PHOTO)
+            .where(SYNCED_OMOIDE_PHOTO.FILE_NAME.eq(fileName))
+            .asFlow()
+            .firstOrNull()
+
+        dslContext
+            .invoke()
+            .deleteFrom(SYNCED_OMOIDE_VIDEO)
+            .where(SYNCED_OMOIDE_VIDEO.FILE_NAME.eq(fileName))
+            .asFlow()
+            .firstOrNull()
+    }
+
     private suspend fun fetchPhotoBy(condition: Condition): OmoideMemory? =
         dslContext
             .invoke()

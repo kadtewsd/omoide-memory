@@ -8,6 +8,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.time.OffsetDateTime
+import kotlin.io.path.copyTo
 
 /**
  * ダウンロードしてきたファイルを該当のパスに振り分ける
@@ -75,6 +76,27 @@ object FileOrganizeService {
             }
 
             Files.move(sourcePath, targetPath, StandardCopyOption.REPLACE_EXISTING)
+            targetPath
+        }
+
+    /**
+     * ファイルを最終的な配置先にコピーする（取込元ファイルは残す）
+     *
+     * @param sourcePath コピー元のパス（ローカル取込元ファイル）
+     * @param targetPath コピー先のパス
+     */
+    suspend fun copyToTarget(
+        sourcePath: Path,
+        targetPath: Path,
+    ): Path =
+        withContext(Dispatchers.IO) {
+            logger.info { "ファイルコピー: $sourcePath → $targetPath" }
+
+            if (targetPath.parent != null && !Files.exists(targetPath.parent)) {
+                Files.createDirectories(targetPath.parent)
+            }
+
+            sourcePath.copyTo(target = targetPath, overwrite = true)
             targetPath
         }
 }
