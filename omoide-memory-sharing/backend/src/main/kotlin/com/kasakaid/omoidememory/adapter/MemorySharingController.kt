@@ -40,10 +40,10 @@ class MemorySharingController(
         @RequestParam(required = false)
         @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
         startInclusive: OffsetDateTime?,
-        @RequestParam(required = false)
+        @RequestParam(required = true)
         @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
         endExclusive: OffsetDateTime?,
-        @RequestParam(required = false)
+        @RequestParam(required = true)
         @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
         cursorCaptureTime: OffsetDateTime?,
         @RequestParam(required = false) cursorId: UUID?,
@@ -57,34 +57,16 @@ class MemorySharingController(
             } else {
                 null
             }
-
-        val (resolvedStart, resolvedEnd) =
-            if (cursor == null && (startInclusive == null || endExclusive == null)) {
-                val latestYearMonth =
-                    memoryContentsQueryService.getCapturedYearMonths().firstOrNull()
-                        ?: OffsetDateTime.now()
-                val monthStart =
-                    latestYearMonth
-                        .withDayOfMonth(1)
-                        .toLocalDate()
-                        .atStartOfDay(latestYearMonth.offset)
-                        .toOffsetDateTime()
-                monthStart to monthStart.plusMonths(1)
-            } else {
-                startInclusive to endExclusive
-            }
-
-        val condition =
-            OmoideCondition(
-                startInclusive = resolvedStart,
-                endExclusive = resolvedEnd,
-                cursor = cursor,
-                filterMode = mode,
-                contentType = contentType,
-            )
         val pageSize = (limit ?: 25).coerceIn(1, 1000)
         return memmoryFeedQueryService.fetchFeedPage(
-            condition = condition,
+            condition =
+                OmoideCondition(
+                    startInclusive = startInclusive,
+                    endExclusive = endExclusive,
+                    cursor = cursor,
+                    filterMode = mode,
+                    contentType = contentType,
+                ),
             limit = pageSize + 1,
         )
     }
