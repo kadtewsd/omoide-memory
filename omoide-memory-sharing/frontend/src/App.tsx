@@ -1,332 +1,41 @@
-import { useState } from 'react';
-import { useFeed, formatYearMonthDisplay } from './hooks/useFeed';
-
-import { useComments } from './hooks/useComments';
-import { usePhotoSelection } from './hooks/usePhotoSelection';
-import { usePhotobookSelection } from './hooks/usePhotobookSelection';
-import { FeedGrid } from './components/FeedGrid';
-import { InfiniteScrollLoader } from './components/InfiniteScrollLoader';
-import { MemoryModal } from './components/MemoryModal';
-import { CreateAlbumModal } from './components/CreateAlbumModal';
-import { PhotobookSelectionView } from './components/PhotobookSelectionView';
-import { PhotobookPreviewView } from './components/PhotobookPreviewView';
-import { saveAlbum, downloadAlbumZip } from './api';
-import { AlbumGrid } from './components/AlbumGrid';
-import { FilterMode } from './types';
-
-
-/** フォトブックフローの画面フェーズ */
-type PhotobookPhase = 'select' | 'preview';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { Layout } from './components/Layout';
+import { AllContentsPage } from './pages/all-contents';
+import { ContentWithCommentPage } from './pages/content-with-comment';
+import { PhotobookListPage } from './pages/photobook-list';
+import { PhotobookPage } from './pages/photobook';
 
 function App() {
-    const {
-        items,
-        hasNext,
-        loadingInitial,
-        loadingMore,
-        loadMore,
-        filterMode,
-        currentYearMonth,
-        monthTabs,
-        selectMonthTab,
-        changeFilterMode,
-    } = useFeed();
-    const { selectedItem, comments, commentsLoading, openModal, closeModal } = useComments();
-    const { selectedPhotoIds, togglePhotoSelection, clearSelection } = usePhotoSelection();
-    const [isAlbumModalOpen, setIsAlbumModalOpen] = useState(false);
-    const [isSelectMode, setIsSelectMode] = useState(false);
-
-    const [photobookPhase, setPhotobookPhase] = useState<PhotobookPhase>('select');
-    const {
-        selectedPhotoIds: photobookSelectedIds,
-        selectedPhotos,
-        period: photobookPeriod,
-        monthTabs: photobookMonthTabs,
-        maxCount,
-        fileNamePrefix,
-        setMaxCount,
-        togglePhotoSelection: togglePhotobookPhoto,
-        clearSelection: clearPhotobookSelection,
-        fillRemaining,
-        replacePhoto,
-        selectMonthTab: selectPhotobookMonthTab,
-        selectDateRange: selectPhotobookDateRange,
-    } = usePhotobookSelection();
-
-    const handleCreateAlbumSubmit = async (albumName: string) => {
-        const photoIds = Array.from(selectedPhotoIds);
-        if (photoIds.length === 0) return;
-
-        // サーバー保存
-        await saveAlbum(albumName, photoIds);
-
-        // Zipダウンロード
-        const blob = await downloadAlbumZip(albumName, photoIds);
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${albumName}.zip`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-
-        clearSelection();
-        setIsSelectMode(false);
-    };
-
-    const handlePhotobookDownload = async () => {
-        const photoIds = selectedPhotos
-            .map(p => p.id)
-            .filter((id): id is string => id !== null);
-        if (photoIds.length === 0) return;
-
-        const albumName = fileNamePrefix;
-
-        const blob = await downloadAlbumZip(albumName, photoIds);
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${albumName}.zip`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-    };
-
-    const handleDeletePhotobookPhoto = (targetId: string) => {
-        togglePhotobookPhoto(selectedPhotos.find(p => p.id === targetId)!);
-    };
-
-    const handleChangeFilterMode = (mode: FilterMode) => {
-        setIsSelectMode(false);
-        clearSelection();
-        if (mode !== 'PHOTOBOOK') {
-            changeFilterMode(mode);
-            return;
-        }
-        changeFilterMode(mode);
-        setPhotobookPhase('select');
-        clearPhotobookSelection();
-    };
-
-    if (filterMode === 'PHOTOBOOK') {
-        return photobookPhase === 'select' ? (
-            <PhotobookSelectionView
-                selectedPhotoIds={photobookSelectedIds}
-                selectedCount={selectedPhotos.length}
-                maxCount={maxCount}
-                period={photobookPeriod}
-                monthTabs={photobookMonthTabs}
-                onTogglePhoto={togglePhotobookPhoto}
-                onSelectMonthTab={selectPhotobookMonthTab}
-                onSelectDateRange={selectPhotobookDateRange}
-                onChangeMaxCount={setMaxCount}
-                onFillRemaining={fillRemaining}
-                onConfirm={() => setPhotobookPhase('preview')}
-                onBackToMain={() => handleChangeFilterMode('ALL')}
-            />
-        ) : (
-            <PhotobookPreviewView
-                selectedPhotos={selectedPhotos}
-                maxCount={maxCount}
-                currentYearMonth={photobookPeriod.type === 'MONTH_TAB' ? photobookPeriod.yearMonth : photobookPeriod.fromYearMonth}
-                onDeletePhoto={handleDeletePhotobookPhoto}
-                onReplacePhoto={replacePhoto}
-                onBackToSelect={() => setPhotobookPhase('select')}
-                onDownloadZip={handlePhotobookDownload}
-            />
-        );
-    }
-
     return (
-        <div className="min-h-screen bg-gray-50 text-gray-900">
-            <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md shadow-sm border-b border-gray-200 px-4 sm:px-6 py-3.5 space-y-3">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <div className="flex items-center justify-between sm:justify-start gap-3">
-                        <h1 className="text-lg sm:text-xl font-bold tracking-wide text-gray-900">
-                            思い出のシェア
-                        </h1>
-                        {isSelectMode && (
-                            <div className="flex items-center gap-2 bg-blue-100 text-blue-900 px-3 py-1.5 rounded-full text-xs font-bold border border-blue-200">
-                                <span>{selectedPhotoIds.size} 枚選択中</span>
-                                {selectedPhotoIds.size > 0 && (
-                                    <button
-                                        type="button"
-                                        onClick={clearSelection}
-                                        aria-label="選択をクリア"
-                                        className="hover:text-blue-700 p-1 min-h-[36px] min-w-[36px] flex items-center justify-center font-bold"
-                                    >
-                                        ✕
-                                    </button>
-                                )}
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="flex items-center gap-2.5 justify-between sm:justify-end flex-wrap">
-                        {/* 選択モード時のアクション */}
-                        {isSelectMode ? (
-                            <div className="flex items-center gap-2">
-                                {selectedPhotoIds.size > 0 && (
-                                    <button
-                                        type="button"
-                                        onClick={() => setIsAlbumModalOpen(true)}
-                                        className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-xl shadow-sm transition-colors flex items-center gap-2 min-h-[44px]"
-                                    >
-                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                        </svg>
-                                        <span>アルバムを作成</span>
-                                    </button>
-                                )}
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setIsSelectMode(false);
-                                        clearSelection();
-                                    }}
-                                    className="px-3 py-2 text-xs sm:text-sm font-semibold text-gray-700 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors min-h-[44px]"
-                                >
-                                    選択を終了
-                                </button>
-                            </div>
-                        ) : (
-                            filterMode !== 'ALBUM' && (
-                                <button
-                                    type="button"
-                                    onClick={() => setIsSelectMode(true)}
-                                    className="px-3.5 py-2 text-xs sm:text-sm font-semibold text-gray-700 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors min-h-[44px]"
-                                >
-                                    写真を選択
-                                </button>
-                            )
-                        )}
-
-                        {/* Mode Selection */}
-                        <div className="inline-flex rounded-xl border border-gray-300 bg-gray-100 p-1 min-h-[44px]">
-                            <button
-                                type="button"
-                                onClick={() => handleChangeFilterMode('ALL')}
-                                className={`px-3.5 py-1.5 text-xs sm:text-sm font-bold rounded-lg transition-colors min-h-[36px] ${
-                                    filterMode === 'ALL'
-                                        ? 'bg-white text-gray-900 shadow-sm border border-gray-200'
-                                        : 'text-gray-700 hover:text-gray-900'
-                                }`}
-                            >
-                                すべて
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => handleChangeFilterMode('COMMENT_ONLY')}
-                                className={`px-3.5 py-1.5 text-xs sm:text-sm font-bold rounded-lg transition-colors min-h-[36px] ${
-                                    filterMode === 'COMMENT_ONLY'
-                                        ? 'bg-white text-gray-900 shadow-sm border border-gray-200'
-                                        : 'text-gray-700 hover:text-gray-900'
-                                }`}
-                            >
-                                コメントのみ
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => handleChangeFilterMode('ALBUM')}
-                                className={`px-3.5 py-1.5 text-xs sm:text-sm font-bold rounded-lg transition-colors min-h-[36px] ${
-                                    filterMode === 'ALBUM'
-                                        ? 'bg-white text-gray-900 shadow-sm border border-gray-200'
-                                        : 'text-gray-700 hover:text-gray-900'
-                                }`}
-                            >
-                                アルバム
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => handleChangeFilterMode('PHOTOBOOK')}
-                                className={`px-3.5 py-1.5 text-xs sm:text-sm font-bold rounded-lg transition-colors min-h-[36px] ${
-                                    (filterMode as FilterMode) === 'PHOTOBOOK'
-                                        ? 'bg-white text-gray-900 shadow-sm border border-gray-200'
-                                        : 'text-gray-700 hover:text-gray-900'
-                                }`}
-                            >
-                                フォトブック
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Month Navigation Tabs */}
-                {filterMode !== 'ALBUM' && (
-                    <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0">
-                        <div className="flex items-center gap-2 py-0.5">
-                            {monthTabs.map(ym => {
-                                const isSelected = ym === currentYearMonth;
-                                return (
-                                    <button
-                                        key={ym}
-                                        type="button"
-                                        onClick={() => selectMonthTab(ym)}
-                                        className={`px-4 py-2 text-xs sm:text-sm font-bold rounded-full whitespace-nowrap transition-colors min-h-[40px] flex items-center justify-center ${
-                                            isSelected
-                                                ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-600/30'
-                                                : 'bg-gray-100 text-gray-800 hover:bg-gray-200 border border-gray-200'
-                                        }`}
-                                    >
-                                        {formatYearMonthDisplay(ym)}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )}
-            </header>
-
-            <main className="p-4 sm:p-6 lg:p-8">
-                {filterMode === 'ALBUM' ? (
-                    <AlbumGrid onPhotoClick={openModal} />
-                ) : loadingInitial ? (
-                    <div className="flex justify-center py-20">
-                        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
-                    </div>
-                ) : (items?.length ?? 0) > 0 ? (
-                    <>
-                        <FeedGrid
-                            items={items || []}
-                            filterMode={filterMode}
-                            selectedPhotoIds={selectedPhotoIds}
-                            onTogglePhotoSelect={isSelectMode ? togglePhotoSelection : undefined}
-                            onItemClick={openModal}
-                        />
-                        <InfiniteScrollLoader
-                            onLoadMore={loadMore}
-                            hasMore={hasNext}
-                            loading={loadingMore}
-                        />
-                    </>
-                ) : (
-                    <div className="flex flex-col items-center justify-center py-20 text-gray-400">
-                        <svg className="w-16 h-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                        <p className="text-lg font-medium">表示できるおもいではまだありません</p>
-                    </div>
-                )}
-            </main>
-
-            {/* Modal matching Google Photos style */}
-            <MemoryModal
-                selectedItem={selectedItem}
-                comments={comments}
-                commentsLoading={commentsLoading}
-                onClose={closeModal}
-            />
-
-            {/* Album creation modal */}
-            <CreateAlbumModal
-                isOpen={isAlbumModalOpen}
-                selectedCount={selectedPhotoIds.size}
-                onClose={() => setIsAlbumModalOpen(false)}
-                onSubmit={handleCreateAlbumSubmit}
-            />
-        </div>
+        <BrowserRouter>
+            <Routes>
+                <Route
+                    path="/"
+                    element={
+                        <Layout>
+                            <AllContentsPage />
+                        </Layout>
+                    }
+                />
+                <Route
+                    path="/comment"
+                    element={
+                        <Layout>
+                            <ContentWithCommentPage />
+                        </Layout>
+                    }
+                />
+                <Route
+                    path="/albums"
+                    element={
+                        <Layout>
+                            <PhotobookListPage />
+                        </Layout>
+                    }
+                />
+                <Route path="/photobook" element={<PhotobookPage />} />
+            </Routes>
+        </BrowserRouter>
     );
 }
 

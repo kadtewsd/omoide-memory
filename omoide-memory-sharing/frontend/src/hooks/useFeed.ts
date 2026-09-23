@@ -44,15 +44,12 @@ export interface UseFeedResult {
     loadingInitial: boolean;
     loadingMore: boolean;
     loadMore: () => Promise<void>;
-    filterMode: FilterMode;
     currentYearMonth: string;
     monthTabs: string[];
     selectMonthTab: (ym: string) => void;
-    changeFilterMode: (mode: FilterMode) => void;
 }
 
-export function useFeed(): UseFeedResult {
-    const [filterMode, setFilterMode] = useState<FilterMode>('ALL');
+export function useFeed(filterMode: FilterMode): UseFeedResult {
     const [currentYearMonth, setCurrentYearMonth] = useState<string>('');
     const [monthTabs, setMonthTabs] = useState<string[]>([]);
 
@@ -83,8 +80,7 @@ export function useFeed(): UseFeedResult {
                     setMonthTabs([fallbackYm]);
                     setCurrentYearMonth(fallbackYm);
                 }
-            } catch (err) {
-                console.error('年月の取得に失敗しました:', err);
+            } catch {
                 const fallbackYm = getCurrentYearMonth();
                 setMonthTabs([fallbackYm]);
                 setCurrentYearMonth(fallbackYm);
@@ -107,8 +103,7 @@ export function useFeed(): UseFeedResult {
             setItems(feedItems);
             setNextCursor(Array.isArray(res) ? null : (res?.nextCursor ?? null));
             setHasNext(Array.isArray(res) ? false : (res?.hasNext ?? false));
-        } catch (err) {
-            console.error('データの取得に失敗しました:', err);
+        } catch {
             setItems([]);
         } finally {
             setLoadingInitial(false);
@@ -149,20 +144,14 @@ export function useFeed(): UseFeedResult {
         setCurrentYearMonth(ym);
     }, []);
 
-    const changeFilterMode = useCallback((mode: FilterMode) => {
-        setFilterMode(mode);
-    }, []);
-
     return {
         items,
         hasNext,
         loadingInitial,
         loadingMore,
         loadMore,
-        filterMode,
         currentYearMonth,
         monthTabs,
         selectMonthTab,
-        changeFilterMode,
     };
 }
