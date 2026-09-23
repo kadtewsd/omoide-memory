@@ -12,17 +12,22 @@ import java.util.regex.Pattern
 
 object UnixTimestampExtractor {
     fun extract(filename: String): OffsetDateTime? =
-        filename.substringBeforeLast('.').toLongOrNull()?.let { timestamp ->
-            try {
-                OffsetDateTime
-                    .ofInstant(
-                        Instant.ofEpochMilli(timestamp),
-                        ZoneId.systemDefault(),
-                    )
-            } catch (e: Exception) {
-                null
-            }.filterModernEra()
-        }
+        filename
+            .substringBeforeLast('.')
+            // 1730293338649-3 の形式があったのでこれに対応する
+            .split("-")[0]
+            .toLongOrNull()
+            ?.let { timestamp ->
+                try {
+                    OffsetDateTime
+                        .ofInstant(
+                            Instant.ofEpochMilli(timestamp),
+                            ZoneId.systemDefault(),
+                        )
+                } catch (e: Exception) {
+                    null
+                }.filterModernEra()
+            }
 }
 
 object YyyyMmDdExtractor {
