@@ -1,5 +1,5 @@
-import { Feed } from '@/shared/components/Feed';
+import { NormalFeed } from '@/shared/components/feed';
 
 export function ContentWithCommentPage() {
-    return <Feed filterMode="COMMENT_ONLY" />;
+    return <NormalFeed filterMode="COMMENT_ONLY" />;
 }
