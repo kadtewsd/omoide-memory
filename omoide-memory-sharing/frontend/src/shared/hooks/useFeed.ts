@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { fetchFeed, fetchCapturedYearMonths, fetchCommentCreatedYearMonths } from '@/shared/api';
-import { FeedCursor, FilterMode, MemoryFeedItem } from '@/shared/types';
+import { fetchCapturedYearMonths, fetchCommentCreatedYearMonths } from '@/shared/api';
+import { FilterMode, MemoryFeedItem } from '@/shared/types';
+import { useFeedPagination } from '@/shared/hooks/useFeedPagination';
 
 export function getCurrentYearMonth(): string {
     const now = new Date();
@@ -49,15 +50,12 @@ export interface UseFeedResult {
     selectMonthTab: (ym: string) => void;
 }
 
+/**
+ * メインフィード（ALL または COMMENT_ONLY）の年月タブ選択と一覧ページネーションを管理するカスタムフック。
+ */
 export function useFeed(filterMode: FilterMode): UseFeedResult {
     const [currentYearMonth, setCurrentYearMonth] = useState<string>('');
     const [monthTabs, setMonthTabs] = useState<string[]>([]);
-
-    const [items, setItems] = useState<MemoryFeedItem[]>([]);
-    const [nextCursor, setNextCursor] = useState<FeedCursor | null>(null);
-    const [hasNext, setHasNext] = useState(false);
-    const [loadingInitial, setLoadingInitial] = useState(false);
-    const [loadingMore, setLoadingMore] = useState(false);
 
     useEffect(() => {
         const initYearMonths = async () => {
@@ -90,55 +88,22 @@ export function useFeed(filterMode: FilterMode): UseFeedResult {
         initYearMonths();
     }, [filterMode]);
 
-    const loadInitial = useCallback(async (ym: string, mode: FilterMode) => {
-        if (!ym) return;
-        setLoadingInitial(true);
-        setItems([]);
-        setNextCursor(null);
-        setHasNext(false);
-        try {
-            const { startInclusive, endExclusive } = getYearMonthRangeIso(ym);
-            const res = await fetchFeed({ startInclusive, endExclusive, mode, limit: 25 });
-            const feedItems = Array.isArray(res) ? res : (res?.items ?? []);
-            setItems(feedItems);
-            setNextCursor(Array.isArray(res) ? null : (res?.nextCursor ?? null));
-            setHasNext(Array.isArray(res) ? false : (res?.hasNext ?? false));
-        } catch {
-            setItems([]);
-        } finally {
-            setLoadingInitial(false);
-        }
-    }, []);
+    const { startInclusive, endExclusive } = currentYearMonth
+        ? getYearMonthRangeIso(currentYearMonth)
+        : { startInclusive: undefined, endExclusive: undefined };
 
-    const loadMore = useCallback(async () => {
-        if (!hasNext || loadingMore || loadingInitial || !nextCursor || !currentYearMonth) return;
-        setLoadingMore(true);
-        try {
-            const { startInclusive, endExclusive } = getYearMonthRangeIso(currentYearMonth);
-            const res = await fetchFeed({
-                startInclusive,
-                endExclusive,
-                mode: filterMode,
-                cursorCaptureTime: nextCursor.captureTime,
-                cursorId: nextCursor.id,
-                limit: 25,
-            });
-            const feedItems = Array.isArray(res) ? res : (res?.items ?? []);
-            setItems(prev => [...prev, ...feedItems]);
-            setNextCursor(Array.isArray(res) ? null : (res?.nextCursor ?? null));
-            setHasNext(Array.isArray(res) ? false : (res?.hasNext ?? false));
-        } catch (err) {
-            console.error('追加データの取得に失敗しました:', err);
-        } finally {
-            setLoadingMore(false);
-        }
-    }, [hasNext, loadingMore, loadingInitial, nextCursor, currentYearMonth, filterMode]);
-
-    useEffect(() => {
-        if (currentYearMonth) {
-            loadInitial(currentYearMonth, filterMode);
-        }
-    }, [currentYearMonth, filterMode, loadInitial]);
+    const {
+        items,
+        hasNext,
+        loadingInitial,
+        loadingMore,
+        loadMore,
+    } = useFeedPagination({
+        startInclusive,
+        endExclusive,
+        mode: filterMode,
+        limit: 25,
+    });
 
     const selectMonthTab = useCallback((ym: string) => {
         setCurrentYearMonth(ym);

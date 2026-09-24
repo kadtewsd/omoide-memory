@@ -1,26 +1,11 @@
 import { useState, useCallback, useEffect } from 'react';
-import { fetchCapturedYearMonths, fetchFeed, fetchRandomFillPhotos } from '@/shared/api';
+import { fetchCapturedYearMonths, fetchRandomFillPhotos } from '@/shared/api';
 import { MemoryFeedItem, PhotobookPeriod } from '@/shared/types';
-import { isoToJstYearMonth, getYearMonthRangeIso, getCurrentYearMonth } from '@/shared/hooks/useFeed';
-import { isValidIsoDate } from '@/shared/date';
+import { isoToJstYearMonth, getCurrentYearMonth } from '@/shared/hooks/useFeed';
+import { getPeriodIsoRange } from '@/pages/albums/hooks/usePhotobookPhotos';
 
 /** フォトブック選択の絶対上限枚数（サービス仕様の制限値） */
 export const PHOTOBOOK_ABSOLUTE_MAX = 200;
-
-/**
- * 期間（単月または from ~ to）から API 呼び出し用の ISO 範囲を算出する純粋関数
- */
-export function getPeriodIsoRange(period: PhotobookPeriod): { startInclusive: string; endExclusive: string } {
-    if (period.type === 'MONTH_TAB') {
-        return getYearMonthRangeIso(period.yearMonth);
-    }
-    const isConflict = period.fromYearMonth > period.toYearMonth;
-    const endYm = isConflict ? period.fromYearMonth : period.toYearMonth;
-
-    const { startInclusive } = getYearMonthRangeIso(period.fromYearMonth);
-    const { endExclusive } = getYearMonthRangeIso(endYm);
-    return { startInclusive, endExclusive };
-}
 
 /**
  * 期間情報からダウンロード用ファイル名の接頭辞を生成する
@@ -50,6 +35,9 @@ export interface UsePhotobookSelectionResult {
     selectDateRange: (params: { fromYearMonth: string; toYearMonth: string }) => void;
 }
 
+/**
+ * フォトブック選択・差し替え・自動補完を管理するカスタムフック。
+ */
 export function usePhotobookSelection(): UsePhotobookSelectionResult {
     const [selectedPhotos, setSelectedPhotos] = useState<MemoryFeedItem[]>([]);
     const [period, setPeriod] = useState<PhotobookPeriod>({
@@ -195,39 +183,3 @@ export function usePhotobookSelection(): UsePhotobookSelectionResult {
         selectDateRange,
     };
 }
-
-/**
- * 指定期間・フィルターモード ALLでフィードを取得し、写真のみ返すカスタムフック。
- * PhotobookSelectionView から使用する。
- */
-export function usePhotobookPhotos(period: PhotobookPeriod) {
-    const [photos, setPhotos] = useState<MemoryFeedItem[]>([]);
-    const [loading, setLoading] = useState(false);
-
-    const { startInclusive, endExclusive } = getPeriodIsoRange(period);
-
-    useEffect(() => {
-        const load = async () => {
-            if (!isValidIsoDate(startInclusive) || !isValidIsoDate(endExclusive)) {
-                setLoading(false);
-                return;
-            }
-            setLoading(true);
-            try {
-                // バックエンドの FilterMode は PHOTOBOOK を持たないため ALL として送信する
-                const fetched = await fetchFeed({ startInclusive, endExclusive, mode: 'ALL', limit: 25, contentType: 'PHOTO' });
-                setPhotos(Array.isArray(fetched) ? fetched : (fetched?.items ?? []));
-            } catch (err) {
-                console.error('写真の取得に失敗しました:', err);
-                setPhotos([]);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        load();
-    }, [startInclusive, endExclusive]);
-
-    return { photos, loading };
-}
-
