@@ -3,8 +3,9 @@ import { MemoryFeedItem, PhotobookPeriod } from '@/shared/types';
 import { FeedPhotoCard } from '@/shared/components/FeedPhotoCard';
 import { PeriodSelector, PeriodRange } from '@/shared/components/PeriodSelector';
 import { CountBox } from '@/shared/components/CountBox';
+import { InfiniteScrollLoader } from '@/shared/components/InfiniteScrollLoader';
 import { formatYearMonthDisplay, getCurrentYearMonth } from '@/shared/hooks/useFeed';
-import { usePhotobookPhotos } from '@/pages/albums/hooks/usePhotobookSelection';
+import { usePhotobookPhotos } from '@/pages/albums/hooks/usePhotobookPhotos';
 import { PHOTOBOOK_ABSOLUTE_MAX } from '@/pages/albums/hooks/usePhotobookSelection';
 
 interface Props {
@@ -42,7 +43,7 @@ export function PhotobookSelectionView({
     onConfirm,
     onBackToMain,
 }: Props) {
-    const { photos, loading } = usePhotobookPhotos(period);
+    const { photos, hasNext, loadingInitial, loadingMore, loadMore } = usePhotobookPhotos(period);
     const remaining = maxCount - selectedCount;
 
     const isMonthTabMode = period.type === 'MONTH_TAB';
@@ -172,29 +173,36 @@ export function PhotobookSelectionView({
             </header>
 
             <main className="p-4 sm:p-6 lg:p-8">
-                {loading ? (
+                {loadingInitial ? (
                     <div className="flex justify-center py-20">
                         <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
                     </div>
                 ) : photos.length > 0 ? (
-                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-1 sm:gap-2">
-                        {photos.map(photo => {
-                            const isSelected = photo.id !== null && selectedPhotoIds.has(photo.id);
-                            const isAtLimit = selectedCount >= maxCount && !isSelected;
-                            return (
-                                <div key={photo.id} className={isAtLimit ? 'opacity-50' : ''}>
-                                    <FeedPhotoCard
-                                        item={photo}
-                                        isSelected={isSelected}
-                                        onToggleSelect={
-                                            isAtLimit ? undefined : () => onTogglePhoto(photo)
-                                        }
-                                        onClick={() => onTogglePhoto(photo)}
-                                    />
-                                </div>
-                            );
-                        })}
-                    </div>
+                    <>
+                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-1 sm:gap-2">
+                            {photos.map(photo => {
+                                const isSelected = photo.id !== null && selectedPhotoIds.has(photo.id);
+                                const isAtLimit = selectedCount >= maxCount && !isSelected;
+                                return (
+                                    <div key={photo.id} className={isAtLimit ? 'opacity-50' : ''}>
+                                        <FeedPhotoCard
+                                            item={photo}
+                                            isSelected={isSelected}
+                                            onToggleSelect={
+                                                isAtLimit ? undefined : () => onTogglePhoto(photo)
+                                            }
+                                            onClick={() => onTogglePhoto(photo)}
+                                        />
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        <InfiniteScrollLoader
+                            onLoadMore={loadMore}
+                            hasMore={hasNext}
+                            loading={loadingMore}
+                        />
+                    </>
                 ) : (
                     <div className="flex flex-col items-center justify-center py-20 text-gray-400">
                         <svg className="w-16 h-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
