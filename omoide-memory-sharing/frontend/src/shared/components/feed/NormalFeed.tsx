@@ -2,10 +2,11 @@ import { useState } from 'react';
 import { useFeed } from '@/shared/hooks/useFeed';
 import { useComments } from '@/shared/hooks/useComments';
 import { usePhotoSelection } from '@/shared/hooks/usePhotoSelection';
+import { useAlbumDownloadJob } from '@/pages/albums/hooks/useAlbumDownloadJob';
 import { FeedGrid } from '@/shared/components/FeedGrid';
 import { MemoryModal } from '@/shared/components/MemoryModal';
 import { CreateAlbumModal } from '@/shared/components/CreateAlbumModal';
-import { saveAlbum, downloadAlbumZip } from '@/shared/api';
+import { saveAlbum } from '@/shared/api';
 import { NormalFeedProps } from './types';
 import { FeedMonthTabs } from './FeedMonthTabs';
 import { FeedContentContainer } from './FeedContentContainer';
@@ -27,23 +28,17 @@ export function NormalFeed({ filterMode }: NormalFeedProps) {
     } = useFeed(filterMode);
     const { selectedItem, comments, commentsLoading, openModal, closeModal } = useComments();
     const { selectedPhotoIds, togglePhotoSelection, clearSelection } = usePhotoSelection();
+    const { startDownload } = useAlbumDownloadJob();
     const [isAlbumModalOpen, setIsAlbumModalOpen] = useState(false);
     const [isSelectMode, setIsSelectMode] = useState(false);
 
     const handleCreateAlbumSubmit = async (albumName: string) => {
         const photoIds = Array.from(selectedPhotoIds);
-        await saveAlbum(albumName, photoIds);
-        const blob = await downloadAlbumZip(albumName, photoIds);
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${albumName}.zip`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
+        const album = await saveAlbum({ albumName, photoIds });
         clearSelection();
         setIsSelectMode(false);
+        setIsAlbumModalOpen(false);
+        await startDownload({ albumId: album.albumId });
     };
 
     return (

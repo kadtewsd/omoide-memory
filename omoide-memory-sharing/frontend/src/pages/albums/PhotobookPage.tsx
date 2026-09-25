@@ -1,15 +1,20 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePhotobookSelection } from '@/pages/albums/hooks/usePhotobookSelection';
+import { useAlbumDownloadJob } from '@/pages/albums/hooks/useAlbumDownloadJob';
 import { PhotobookSelectionView } from '@/pages/albums/components/PhotobookSelectionView';
-import { PhotobookPreviewView } from './components/PhotobookPreviewView';
-import { downloadAlbumZip } from '@/shared/api';
-
-type PhotobookPhase = 'select' | 'preview';
+import {
+    PhotobookPreviewView,
+    PhotobookState,
+    SelectingState,
+    PreviewingState,
+    CreatingState,
+} from '@/pages/albums/components/PhotobookPreviewView';
+import { saveAlbum } from '@/shared/api';
 
 export function PhotobookPage() {
     const navigate = useNavigate();
-    const [phase, setPhase] = useState<PhotobookPhase>('select');
+    const [state, setState] = useState<PhotobookState>(new SelectingState());
 
     const {
         selectedPhotoIds,
@@ -26,28 +31,10 @@ export function PhotobookPage() {
         selectDateRange,
     } = usePhotobookSelection();
 
-    const handleDownload = async () => {
-        const photoIds = selectedPhotos
-            .map(p => p.id)
-            .filter((id): id is string => id !== null);
-        if (photoIds.length === 0) return;
+    const { startDownload } = useAlbumDownloadJob();
 
-        const blob = await downloadAlbumZip(fileNamePrefix, photoIds);
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${fileNamePrefix}.zip`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-    };
-
-    const handleDeletePhoto = (targetId: string) => {
-        togglePhotoSelection(selectedPhotos.find(p => p.id === targetId)!);
-    };
-
-    if (phase === 'select') {
+    // 1. 選択中（SelectingState）の場合は SelectionView を描画
+    if (state instanceof SelectingState) {
         return (
             <PhotobookSelectionView
                 selectedPhotoIds={selectedPhotoIds}
@@ -60,21 +47,49 @@ export function PhotobookPage() {
                 onSelectDateRange={selectDateRange}
                 onChangeMaxCount={setMaxCount}
                 onFillRemaining={fillRemaining}
-                onConfirm={() => setPhase('preview')}
+                onConfirm={() => setState(new PreviewingState())}
                 onBackToMain={() => navigate('/')}
             />
         );
     }
 
+    // 2. アルバム作成中（CreatingState）の処理
+    const handleCreateAlbum = async (albumName: string) => {
+        const photoIds = selectedPhotos
+            .map(p => p.id)
+            .filter((id): id is string => id !== null);
+        if (photoIds.length === 0) return;
+
+        setState(new CreatingState('アルバムを作成中...'));
+        try {
+            const album = await saveAlbum({ albumName, photoIds });
+            setState(new CreatingState('ダウンロード準備中...'));
+            await startDownload({
+                albumId: album.albumId,
+                onProgress: (percentage) =>
+                    setState(new CreatingState(`ZIPファイル作成中... (${percentage}%)`)),
+            });
+            setState(new SelectingState());
+            navigate('/albums');
+        } catch {
+            setState(new PreviewingState());
+        }
+    };
+
+    const handleDeletePhoto = (targetId: string) => {
+        togglePhotoSelection(selectedPhotos.find(p => p.id === targetId)!);
+    };
+
     return (
         <PhotobookPreviewView
             selectedPhotos={selectedPhotos}
             maxCount={maxCount}
-            currentYearMonth={period.type === 'MONTH_TAB' ? period.yearMonth : period.fromYearMonth}
+            defaultAlbumName={fileNamePrefix}
+            state={state}
             onDeletePhoto={handleDeletePhoto}
             onReplacePhoto={replacePhoto}
-            onBackToSelect={() => setPhase('select')}
-            onDownloadZip={handleDownload}
+            onBackToSelect={() => setState(new SelectingState())}
+            onCreateAlbum={handleCreateAlbum}
         />
     );
 }
