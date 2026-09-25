@@ -1,5 +1,5 @@
-import { Feed } from '@/shared/components/Feed';
+import { NormalFeed } from '@/shared/components/feed';
 
 export function AllContentsPage() {
-    return <Feed filterMode="ALL" />;
+    return <NormalFeed filterMode="ALL" />;
 }
