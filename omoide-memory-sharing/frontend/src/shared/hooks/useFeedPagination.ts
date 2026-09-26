@@ -92,31 +92,47 @@ export function useFeedPagination({
      * APIレスポンスを正規化して FeedPageResult に変換する。
      * レスポンスが配列形式（旧仕様）とオブジェクト形式の両方に対応する。
      */
-    const toEntry = (res: FeedPageResponse | readonly MemoryFeedItem[] | null): FeedPageResult => ({
-        feedItems: Array.isArray(res) ? (res as MemoryFeedItem[]) : (res?.items ?? []),
-        nextCursor: Array.isArray(res) ? null : ((res as FeedPageResponse)?.nextCursor ?? null),
-        hasNext: Array.isArray(res) ? false : ((res as FeedPageResponse)?.hasNext ?? false),
-    });
+    const toEntry = (res: FeedPageResponse | null): FeedPageResult => {
+        if (!res) {
+            return { feedItems: [], nextCursor: null, hasNext: false };
+        }
+        return {
+            feedItems: res.items ?? [],
+            nextCursor: res.nextCursor ?? null,
+            hasNext: res.hasNext ?? false,
+        };
+    };
 
     /**
      * フィードの1ページを取得してステートとキャッシュに反映する共通処理。
-     * - cursor=null → 先頭ページ取得（loadInitial から呼ぶ）
-     * - cursor=nextCursor → 続きページ取得（loadMore から呼ぶ）
-     * 取得結果は previousItems と結合してキャッシュに累積保存する。
-     * これにより loadMore を繰り返すたびに「全件」がキャッシュに蓄積され、
-     * 年月タブを切り替えて戻ってきた際もキャッシュから全件を即座に復元できる。
+     *
+     * mergeItems は呼び出し元が渡す高階関数で、アイテムの結合戦略を決定する。
+     * - loadInitial: (_prev, fetched) => fetched            先頭ページで全件置き換え
+     * - loadMore:    (prev, fetched) => [...prev, ...fetched] 既存アイテムに追加
+     *
+     * setItems の updater 内でキャッシュを書き込むことで、
+     * React が updater に渡す prev が必ず最新の items 値になる。
+     * これにより loadMore の useCallback deps に items を含める必要がなくなり、
+     * items が変わるたびに loadMore 参照が変わって IntersectionObserver が
+     * 多重再生成される問題を根本から解消する。
      */
     const loadPage = useCallback(
-        async (cursor: FeedCursor | null, previousItems: MemoryFeedItem[], cacheKey: string): Promise<void> => {
+        async (
+            cursor: FeedCursor | null,
+            cacheKey: string,
+            mergeItems: (prev: MemoryFeedItem[], fetched: MemoryFeedItem[]) => MemoryFeedItem[],
+        ): Promise<void> => {
             const res = await executeFetch(cursor);
             const { feedItems, nextCursor: newCursor, hasNext: newHasNext } = toEntry(res);
-            const accumulated = [...previousItems, ...feedItems];
-            setItems(accumulated);
+            setItems(prev => {
+                const merged = mergeItems(prev, feedItems);
+                // setItems updater 内でキャッシュを書き込む。
+                // prev が必ず最新値なので merged も正確な全件になる。
+                writeCache(cacheKey, { items: merged, nextCursor: newCursor, hasNext: newHasNext });
+                return merged;
+            });
             setNextCursor(newCursor);
             setHasNext(newHasNext);
-            // 取得済みの全アイテムを丸ごとキャッシュに上書きする。
-            // 次回同じ条件で loadInitial が呼ばれた際に全件をキャッシュから即復元できる。
-            writeCache(cacheKey, { items: accumulated, nextCursor: newCursor, hasNext: newHasNext });
         },
         [executeFetch]
     );
@@ -154,7 +170,8 @@ export function useFeedPagination({
         setNextCursor(null);
         setHasNext(false);
         try {
-            await loadPage(null, [], cacheKey);
+            // 先頭ページは全件置き換えなので fetched をそのまま返す
+            await loadPage(null, cacheKey, (_prev, fetched) => fetched);
         } catch (err) {
             console.error('フィードの取得に失敗しました:', err);
             setItems([]);
@@ -171,6 +188,12 @@ export function useFeedPagination({
      * アンカーが画面内に入ると onLoadMore（= この loadMore）が呼ばれる。
      * 取得した新ページは既存アイテムに追加され、同時にキャッシュも全件で更新される。
      * hasNext が false になった時点でアンカーがアンマウントされ、監視が自動停止する。
+     *
+     * 【items を deps に含めない理由】
+     * items を deps に入れると setItems のたびに loadMore の参照が変わり、
+     * InfiniteScrollLoader が IntersectionObserver を再生成してしまう。
+     * 再生成のたびにアンカーが画面内なら即座に発火するため loadMore が多重呼出しされる。
+     * setItems updater 内で prev を受け取ることで items を deps 不要にしている。
      */
     const loadMore = useCallback(async () => {
         if (!hasNext || loadingMore || loadingInitial || !nextCursor) return;
@@ -179,14 +202,15 @@ export function useFeedPagination({
         setLoadingMore(true);
         try {
             const cacheKey = buildCacheKey(startInclusive, endExclusive, mode, contentType);
-            // items の現在値をクロージャで取れないため、setItems の updater 外で取得して渡す
-            await loadPage(nextCursor, items, cacheKey);
+            // 続きページは既存アイテムに追加するので [...prev, ...fetched] で結合する
+            await loadPage(nextCursor, cacheKey, (prev, fetched) => [...prev, ...fetched]);
         } catch (err) {
             console.error('追加フィードの取得に失敗しました:', err);
         } finally {
             setLoadingMore(false);
         }
-    }, [hasNext, loadingMore, loadingInitial, nextCursor, startInclusive, endExclusive, mode, contentType, items, loadPage]);
+        // items は loadPage の updater 内で prev として取得するため deps 不要
+    }, [hasNext, loadingMore, loadingInitial, nextCursor, startInclusive, endExclusive, mode, contentType, loadPage]);
 
     // 期間・条件が確定したら先頭ページを取得する
     useEffect(() => {
