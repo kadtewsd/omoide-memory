@@ -41,6 +41,7 @@ function yearMonthToDate(ym: string): Date | null {
 
 /**
  * react-datepicker を活用した期間（From 〜 To の年月）選択・手入力コンポーネント。
+ * - 大きく押しやすい年送りナビゲーションと、バツボタン・タイトルの整然としたヘッダーレイアウト。
  * - 3列4段（1〜3月、4〜6月、7〜9月、10〜12月）の均等な月ピッカーレイアウト。
  * - 外側クリックや Escape キーによるクローズは react-datepicker の組み込み機能（onClickOutside / onKeyDown）に委任。
  * - ポップオーバー内で [開始年月 (From)] と [終了年月 (To)] を切り替えて選択可能。
@@ -209,7 +210,6 @@ export function PeriodSelector({
                         dateFormat="yyyy-MM"
                         inline
                         onClickOutside={(event) => {
-                            // アイコンボタン自体のクリックで二重トグルしないようガード
                             if (buttonRef.current && buttonRef.current.contains(event.target as Node)) {
                                 return;
                             }
@@ -220,29 +220,75 @@ export function PeriodSelector({
                                 setIsCalendarOpen(false);
                             }
                         }}
-                        calendarContainer={({ children }) => (
-                            <CalendarContainer className="!bg-white !rounded-2xl !shadow-2xl !border !border-gray-200 !p-3 !w-80 !font-sans">
-                                {/* 上部ヘッダー & 閉じるボタン */}
-                                <div className="flex items-center justify-between pb-2 mb-2 border-b border-gray-100">
-                                    <span className="text-xs font-bold text-gray-700">
-                                        {activeTarget === 'FROM' ? '開始年月を選択' : '終了年月を選択'}
+                        renderCustomHeader={({
+                            date,
+                            decreaseYear,
+                            increaseYear,
+                            prevYearButtonDisabled,
+                            nextYearButtonDisabled,
+                        }) => (
+                            <div className="flex items-center justify-between px-1 pb-3 mb-2 border-b border-gray-100">
+                                {/* 1. 対象ステータス表示（左側） */}
+                                <span className="text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200/60 px-2.5 py-1 rounded-lg">
+                                    {activeTarget === 'FROM' ? '開始年月' : '終了年月'}
+                                </span>
+
+                                {/* 2. 年送りナビゲーション (大きく押しやすいボタン) */}
+                                <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-xl px-2 py-1 shadow-sm">
+                                    <button
+                                        type="button"
+                                        onClick={decreaseYear}
+                                        disabled={prevYearButtonDisabled}
+                                        className="p-1 text-gray-600 hover:text-blue-600 hover:bg-white rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
+                                        aria-label="前年へ"
+                                        title="前年へ"
+                                    >
+                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+                                        </svg>
+                                    </button>
+                                    <span className="text-sm font-bold text-gray-900 px-2 min-w-[4.5rem] text-center select-none">
+                                        {date.getFullYear()}年
                                     </span>
                                     <button
                                         type="button"
-                                        onClick={() => setIsCalendarOpen(false)}
-                                        className="text-xs text-gray-400 hover:text-gray-600 p-1 rounded"
-                                        aria-label="閉じる"
+                                        onClick={increaseYear}
+                                        disabled={nextYearButtonDisabled}
+                                        className="p-1 text-gray-600 hover:text-blue-600 hover:bg-white rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
+                                        aria-label="次年へ"
+                                        title="次年へ"
                                     >
-                                        ✕
+                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                        calendarContainer={({ children }) => (
+                            <CalendarContainer className="!bg-white !rounded-2xl !shadow-2xl !border !border-gray-200 !p-4 !w-84 !font-sans">
+                                {/* 最上段: バツボタン専用行（右上端に配置） */}
+                                <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-gray-100">
+                                    <span className="text-xs font-bold text-gray-700">期間を選択</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsCalendarOpen(false)}
+                                        className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
+                                        aria-label="カレンダーを閉じる"
+                                        title="閉じる"
+                                    >
+                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
                                     </button>
                                 </div>
 
-                                {/* From / To モード切り替えタブ */}
-                                <div className="flex bg-gray-100 p-1 rounded-xl gap-1 mb-2">
+                                {/* 2行目: From / To モード切り替えタブ */}
+                                <div className="flex bg-gray-100 p-1 rounded-xl gap-1.5 mb-3">
                                     <button
                                         type="button"
                                         onClick={() => setActiveTarget('FROM')}
-                                        className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all text-center ${
+                                        className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all text-center cursor-pointer ${
                                             activeTarget === 'FROM'
                                                 ? 'bg-white text-blue-600 shadow-sm'
                                                 : 'text-gray-600 hover:text-gray-900'
@@ -253,7 +299,7 @@ export function PeriodSelector({
                                     <button
                                         type="button"
                                         onClick={() => setActiveTarget('TO')}
-                                        className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all text-center ${
+                                        className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all text-center cursor-pointer ${
                                             activeTarget === 'TO'
                                                 ? 'bg-white text-blue-600 shadow-sm'
                                                 : 'text-gray-600 hover:text-gray-900'
@@ -268,7 +314,7 @@ export function PeriodSelector({
                         )}
                     />
 
-                    {/* 3列4段レイアウトを強制するスタイル */}
+                    {/* 3列4段レイアウトとすっきりしたヘッダースタイル */}
                     <style>{`
                         .period-picker-popover .react-datepicker {
                             width: 100% !important;
@@ -281,42 +327,37 @@ export function PeriodSelector({
                             float: none !important;
                         }
                         .period-picker-popover .react-datepicker__header {
-                            background: #f9fafb !important;
-                            border: 1px solid #f3f4f6 !important;
-                            border-radius: 0.75rem !important;
-                            padding: 0.5rem 0 !important;
-                            margin-bottom: 0.5rem !important;
-                        }
-                        .period-picker-popover .react-datepicker__current-month {
-                            font-size: 0.95rem !important;
-                            font-weight: 700 !important;
-                            color: #111827 !important;
+                            background: transparent !important;
+                            border: none !important;
+                            padding: 0 !important;
+                            margin: 0 !important;
                         }
                         .period-picker-popover .react-datepicker__month {
                             margin: 0 !important;
                             display: flex !important;
                             flex-direction: column !important;
-                            gap: 0.375rem !important;
+                            gap: 0.5rem !important;
                             width: 100% !important;
                         }
                         .period-picker-popover .react-datepicker__month-wrapper {
                             display: grid !important;
                             grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-                            gap: 0.375rem !important;
+                            gap: 0.5rem !important;
                             width: 100% !important;
                             max-width: none !important;
                         }
                         .period-picker-popover .react-datepicker__month-text {
                             width: 100% !important;
                             margin: 0 !important;
-                            padding: 0.5rem 0 !important;
-                            border-radius: 0.625rem !important;
+                            padding: 0.625rem 0 !important;
+                            border-radius: 0.75rem !important;
                             font-size: 0.875rem !important;
                             font-weight: 600 !important;
                             display: flex !important;
                             align-items: center !important;
                             justify-content: center !important;
                             transition: all 0.15s ease-in-out !important;
+                            cursor: pointer !important;
                         }
                         .period-picker-popover .react-datepicker__month-text:hover:not([aria-disabled="true"]) {
                             background-color: #eff6ff !important;
@@ -326,13 +367,13 @@ export function PeriodSelector({
                             background-color: #2563eb !important;
                             color: #ffffff !important;
                             font-weight: 700 !important;
-                            box-shadow: 0 1px 3px rgba(37, 99, 235, 0.3) !important;
+                            box-shadow: 0 2px 4px rgba(37, 99, 235, 0.25) !important;
                         }
                         .period-picker-popover .react-datepicker__month-text--disabled {
                             color: #d1d5db !important;
                             background-color: transparent !important;
                             cursor: not-allowed !important;
-                            opacity: 0.5 !important;
+                            opacity: 0.45 !important;
                         }
                     `}</style>
                 </div>
