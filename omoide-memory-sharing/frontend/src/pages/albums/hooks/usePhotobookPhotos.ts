@@ -2,18 +2,25 @@ import { MemoryFeedItem, PhotobookPeriod } from '@/shared/types';
 import { getYearMonthRangeIso } from '@/shared/hooks/useFeed';
 import { useFeedPagination } from '@/shared/hooks/useFeedPagination';
 
+import { isValidYearMonth } from '@/shared/date';
+
 /**
- * 期間（単月または from ~ to）から API 呼び出し用の ISO 範囲を算出する純粋関数
+ * 期間（単月または from ~ to）から API 呼び出し用の ISO 範囲を算出する純粋関数。
+ * 日付フォーマットが不正または from > to の場合はフィードを取得しないよう undefined を返す。
  */
-export function getPeriodIsoRange(period: PhotobookPeriod): { startInclusive: string; endExclusive: string } {
+export function getPeriodIsoRange(period: PhotobookPeriod): { startInclusive?: string; endExclusive?: string } {
     if (period.type === 'MONTH_TAB') {
         return getYearMonthRangeIso(period.yearMonth);
     }
-    const isConflict = period.fromYearMonth > period.toYearMonth;
-    const endYm = isConflict ? period.fromYearMonth : period.toYearMonth;
+    if (!isValidYearMonth(period.fromYearMonth) || !isValidYearMonth(period.toYearMonth)) {
+        return { startInclusive: undefined, endExclusive: undefined };
+    }
+    if (period.fromYearMonth > period.toYearMonth) {
+        return { startInclusive: undefined, endExclusive: undefined };
+    }
 
     const { startInclusive } = getYearMonthRangeIso(period.fromYearMonth);
-    const { endExclusive } = getYearMonthRangeIso(endYm);
+    const { endExclusive } = getYearMonthRangeIso(period.toYearMonth);
     return { startInclusive, endExclusive };
 }
 

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { fetchCapturedYearMonths, fetchCommentCreatedYearMonths } from '@/shared/api';
 import { FilterMode, MemoryFeedItem } from '@/shared/types';
 import { useFeedPagination } from '@/shared/hooks/useFeedPagination';
+import { isValidYearMonth, normalizeYearMonth } from '@/shared/date';
 
 export function getCurrentYearMonth(): string {
     const now = new Date();
@@ -15,8 +16,12 @@ export function formatYearMonthDisplay(yearMonthStr: string): string {
     return `${year}/${month}`;
 }
 
-export function getYearMonthRangeIso(yearMonthStr: string): { startInclusive: string; endExclusive: string } {
-    const [year, month] = yearMonthStr.split('-').map(Number);
+export function getYearMonthRangeIso(yearMonthStr: string): { startInclusive?: string; endExclusive?: string } {
+    if (!isValidYearMonth(yearMonthStr)) {
+        return { startInclusive: undefined, endExclusive: undefined };
+    }
+    const normalized = normalizeYearMonth(yearMonthStr);
+    const [year, month] = normalized.split('-').map(Number);
     // JST 00:00:00 は UTC 前日 15:00:00 (9時間手前)
     // JST固定オフセット (+9時間) に合わせてUTCから9時間を引いたエポックミリ秒で生成
     const start = new Date(Date.UTC(year, month - 1, 1) - 9 * 60 * 60 * 1000);

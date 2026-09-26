@@ -105,6 +105,8 @@ export function usePhotobookSelection(): UsePhotobookSelectionResult {
         if (remaining <= 0) return;
 
         const { startInclusive, endExclusive } = getPeriodIsoRange(period);
+        if (!startInclusive || !endExclusive) return;
+
         const currentExcludeIds = selectedPhotos
             .map(p => p.id)
             .filter((id): id is string => id !== null);
@@ -125,6 +127,8 @@ export function usePhotobookSelection(): UsePhotobookSelectionResult {
      */
     const replacePhoto = useCallback(async (targetId: string) => {
         const { startInclusive, endExclusive } = getPeriodIsoRange(period);
+        if (!startInclusive || !endExclusive) return;
+
         const currentExcludeIds = selectedPhotos
             .map(p => p.id)
             .filter((id): id is string => id !== null);
