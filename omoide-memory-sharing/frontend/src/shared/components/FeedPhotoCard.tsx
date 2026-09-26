@@ -2,40 +2,37 @@ import { useState } from 'react';
 import { MemoryFeedItem } from '@/shared/types';
 import { ContentNotFound } from '@/shared/components/ContentNotFound';
 import { getImageUrl } from '@/shared/api';
+import { CardMode } from './FeedPhotoCardMode';
+
+export type { CardMode } from './FeedPhotoCardMode';
+export { Select, View } from './FeedPhotoCardMode';
 
 interface Props {
     item: MemoryFeedItem;
-    isSelected?: boolean;
-    onToggleSelect?: (e: React.MouseEvent) => void;
+    mode: CardMode;
     onClick: () => void;
 }
 
-export function FeedPhotoCard({ item, isSelected = false, onToggleSelect, onClick }: Props) {
+export function FeedPhotoCard({ item, mode, onClick }: Props) {
     const [hasError, setHasError] = useState(false);
     return (
         <div
-            className={`group relative rounded-2xl overflow-hidden cursor-pointer bg-gray-100 transition-transform active:scale-95 aspect-square ${
-                isSelected ? 'ring-4 ring-blue-500' : ''
-            }`}
+            className={`group relative rounded-2xl overflow-hidden cursor-pointer bg-gray-100 transition-transform active:scale-95 aspect-square ${mode.styleName}`}
             onClick={onClick}
         >
             {/* Selection Checkbox */}
-            {onToggleSelect && (
+            {mode.onToggle && (
                 <button
                     type="button"
-                    aria-label={isSelected ? "写真の選択を解除" : "写真を選択"}
+                    aria-label={mode.ariaLabel}
                     className="absolute top-2 left-2 z-[2] p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full focus:outline-none"
                     onClick={(e) => {
                         e.stopPropagation();
-                        onToggleSelect(e);
+                        mode.onToggle?.(e);
                     }}
                 >
                     <div
-                        className={`w-7 h-7 rounded-full flex items-center justify-center border-2 transition-colors ${
-                            isSelected
-                                ? 'bg-blue-600 border-white text-white shadow-md'
-                                : 'bg-black/40 border-white text-transparent active:border-white'
-                        }`}
+                        className={`w-7 h-7 rounded-full flex items-center justify-center border-2 border-white transition-colors ${mode.indicatorStyleName}`}
                     >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
