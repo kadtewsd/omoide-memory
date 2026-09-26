@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { MemoryFeedItem, FilterMode } from '@/shared/types';
 import { FeedPhotoCard } from './FeedPhotoCard';
+import { Select, View } from './FeedPhotoCardMode';
 import { FeedVideoCard } from './FeedVideoCard';
 
 interface Props {
@@ -29,6 +30,9 @@ export function FeedGrid({ items, filterMode, selectedPhotoIds, onTogglePhotoSel
                 const isCommentsOpen = !!(item.id && openCommentIds[item.id]);
                 const isPhoto = item.type === 'PHOTO';
                 const isSelected = isPhoto && !!item.id && selectedPhotoIds.has(item.id);
+                const mode = isSelecting && isPhoto && item.id && onTogglePhotoSelect
+                    ? new Select(isSelected, () => onTogglePhotoSelect(item.id!))
+                    : new View();
 
                 return (
                     <div key={key} className="flex flex-col gap-1">
@@ -37,8 +41,7 @@ export function FeedGrid({ items, filterMode, selectedPhotoIds, onTogglePhotoSel
                         ) : (
                             <FeedPhotoCard
                                 item={item}
-                                isSelected={isSelected}
-                                onToggleSelect={isPhoto && item.id && onTogglePhotoSelect ? () => onTogglePhotoSelect(item.id!) : undefined}
+                                mode={mode}
                                 onClick={() => {
                                     if (isSelecting && isPhoto && item.id && onTogglePhotoSelect) {
                                         onTogglePhotoSelect(item.id);

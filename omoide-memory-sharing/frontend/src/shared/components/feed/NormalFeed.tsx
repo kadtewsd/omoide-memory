@@ -3,7 +3,7 @@ import { useFeed } from '@/shared/hooks/useFeed';
 import { useComments } from '@/shared/hooks/useComments';
 import { usePhotoSelection } from '@/shared/hooks/usePhotoSelection';
 import { useAlbumDownloadJob } from '@/pages/albums/hooks/useAlbumDownloadJob';
-import { FeedGrid } from '@/shared/components/FeedGrid';
+import { FeedGrid } from './FeedGrid';
 import { MemoryModal } from '@/shared/components/MemoryModal';
 import { CreateAlbumModal } from '@/shared/components/CreateAlbumModal';
 import { saveAlbum } from '@/shared/api';
