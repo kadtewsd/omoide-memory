@@ -41,6 +41,7 @@ function yearMonthToDate(ym: string): Date | null {
 
 /**
  * react-datepicker を活用した期間（From 〜 To の年月）選択・手入力コンポーネント。
+ * - 3列4段（1〜3月、4〜6月、7〜9月、10〜12月）の均等な月ピッカーレイアウト。
  * - 外側クリックや Escape キーによるクローズは react-datepicker の組み込み機能（onClickOutside / onKeyDown）に委任。
  * - ポップオーバー内で [開始年月 (From)] と [終了年月 (To)] を切り替えて選択可能。
  * - デフォルトは From 選択モード。From 選択後は自動的に To 選択へ誘導。
@@ -198,7 +199,7 @@ export function PeriodSelector({
 
             {/* react-datepicker ポップオーバー（開閉・クリック外検知・キー操作をライブラリに委譲） */}
             {isCalendarOpen && (
-                <div className="absolute top-full left-0 mt-2 z-50 animate-in fade-in zoom-in-95 duration-150">
+                <div className="absolute top-full left-0 mt-2 z-50 animate-in fade-in zoom-in-95 duration-150 period-picker-popover">
                     <DatePicker
                         locale="ja"
                         selected={currentTargetDate}
@@ -220,7 +221,7 @@ export function PeriodSelector({
                             }
                         }}
                         calendarContainer={({ children }) => (
-                            <CalendarContainer className="!bg-white !rounded-2xl !shadow-2xl !border !border-gray-200 !p-3 !w-72 !font-sans">
+                            <CalendarContainer className="!bg-white !rounded-2xl !shadow-2xl !border !border-gray-200 !p-3 !w-80 !font-sans">
                                 {/* 上部ヘッダー & 閉じるボタン */}
                                 <div className="flex items-center justify-between pb-2 mb-2 border-b border-gray-100">
                                     <span className="text-xs font-bold text-gray-700">
@@ -237,7 +238,7 @@ export function PeriodSelector({
                                 </div>
 
                                 {/* From / To モード切り替えタブ */}
-                                <div className="flex bg-gray-100 p-1 rounded-xl gap-1 mb-2.5">
+                                <div className="flex bg-gray-100 p-1 rounded-xl gap-1 mb-2">
                                     <button
                                         type="button"
                                         onClick={() => setActiveTarget('FROM')}
@@ -266,6 +267,74 @@ export function PeriodSelector({
                             </CalendarContainer>
                         )}
                     />
+
+                    {/* 3列4段レイアウトを強制するスタイル */}
+                    <style>{`
+                        .period-picker-popover .react-datepicker {
+                            width: 100% !important;
+                            border: none !important;
+                            background: transparent !important;
+                            font-family: inherit !important;
+                        }
+                        .period-picker-popover .react-datepicker__month-container {
+                            width: 100% !important;
+                            float: none !important;
+                        }
+                        .period-picker-popover .react-datepicker__header {
+                            background: #f9fafb !important;
+                            border: 1px solid #f3f4f6 !important;
+                            border-radius: 0.75rem !important;
+                            padding: 0.5rem 0 !important;
+                            margin-bottom: 0.5rem !important;
+                        }
+                        .period-picker-popover .react-datepicker__current-month {
+                            font-size: 0.95rem !important;
+                            font-weight: 700 !important;
+                            color: #111827 !important;
+                        }
+                        .period-picker-popover .react-datepicker__month {
+                            margin: 0 !important;
+                            display: flex !important;
+                            flex-direction: column !important;
+                            gap: 0.375rem !important;
+                            width: 100% !important;
+                        }
+                        .period-picker-popover .react-datepicker__month-wrapper {
+                            display: grid !important;
+                            grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+                            gap: 0.375rem !important;
+                            width: 100% !important;
+                            max-width: none !important;
+                        }
+                        .period-picker-popover .react-datepicker__month-text {
+                            width: 100% !important;
+                            margin: 0 !important;
+                            padding: 0.5rem 0 !important;
+                            border-radius: 0.625rem !important;
+                            font-size: 0.875rem !important;
+                            font-weight: 600 !important;
+                            display: flex !important;
+                            align-items: center !important;
+                            justify-content: center !important;
+                            transition: all 0.15s ease-in-out !important;
+                        }
+                        .period-picker-popover .react-datepicker__month-text:hover:not([aria-disabled="true"]) {
+                            background-color: #eff6ff !important;
+                            color: #2563eb !important;
+                        }
+                        .period-picker-popover .react-datepicker__month-text--selected {
+                            background-color: #2563eb !important;
+                            color: #ffffff !important;
+                            font-weight: 700 !important;
+                            box-shadow: 0 1px 3px rgba(37, 99, 235, 0.3) !important;
+                        }
+                        .period-picker-popover .react-datepicker__month-text--disabled {
+                            color: #d1d5db !important;
+                            background-color: transparent !important;
+                            cursor: not-allowed !important;
+                            opacity: 0.5 !important;
+                        }
+                    `}</style>
                 </div>
             )}
 
