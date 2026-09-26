@@ -7,68 +7,68 @@ interface Props {
 }
 
 /**
- * 【コンポーネントの役割】
- * 画面の外にある「見えないアンカー（loaderRef）」を見守り、
- * それが画面内に入った瞬間に次のデータを読み込む「監視役」のコンポーネントです。
+ * 画面下部のアンカー要素を監視し、可視になった瞬間に次ページの読み込みを発火するコンポーネント。
+ *
+ * 【IntersectionObserver の再生成が引き起こす多重発火問題】
+ * useEffect の deps に onLoadMore を含めると、loadMore の useCallback 参照が変わるたびに
+ * observer が unobserve → 再 observe される。
+ * observe した直後にアンカーが画面内にあれば isIntersecting=true がすぐに発火するため、
+ * 1回のスクロールで loadMore が複数回呼ばれてしまう。
+ *
+ * 【解決策: useRef でコールバックを安定化】
+ * onLoadMoreRef に常に最新の onLoadMore を保持しておき、
+ * observer のコールバック内では ref 経由で呼び出す。
+ * こうすることで observer の useEffect deps から onLoadMore を除外でき、
+ * observer は hasMore / loading が変わった時だけ再生成される。
  */
 export function InfiniteScrollLoader({ onLoadMore, hasMore, loading }: Props) {
-    /**
-     * 【useRef】: DOM要素を直接参照するための「フック」です。
-     * - コンポーネントが再レンダリングされても値がリセットされません。
-     * - ここでは、画面の最下部にある「読み込み中」を表示するためのdivを参照します。
-     * 
-     * ※ useStateとの違い：値を更新しても再レンダリングが発生しません（DOMの取得などに便利）。
-     */
     const loaderRef = useRef<HTMLDivElement>(null);
 
+    // 最新の onLoadMore を ref に同期する。
+    // observer のクロージャは常にこの ref 経由で最新のコールバックを参照する。
+    const onLoadMoreRef = useRef(onLoadMore);
+    useEffect(() => {
+        onLoadMoreRef.current = onLoadMore;
+    }, [onLoadMore]);
+
     /**
-     * 【useEffect】: 「監視（IntersectionObserver）」の開始と終了を管理します。
-     * onLoadMore, hasMore, loading が変わるたびに監視を最新の状態に更新します。
+     * hasMore / loading が変わった時だけ observer を再生成する。
+     * onLoadMore の参照変化では再生成しないため、loadMore が更新されても
+     * observer が無駄に再起動して多重発火することがない。
      */
     useEffect(() => {
-        /**
-         * 【IntersectionObserver】: ブラウザが提供する「交差監視」APIです。
-         * 「ある要素が画面内（正確には親要素の領域内）に入ったかどうか」を効率的に監視します。
-         */
         const observer = new IntersectionObserver(
             (entries) => {
-                // entries[0] は監視対象（loaderRef）の情報です
-                // isIntersecting が true のとき、要素が画面内に入った（＝最下部に到達した）ことを意味します
+                // アンカーが画面内に入り、次ページがあり、読込中でなければ発火する
                 if (entries[0].isIntersecting && hasMore && !loading) {
-                    onLoadMore(); // 次の読み込みを実行！
+                    onLoadMoreRef.current();
                 }
             },
-            { 
-                threshold: 0.1, // 10%が見えたらすぐに反応する設定
-                rootMargin: '100px' // 要素が実際に画面に入る100px手前で「入った」とみなす（先回りして読み込む）設定
+            {
+                threshold: 0.1,      // 10% 見えたら反応
+                rootMargin: '100px', // 実際に入る 100px 前から「入った」とみなして先読みする
             }
         );
 
-        // 監視を開始するコード
         const currentLoader = loaderRef.current;
         if (currentLoader) {
             observer.observe(currentLoader);
         }
 
-        // 重要！：【クリーンアップ関数】
-        // コンポーネントが消えたり、useEffectが再実行される前に、古い監視を解除します。
-        // これを忘れると、古い監視が動き続け、不具合やメモリリークの原因になります。
         return () => {
             if (currentLoader) {
                 observer.unobserve(currentLoader);
             }
         };
-    }, [hasMore, loading, onLoadMore]);
+    }, [hasMore, loading]); // onLoadMore は deps 不要（ref 経由で常に最新を参照）
 
-    // 次のデータがない場合は、監視する必要がないので何も表示しません。
+    // 次ページがない場合はアンカーをアンマウントして監視を終了する
     if (!hasMore) return null;
 
     return (
-        // この div が「監視のアンカー」になります。
         <div className="flex justify-center mt-8 pb-8" ref={loaderRef}>
             {loading && (
                 <div className="flex items-center gap-2 text-gray-500 text-sm font-medium">
-                    {/* SVGによるローディングアニメーション */}
                     <svg className="animate-spin h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
