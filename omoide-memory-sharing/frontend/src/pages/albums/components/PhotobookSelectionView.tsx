@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import { MemoryFeedItem, PhotobookPeriod } from '@/shared/types';
 import { PeriodSelector, PeriodRange } from '@/shared/components/PeriodSelector';
 import { CountBox } from '@/shared/components/CountBox';
@@ -44,28 +43,13 @@ export function PhotobookSelectionView({
     const { photos, hasNext, loadingInitial, loadingMore, loadMore } = usePhotobookPhotos(period);
     const remaining = maxCount - selectedCount;
 
-    const isMonthTabMode = period.type === 'MONTH_TAB';
-    const isDateRangeMode = period.type === 'DATE_RANGE';
-
-    // カレンダーの入力値（ローカル管理）
+    // period からカレンダー表示用 range を直接導出（Derived State）
     const initialMonth = period.type === 'MONTH_TAB' ? period.yearMonth : getCurrentYearMonth();
-    const [range, setRange] = useState<PeriodRange>({
-        fromYearMonth: period.type === 'DATE_RANGE' ? period.fromYearMonth : initialMonth,
-        toYearMonth: period.type === 'DATE_RANGE' ? period.toYearMonth : initialMonth,
-    });
-
-    // period が DATE_RANGE に変わったときの同期
-    useEffect(() => {
-        if (period.type === 'DATE_RANGE') {
-            setRange({
-                fromYearMonth: period.fromYearMonth,
-                toYearMonth: period.toYearMonth,
-            });
-        }
-    }, [period]);
+    const range: PeriodRange = period.type === 'DATE_RANGE'
+        ? { fromYearMonth: period.fromYearMonth, toYearMonth: period.toYearMonth }
+        : { fromYearMonth: initialMonth, toYearMonth: initialMonth };
 
     const handleRangeChange = (newRange: PeriodRange) => {
-        setRange(newRange);
         onSelectDateRange({
             fromYearMonth: newRange.fromYearMonth,
             toYearMonth: newRange.toYearMonth,
@@ -87,7 +71,7 @@ export function PhotobookSelectionView({
             loadingMore={loadingMore}
             loadMore={loadMore}
             monthTabs={monthTabs}
-            selectedYearMonth={isMonthTabMode ? period.yearMonth : undefined}
+            selectedYearMonth={period.type === 'MONTH_TAB' ? period.yearMonth : undefined}
             onSelectMonthTab={onSelectMonthTab}
             selectedPhotoIds={selectedPhotoIds}
             selectedCount={selectedCount}
@@ -108,7 +92,7 @@ export function PhotobookSelectionView({
                     <div className="h-6 w-px bg-gray-300 hidden md:block" />
                     <PeriodSelector
                         range={range}
-                        isActive={isDateRangeMode}
+                        isActive={period.type === 'DATE_RANGE'}
                         onRangeChange={handleRangeChange}
                         onActivate={handleActivateRange}
                     />

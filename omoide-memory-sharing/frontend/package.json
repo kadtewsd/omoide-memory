@@ -26,6 +26,7 @@
         "react-dom": "^19.2.3",
         "react-hook-form": "^7.60.0",
         "react-router-dom": "^7.6.3",
+        "react-datepicker": "^9.1.0",
         "zod": "^4.0.5",
         "zod-i18n": "^0.0.1"
     },
