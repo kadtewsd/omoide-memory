@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import DatePicker, { registerLocale } from 'react-datepicker';
+import { useState, useRef } from 'react';
+import DatePicker, { registerLocale, CalendarContainer } from 'react-datepicker';
 import { ja } from 'date-fns/locale/ja';
 import 'react-datepicker/dist/react-datepicker.css';
 import { isValidYearMonth, normalizeYearMonth } from '@/shared/date';
@@ -41,7 +41,8 @@ function yearMonthToDate(ym: string): Date | null {
 
 /**
  * react-datepicker を活用した期間（From 〜 To の年月）選択・手入力コンポーネント。
- * - ポップオーバー内で [開始年月 (From)] と [終了年月 (To)] を切り替えて単体・連続選択が可能。
+ * - 外側クリックや Escape キーによるクローズは react-datepicker の組み込み機能（onClickOutside / onKeyDown）に委任。
+ * - ポップオーバー内で [開始年月 (From)] と [終了年月 (To)] を切り替えて選択可能。
  * - デフォルトは From 選択モード。From 選択後は自動的に To 選択へ誘導。
  * - 開始年月・終了年月のテキスト欄は Props (range) に直接バインドされた Controlled Component。
  * - 手入力欄クリック・フォーカス時はテキスト編集のみで、カレンダーは開かない。
@@ -55,34 +56,7 @@ export function PeriodSelector({
 }: Props) {
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
     const [activeTarget, setActiveTarget] = useState<ActiveTarget>('FROM');
-    const containerRef = useRef<HTMLDivElement>(null);
-
-    // 外側クリックと Escape キーでカレンダーを閉じる
-    useEffect(() => {
-        if (!isCalendarOpen) return;
-
-        const handleClickOutside = (event: MouseEvent | TouchEvent) => {
-            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-                setIsCalendarOpen(false);
-            }
-        };
-
-        const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') {
-                setIsCalendarOpen(false);
-            }
-        };
-
-        document.addEventListener('mousedown', handleClickOutside);
-        document.addEventListener('touchstart', handleClickOutside);
-        document.addEventListener('keydown', handleKeyDown);
-
-        return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
-            document.removeEventListener('touchstart', handleClickOutside);
-            document.removeEventListener('keydown', handleKeyDown);
-        };
-    }, [isCalendarOpen]);
+    const buttonRef = useRef<HTMLButtonElement>(null);
 
     const isFromInvalid = !isValidYearMonth(range.fromYearMonth);
     const isToInvalid = !isValidYearMonth(range.toYearMonth);
@@ -140,7 +114,6 @@ export function PeriodSelector({
     const toggleCalendar = () => {
         if (!isActive) onActivate();
         if (!isCalendarOpen) {
-            // カレンダーを開くときはデフォルトで FROM 選択モードから開始
             setActiveTarget('FROM');
         }
         setIsCalendarOpen(prev => !prev);
@@ -154,7 +127,7 @@ export function PeriodSelector({
         : (endDate ?? new Date());
 
     return (
-        <div className="flex flex-col gap-1 relative" ref={containerRef}>
+        <div className="flex flex-col gap-1 relative">
             <div
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-colors ${
                     isActive
@@ -164,8 +137,9 @@ export function PeriodSelector({
                         : 'bg-gray-100 border-gray-200 opacity-60'
                 }`}
             >
-                {/* カレンダーアイコンボタン: クリック時のみポップオーバーを開閉 */}
+                {/* カレンダーアイコンボタン */}
                 <button
+                    ref={buttonRef}
                     type="button"
                     onClick={toggleCalendar}
                     className={`p-1.5 rounded-lg transition-colors cursor-pointer focus:outline-none flex items-center justify-center ${
@@ -222,50 +196,9 @@ export function PeriodSelector({
                 />
             </div>
 
-            {/* react-datepicker ポップオーバー（From / To 切り替え対応） */}
+            {/* react-datepicker ポップオーバー（開閉・クリック外検知・キー操作をライブラリに委譲） */}
             {isCalendarOpen && (
-                <div className="absolute top-full left-0 mt-2 z-50 bg-white rounded-2xl shadow-2xl border border-gray-200 p-3 animate-in fade-in zoom-in-95 duration-150 w-72">
-                    {/* 上部ヘッダー & 閉じるボタン */}
-                    <div className="flex items-center justify-between pb-2 mb-2 border-b border-gray-100">
-                        <span className="text-xs font-bold text-gray-700">
-                            {activeTarget === 'FROM' ? '開始年月を選択' : '終了年月を選択'}
-                        </span>
-                        <button
-                            type="button"
-                            onClick={() => setIsCalendarOpen(false)}
-                            className="text-xs text-gray-400 hover:text-gray-600 p-1 rounded"
-                            aria-label="閉じる"
-                        >
-                            ✕
-                        </button>
-                    </div>
-
-                    {/* From / To モード切り替えタブ */}
-                    <div className="flex bg-gray-100 p-1 rounded-xl gap-1 mb-2.5">
-                        <button
-                            type="button"
-                            onClick={() => setActiveTarget('FROM')}
-                            className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all text-center ${
-                                activeTarget === 'FROM'
-                                    ? 'bg-white text-blue-600 shadow-sm'
-                                    : 'text-gray-600 hover:text-gray-900'
-                            }`}
-                        >
-                            開始: {range.fromYearMonth || '未指定'}
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setActiveTarget('TO')}
-                            className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all text-center ${
-                                activeTarget === 'TO'
-                                    ? 'bg-white text-blue-600 shadow-sm'
-                                    : 'text-gray-600 hover:text-gray-900'
-                            }`}
-                        >
-                            終了: {range.toYearMonth || '未指定'}
-                        </button>
-                    </div>
-
+                <div className="absolute top-full left-0 mt-2 z-50 animate-in fade-in zoom-in-95 duration-150">
                     <DatePicker
                         locale="ja"
                         selected={currentTargetDate}
@@ -274,6 +207,64 @@ export function PeriodSelector({
                         showMonthYearPicker
                         dateFormat="yyyy-MM"
                         inline
+                        onClickOutside={(event) => {
+                            // アイコンボタン自体のクリックで二重トグルしないようガード
+                            if (buttonRef.current && buttonRef.current.contains(event.target as Node)) {
+                                return;
+                            }
+                            setIsCalendarOpen(false);
+                        }}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Escape') {
+                                setIsCalendarOpen(false);
+                            }
+                        }}
+                        calendarContainer={({ children }) => (
+                            <CalendarContainer className="!bg-white !rounded-2xl !shadow-2xl !border !border-gray-200 !p-3 !w-72 !font-sans">
+                                {/* 上部ヘッダー & 閉じるボタン */}
+                                <div className="flex items-center justify-between pb-2 mb-2 border-b border-gray-100">
+                                    <span className="text-xs font-bold text-gray-700">
+                                        {activeTarget === 'FROM' ? '開始年月を選択' : '終了年月を選択'}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsCalendarOpen(false)}
+                                        className="text-xs text-gray-400 hover:text-gray-600 p-1 rounded"
+                                        aria-label="閉じる"
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
+
+                                {/* From / To モード切り替えタブ */}
+                                <div className="flex bg-gray-100 p-1 rounded-xl gap-1 mb-2.5">
+                                    <button
+                                        type="button"
+                                        onClick={() => setActiveTarget('FROM')}
+                                        className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all text-center ${
+                                            activeTarget === 'FROM'
+                                                ? 'bg-white text-blue-600 shadow-sm'
+                                                : 'text-gray-600 hover:text-gray-900'
+                                        }`}
+                                    >
+                                        開始: {range.fromYearMonth || '未指定'}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setActiveTarget('TO')}
+                                        className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all text-center ${
+                                            activeTarget === 'TO'
+                                                ? 'bg-white text-blue-600 shadow-sm'
+                                                : 'text-gray-600 hover:text-gray-900'
+                                        }`}
+                                    >
+                                        終了: {range.toYearMonth || '未指定'}
+                                    </button>
+                                </div>
+
+                                {children}
+                            </CalendarContainer>
+                        )}
                     />
                 </div>
             )}
