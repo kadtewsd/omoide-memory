@@ -29,6 +29,10 @@ frontend/yarn-debug.log*
 frontend/yarn-error.log*
 frontend/.pnpm-debug.log*
 frontend/coverage/
+frontend/vite.config.js
+frontend/vite.config.d.ts
+frontend/tsconfig.tsbuildinfo
+frontend/tsconfig.node.tsbuildinfo
 
 # -------------------------------------------------------
 # Backend (Gradle / Spring Boot / Kotlin)

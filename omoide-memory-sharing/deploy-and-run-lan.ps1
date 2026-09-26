@@ -121,6 +121,17 @@ Write-Host "`n[3/3] Preparing Frontend (React + Vite)..." -ForegroundColor Cyan
 Set-Location $FrontendDir
 
 if (-not $SkipBuild) {
+    # Remove stale TypeScript-compiled artifacts that shadow vite.config.ts on Windows.
+    # If these files exist, Vite prefers the .js over the .ts, causing @ alias resolution to fail.
+    $staleArtifacts = @("vite.config.js", "vite.config.d.ts", "tsconfig.tsbuildinfo", "tsconfig.node.tsbuildinfo")
+    foreach ($artifact in $staleArtifacts) {
+        $artifactPath = Join-Path $FrontendDir $artifact
+        if (Test-Path $artifactPath) {
+            Remove-Item $artifactPath -Force
+            Write-Host "  Removed stale artifact: $artifact" -ForegroundColor DarkYellow
+        }
+    }
+
     Write-Host "  Running npm run build..." -ForegroundColor Gray
     npm run build
     $distDir = Join-Path $FrontendDir "dist"
