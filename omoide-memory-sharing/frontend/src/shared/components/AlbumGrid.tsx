@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { AlbumSummary, AlbumDetail } from '@/shared/types';
-import { fetchAlbums, fetchAlbumDetail, downloadAlbumZip, getImageUrl } from '@/shared/api';
+import { fetchAlbums, fetchAlbumDetail, getImageUrl } from '@/shared/api';
+import { useAlbumDownloadJob } from '@/pages/albums/hooks/useAlbumDownloadJob';
 import { MemoryFeedItem } from '@/shared/types';
-import { FeedPhotoCard } from './FeedPhotoCard';
+import { FeedPhotoCard } from '@/shared/components/FeedPhotoCard';
 
 interface Props {
     onPhotoClick: (item: MemoryFeedItem) => void;
@@ -16,7 +17,9 @@ export function AlbumGrid({ onPhotoClick }: Props) {
     const [selectedAlbumId, setSelectedAlbumId] = useState<string | null>(null);
     const [albumDetail, setAlbumDetail] = useState<AlbumDetail | null>(null);
     const [detailLoading, setDetailLoading] = useState<boolean>(false);
-    const [downloadingId, setDownloadingId] = useState<string | null>(null);
+    const [downloadingAlbumId, setDownloadingAlbumId] = useState<string | null>(null);
+
+    const { startDownload } = useAlbumDownloadJob();
 
     const loadAlbums = async () => {
         setLoading(true);
@@ -49,24 +52,16 @@ export function AlbumGrid({ onPhotoClick }: Props) {
         }
     };
 
-    const handleDownloadZip = async (e: React.MouseEvent, albumName: string, photoIds: string[]) => {
+    const handleDownloadZip = async (e: React.MouseEvent, albumId: string) => {
         e.stopPropagation();
-        if (downloadingId) return;
-        setDownloadingId(albumName);
+        if (downloadingAlbumId) return;
+        setDownloadingAlbumId(albumId);
         try {
-            const blob = await downloadAlbumZip(albumName, photoIds);
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `${albumName}.zip`;
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
+            await startDownload({ albumId });
         } catch (err) {
             console.error('Failed to download album zip:', err);
         } finally {
-            setDownloadingId(null);
+            setDownloadingAlbumId(null);
         }
     };
 
@@ -150,14 +145,14 @@ export function AlbumGrid({ onPhotoClick }: Props) {
 
                             <button
                                 type="button"
-                                onClick={(e) => handleDownloadZip(e, album.albumName, [])}
-                                disabled={downloadingId === album.albumName}
+                                onClick={(e) => handleDownloadZip(e, album.albumId)}
+                                disabled={downloadingAlbumId === album.albumId}
                                 className="w-full mt-2 px-3 py-2 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 active:bg-blue-200 rounded-xl transition-colors flex items-center justify-center gap-1.5 min-h-[36px]"
                             >
                                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                 </svg>
-                                <span>{downloadingId === album.albumName ? 'ダウンロード中...' : 'Zip再ダウンロード'}</span>
+                                <span>{downloadingAlbumId === album.albumId ? 'ダウンロード中...' : 'Zip再ダウンロード'}</span>
                             </button>
                         </div>
                     </div>
@@ -205,7 +200,7 @@ export function AlbumGrid({ onPhotoClick }: Props) {
                                             <FeedPhotoCard
                                                 item={item}
                                                 isSelected={false}
-                                                onToggleSelect={() => {}}
+                                                onToggleSelect={() => { }}
                                                 onClick={() => onPhotoClick(item)}
                                             />
                                         </div>
@@ -223,21 +218,15 @@ export function AlbumGrid({ onPhotoClick }: Props) {
                             <div className="p-4 border-t border-gray-200 bg-white flex justify-end gap-3">
                                 <button
                                     type="button"
-                                    onClick={(e) =>
-                                        handleDownloadZip(
-                                            e,
-                                            albumDetail.albumName,
-                                            albumDetail.photos.flatMap((p) => (p.id ? [p.id] : []))
-                                        )
-                                    }
-                                    disabled={downloadingId === albumDetail.albumName}
+                                    onClick={(e) => handleDownloadZip(e, albumDetail.albumId)}
+                                    disabled={downloadingAlbumId === albumDetail.albumId}
                                     className="px-5 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-xl shadow-sm transition-colors flex items-center gap-2"
                                 >
                                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                     </svg>
                                     <span>
-                                        {downloadingId === albumDetail.albumName
+                                        {downloadingAlbumId === albumDetail.albumId
                                             ? 'ダウンロード中...'
                                             : 'このアルバムをZipダウンロード'}
                                     </span>

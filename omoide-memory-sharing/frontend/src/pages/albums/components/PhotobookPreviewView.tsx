@@ -1,39 +1,66 @@
 import { useState } from 'react';
 import { MemoryFeedItem } from '@/shared/types';
 import { ContentNotFound } from '@/shared/components/ContentNotFound';
+import { CreateAlbumModal } from '@/shared/components/CreateAlbumModal';
 import { getImageUrl } from '@/shared/api';
 
-/** アクションシートで選択中の写真ID（null = 非表示） */
-type ActionTargetId = string | null;
+export interface PhotobookState {
+    readonly type: string
+}
+
+/** 写真選択中 */
+export class SelectingState implements PhotobookState {
+    type: string = "selecting"
+}
+
+/** プレビュー確認中 */
+export class PreviewingState implements PhotobookState {
+    type: string = "previewing"
+}
+
+/** アルバム作成中 */
+export class CreatingState implements PhotobookState {
+    type: string = "creating"
+    constructor(readonly message: string) { }
+}
 
 interface Props {
     selectedPhotos: MemoryFeedItem[];
     maxCount: number;
-    currentYearMonth: string;
+    defaultAlbumName?: string;
+    state: PhotobookState;
     onDeletePhoto: (targetId: string) => void;
     onReplacePhoto: (targetId: string) => Promise<void>;
     onBackToSelect: () => void;
-    onDownloadZip: () => Promise<void>;
+    onCreateAlbum: (albumName: string) => Promise<void>;
 }
 
 /**
  * フォトブックプレビューフェーズ。
  * 選択済み写真を追加順で全件グリッド表示し、タップでアクションシートを表示する。
- * 削除・差し替え・ZIP ダウンロードの操作をここから行う。
+ * 写真の削除・差し替え、およびアルバムの新規作成・ダウンロードを実行する。
  */
 export function PhotobookPreviewView({
     selectedPhotos,
     maxCount,
+    defaultAlbumName = '',
+    state,
     onDeletePhoto,
     onReplacePhoto,
     onBackToSelect,
-    onDownloadZip,
+    onCreateAlbum,
 }: Props) {
-    const [actionTargetId, setActionTargetId] = useState<ActionTargetId>(null);
-    const [isDownloading, setIsDownloading] = useState(false);
+    const [actionTargetId, setActionTargetId] = useState<string | null>(null);
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
     const handlePhotoTap = (photoId: string) => {
+        if (state instanceof CreatingState) return;
         setActionTargetId(photoId);
+    };
+
+    const handleCreateAlbumSubmit = async (albumName: string) => {
+        setIsCreateModalOpen(false);
+        await onCreateAlbum(albumName);
     };
 
     const handleDelete = () => {
@@ -48,15 +75,6 @@ export function PhotobookPreviewView({
         setActionTargetId(null);
     };
 
-    const handleDownload = async () => {
-        setIsDownloading(true);
-        try {
-            await onDownloadZip();
-        } finally {
-            setIsDownloading(false);
-        }
-    };
-
     return (
         <div className="min-h-screen bg-gray-50 text-gray-900">
             <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md shadow-sm border-b border-gray-200 px-4 sm:px-6 py-3.5 space-y-3">
@@ -65,7 +83,8 @@ export function PhotobookPreviewView({
                         <button
                             type="button"
                             onClick={onBackToSelect}
-                            className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-colors"
+                            disabled={state instanceof CreatingState}
+                            className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-600 hover:text-gray-900 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-colors"
                             aria-label="選択に戻る"
                         >
                             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -80,26 +99,24 @@ export function PhotobookPreviewView({
                         </span>
                     </div>
 
-                    <button
-                        type="button"
-                        onClick={handleDownload}
-                        disabled={isDownloading || selectedPhotos.length === 0}
-                        className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:bg-gray-300 disabled:cursor-not-allowed rounded-xl shadow-sm transition-colors min-h-[44px] flex items-center gap-2"
-                    >
-                        {isDownloading ? (
-                            <>
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
-                                <span>ダウンロード中...</span>
-                            </>
-                        ) : (
-                            <>
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                </svg>
-                                <span>ZIP ダウンロード</span>
-                            </>
-                        )}
-                    </button>
+                    {state instanceof CreatingState ? (
+                        <div className="px-4 py-2 text-sm font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-xl min-h-[44px] flex items-center gap-2">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600" />
+                            <span>{state.message}</span>
+                        </div>
+                    ) : (
+                        <button
+                            type="button"
+                            onClick={() => setIsCreateModalOpen(true)}
+                            disabled={selectedPhotos.length === 0}
+                            className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:bg-gray-300 disabled:cursor-not-allowed rounded-xl shadow-sm transition-colors min-h-[44px] flex items-center gap-2"
+                        >
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <span>アルバムを作成する</span>
+                        </button>
+                    )}
                 </div>
 
                 <p className="text-xs text-gray-500">
@@ -182,6 +199,15 @@ export function PhotobookPreviewView({
                     </div>
                 </div>
             )}
+
+            {/* アルバム名入力モーダル */}
+            <CreateAlbumModal
+                isOpen={isCreateModalOpen}
+                selectedCount={selectedPhotos.length}
+                defaultAlbumName={defaultAlbumName}
+                onClose={() => setIsCreateModalOpen(false)}
+                onSubmit={handleCreateAlbumSubmit}
+            />
         </div>
     );
 }

@@ -3,17 +3,27 @@ import { useState } from 'react';
 interface Props {
     isOpen: boolean;
     selectedCount: number;
+    defaultAlbumName?: string;
     onClose: () => void;
     onSubmit: (albumName: string) => Promise<void>;
 }
 
-export function CreateAlbumModal({ isOpen, selectedCount, onClose, onSubmit }: Props) {
-    const [albumName, setAlbumName] = useState('');
+export function CreateAlbumModal({ isOpen, selectedCount, defaultAlbumName = '', onClose, onSubmit }: Props) {
+    const [albumName, setAlbumName] = useState(defaultAlbumName);
     const [submitting, setSubmitting] = useState(false);
+
+    // isOpen が true になったときに defaultAlbumName をセット
+    const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+    if (isOpen !== prevIsOpen) {
+        setPrevIsOpen(isOpen);
+        if (isOpen) {
+            setAlbumName(defaultAlbumName);
+        }
+    }
 
     if (!isOpen) return null;
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.SubmitEvent) => {
         e.preventDefault();
         if (!albumName.trim()) return;
         setSubmitting(true);

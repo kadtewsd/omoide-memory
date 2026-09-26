@@ -81,3 +81,16 @@ export interface DateRangePeriod {
 
 export type PhotobookPeriod = MonthTabPeriod | DateRangePeriod;
 
+/** `saveAlbum` のパラメータ */
+export interface SaveAlbumParams {
+    albumName: string;
+    photoIds: string[];
+}
+
+/** `saveAlbum` のレスポンス */
+export interface SaveAlbumResponse {
+    albumId: string;
+    albumName: string;
+    count: number;
+}
+

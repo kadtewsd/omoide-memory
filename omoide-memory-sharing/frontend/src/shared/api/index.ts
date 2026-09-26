@@ -1,9 +1,17 @@
 /// <reference types="vite/client" />
-import { MemoryFeedItem, Comment, AlbumSummary, AlbumDetail, FetchFeedParams, FetchRandomFillPhotosParams, FeedPageResponse } from '@/shared/types';
-
+import {
+    MemoryFeedItem,
+    Comment,
+    AlbumSummary,
+    AlbumDetail,
+    FetchFeedParams,
+    FetchRandomFillPhotosParams,
+    FeedPageResponse,
+    SaveAlbumParams,
+    SaveAlbumResponse,
+} from '@/shared/types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
-
 
 export const fetchFeed = async ({
     startInclusive,
@@ -63,7 +71,10 @@ export const getImageUrl = (id: string): string => {
     return `${API_BASE_URL}/content/${id}/image`;
 };
 
-export const saveAlbum = async (albumName: string, photoIds: string[]): Promise<{ albumId: string; albumName: string; count: number }> => {
+export const saveAlbum = async ({
+    albumName,
+    photoIds,
+}: SaveAlbumParams): Promise<SaveAlbumResponse> => {
     const url = new URL('/albums', API_BASE_URL);
     const response = await fetch(url.toString(), {
         method: 'POST',
@@ -74,15 +85,39 @@ export const saveAlbum = async (albumName: string, photoIds: string[]): Promise<
     return response.json();
 };
 
-export const downloadAlbumZip = async (albumName: string, photoIds: string[]): Promise<Blob> => {
-    const url = new URL('/albums/download', API_BASE_URL);
+export const startAlbumDownloadJob = async (
+    albumId: string,
+): Promise<{ jobId: string; albumId: string; status: string }> => {
+    const url = new URL(`/albums/${albumId}/download-jobs`, API_BASE_URL);
     const response = await fetch(url.toString(), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ albumName, photoIds }),
     });
-    if (!response.ok) throw new Error('Failed to download album zip');
-    return response.blob();
+    if (!response.ok) throw new Error('Failed to start album download job');
+    return response.json();
+};
+
+export const getAlbumDownloadJobEventsUrl = (jobId: string): string => {
+    return `${API_BASE_URL}/albums/download-jobs/${jobId}/events`;
+};
+
+export const downloadJobFile = async (
+    jobId: string,
+): Promise<{ blob: Blob; fileName: string }> => {
+    const url = new URL(`/albums/download-jobs/${jobId}/file`, API_BASE_URL);
+    const response = await fetch(url.toString());
+    if (!response.ok) throw new Error('Failed to download job file');
+
+    const contentDisposition = response.headers.get('Content-Disposition');
+    let fileName = 'album.zip';
+    if (contentDisposition) {
+        const match = contentDisposition.match(/filename\*?=(?:UTF-8'')?([^;]+)/i);
+        if (match && match[1]) {
+            fileName = decodeURIComponent(match[1].replace(/["']/g, ''));
+        }
+    }
+
+    const blob = await response.blob();
+    return { blob, fileName };
 };
 
 export const fetchAlbums = async (): Promise<AlbumSummary[]> => {
@@ -119,8 +154,3 @@ export const fetchRandomFillPhotos = async ({
     if (!response.ok) throw new Error('Failed to fetch random fill photos');
     return response.json();
 };
-
-
-
-
-
