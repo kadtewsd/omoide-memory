@@ -3,7 +3,7 @@ import { AlbumSummary, AlbumDetail } from '@/shared/types';
 import { fetchAlbums, fetchAlbumDetail, getImageUrl } from '@/shared/api';
 import { useAlbumDownloadJob } from '@/pages/albums/hooks/useAlbumDownloadJob';
 import { MemoryFeedItem } from '@/shared/types';
-import { FeedPhotoCard } from '@/shared/components/FeedPhotoCard';
+import { FeedPhotoCard, View } from '@/shared/components/FeedPhotoCard';
 
 interface Props {
     onPhotoClick: (item: MemoryFeedItem) => void;
@@ -21,7 +21,7 @@ export function AlbumGrid({ onPhotoClick }: Props) {
 
     const { startDownload } = useAlbumDownloadJob();
 
-    const loadAlbums = async () => {
+    const handleReload = async () => {
         setLoading(true);
         setError(null);
         try {
@@ -36,7 +36,19 @@ export function AlbumGrid({ onPhotoClick }: Props) {
     };
 
     useEffect(() => {
-        loadAlbums();
+        const initAlbums = async () => {
+            try {
+                const data = await fetchAlbums();
+                setAlbums(data);
+            } catch (err) {
+                console.error('Failed to load albums:', err);
+                setError('アルバム一覧の取得に失敗しました');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        initAlbums();
     }, []);
 
     const handleAlbumClick = async (albumId: string) => {
@@ -79,7 +91,7 @@ export function AlbumGrid({ onPhotoClick }: Props) {
                 <p className="text-sm font-medium text-red-600">{error}</p>
                 <button
                     type="button"
-                    onClick={loadAlbums}
+                    onClick={handleReload}
                     className="px-4 py-2 text-xs font-bold bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg"
                 >
                     再読み込み
@@ -199,8 +211,7 @@ export function AlbumGrid({ onPhotoClick }: Props) {
                                         <div key={item.id} className="aspect-square rounded-xl overflow-hidden shadow-sm">
                                             <FeedPhotoCard
                                                 item={item}
-                                                isSelected={false}
-                                                onToggleSelect={() => { }}
+                                                mode={new View()}
                                                 onClick={() => onPhotoClick(item)}
                                             />
                                         </div>
