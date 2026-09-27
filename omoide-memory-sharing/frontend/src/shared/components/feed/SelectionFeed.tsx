@@ -1,4 +1,5 @@
-import { FeedPhotoCard } from '@/shared/components/FeedPhotoCard';
+import { FeedPhotoCard } from './FeedPhotoCard';
+import { Select } from './FeedPhotoCardMode';
 import { SelectionFeedProps } from './types';
 import { FeedMonthTabs } from './FeedMonthTabs';
 import { FeedContentContainer } from './FeedContentContainer';
@@ -88,10 +89,7 @@ export function SelectionFeed({
                             <div key={item.id} className={isAtLimit ? 'opacity-50' : ''}>
                                 <FeedPhotoCard
                                     item={item}
-                                    isSelected={isSelected}
-                                    onToggleSelect={
-                                        isAtLimit ? undefined : () => onTogglePhoto(item)
-                                    }
+                                    mode={new Select(isSelected, () => onTogglePhoto(item))}
                                     onClick={() => onTogglePhoto(item)}
                                 />
                             </div>
