@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { fetchCapturedYearMonths, fetchRandomFillPhotos } from '@/shared/api';
 import { MemoryFeedItem, PhotobookPeriod } from '@/shared/types';
 import { isoToJstYearMonth, getCurrentYearMonth } from '@/shared/hooks/useFeed';
-import { getPeriodIsoRange } from '@/pages/albums/hooks/usePhotobookPhotos';
+import { getPeriodIsoRange } from '@/shared/hooks/usePhotobookPhotos';
 
 /** フォトブック選択の絶対上限枚数（サービス仕様の制限値） */
 export const PHOTOBOOK_ABSOLUTE_MAX = 200;
@@ -17,6 +17,12 @@ export function getPhotobookFileNamePrefix(period: PhotobookPeriod): string {
     const fromStr = period.fromYearMonth.replace('-', '');
     const toStr = period.toYearMonth.replace('-', '');
     return `photobook_${fromStr}_${toStr}`;
+}
+
+export interface UsePhotobookSelectionParams {
+    initialPhotos?: MemoryFeedItem[];
+    initialAlbumName?: string;
+    initialMaxCount?: number;
 }
 
 export interface UsePhotobookSelectionResult {
@@ -38,8 +44,8 @@ export interface UsePhotobookSelectionResult {
 /**
  * フォトブック選択・差し替え・自動補完を管理するカスタムフック。
  */
-export function usePhotobookSelection(): UsePhotobookSelectionResult {
-    const [selectedPhotos, setSelectedPhotos] = useState<MemoryFeedItem[]>([]);
+export function usePhotobookSelection(params: UsePhotobookSelectionParams): UsePhotobookSelectionResult {
+    const [selectedPhotos, setSelectedPhotos] = useState<MemoryFeedItem[]>(params.initialPhotos || []);
     const [period, setPeriod] = useState<PhotobookPeriod>({
         type: 'MONTH_TAB',
         yearMonth: getCurrentYearMonth(),
@@ -50,7 +56,7 @@ export function usePhotobookSelection(): UsePhotobookSelectionResult {
      * 自動補完・上限チェックはこの値を基準に計算する。
      * PHOTOBOOK_ABSOLUTE_MAX (200) を超えることはできない。
      */
-    const [maxCount, setMaxCount] = useState<number>(PHOTOBOOK_ABSOLUTE_MAX);
+    const [maxCount, setMaxCount] = useState<number>(params.initialMaxCount || PHOTOBOOK_ABSOLUTE_MAX);
 
     // 選択済み写真IDのSetは selectedPhotos から都度導出する（単一の状態ソース）
     const selectedPhotoIds: Set<string> = new Set(
@@ -169,7 +175,7 @@ export function usePhotobookSelection(): UsePhotobookSelectionResult {
         });
     }, []);
 
-    const fileNamePrefix = getPhotobookFileNamePrefix(period);
+    const fileNamePrefix = params.initialAlbumName || getPhotobookFileNamePrefix(period);
 
     return {
         selectedPhotoIds,

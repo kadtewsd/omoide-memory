@@ -1,16 +1,16 @@
 import { useState, useEffect } from 'react';
-import { AlbumSummary, AlbumDetail } from '@/shared/types';
+import { AlbumSummary, AlbumDetail, MemoryFeedItem } from '@/shared/types';
 import { fetchAlbums, fetchAlbumDetail, getImageUrl } from '@/shared/api';
-import { useAlbumDownloadJob } from '@/pages/albums/hooks/useAlbumDownloadJob';
-import { MemoryFeedItem } from '@/shared/types';
+import { useAlbumDownloadJob } from '@/shared/hooks/useAlbumDownloadJob';
 import { FeedPhotoCard } from '@/shared/components/feed/FeedPhotoCard';
 import { View } from '@/shared/components/feed/FeedPhotoCardMode';
 
-interface Props {
+export interface AlbumGridProps {
     onPhotoClick: (item: MemoryFeedItem) => void;
+    onEditAlbum: (albumDetail: AlbumDetail) => void;
 }
 
-export function AlbumGrid({ onPhotoClick }: Props) {
+export function AlbumGrid({ onPhotoClick, onEditAlbum }: AlbumGridProps) {
     const [albums, setAlbums] = useState<AlbumSummary[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
@@ -19,6 +19,7 @@ export function AlbumGrid({ onPhotoClick }: Props) {
     const [albumDetail, setAlbumDetail] = useState<AlbumDetail | null>(null);
     const [detailLoading, setDetailLoading] = useState<boolean>(false);
     const [downloadingAlbumId, setDownloadingAlbumId] = useState<string | null>(null);
+    const [editingAlbumId, setEditingAlbumId] = useState<string | null>(null);
 
     const { startDownload } = useAlbumDownloadJob();
 
@@ -65,9 +66,29 @@ export function AlbumGrid({ onPhotoClick }: Props) {
         }
     };
 
+    const handleEditFromCard = async (e: React.MouseEvent, albumId: string) => {
+        e.stopPropagation();
+        if (editingAlbumId === albumId) return;
+        setEditingAlbumId(albumId);
+        try {
+            const detail = await fetchAlbumDetail(albumId);
+            onEditAlbum(detail);
+        } catch (err) {
+            console.error('Failed to load album detail for edit:', err);
+        } finally {
+            setEditingAlbumId(null);
+        }
+    };
+
+    const handleEditFromDetail = () => {
+        if (!albumDetail) return;
+        setSelectedAlbumId(null);
+        onEditAlbum(albumDetail);
+    };
+
     const handleDownloadZip = async (e: React.MouseEvent, albumId: string) => {
         e.stopPropagation();
-        if (downloadingAlbumId) return;
+        if (downloadingAlbumId === albumId) return;
         setDownloadingAlbumId(albumId);
         try {
             await startDownload({ albumId });
@@ -140,33 +161,44 @@ export function AlbumGrid({ onPhotoClick }: Props) {
                         </div>
 
                         {/* Info & Action Footer */}
-                        <div className="p-4 space-y-2">
-                            <div className="flex items-start justify-between gap-2">
-                                <div>
-                                    <h3 className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-1">
-                                        {album.albumName}
-                                    </h3>
-                                    <p className="text-xs text-gray-500">
-                                        {new Date(album.createdAt).toLocaleDateString('ja-JP', {
-                                            year: 'numeric',
-                                            month: 'long',
-                                            day: 'numeric',
-                                        })}
-                                    </p>
-                                </div>
+                        <div className="p-4 space-y-3">
+                            <div>
+                                <h3 className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-1">
+                                    {album.albumName}
+                                </h3>
+                                <p className="text-xs text-gray-500">
+                                    {new Date(album.createdAt).toLocaleDateString('ja-JP', {
+                                        year: 'numeric',
+                                        month: 'long',
+                                        day: 'numeric',
+                                    })}
+                                </p>
                             </div>
 
-                            <button
-                                type="button"
-                                onClick={(e) => handleDownloadZip(e, album.albumId)}
-                                disabled={downloadingAlbumId === album.albumId}
-                                className="w-full mt-2 px-3 py-2 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 active:bg-blue-200 rounded-xl transition-colors flex items-center justify-center gap-1.5 min-h-[36px]"
-                            >
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                </svg>
-                                <span>{downloadingAlbumId === album.albumId ? 'ダウンロード中...' : 'Zip再ダウンロード'}</span>
-                            </button>
+                            <div className="flex items-center gap-2 pt-1">
+                                <button
+                                    type="button"
+                                    onClick={(e) => handleEditFromCard(e, album.albumId)}
+                                    disabled={editingAlbumId === album.albumId}
+                                    className="flex-1 px-3 py-2 text-xs font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 active:bg-gray-300 rounded-xl transition-colors flex items-center justify-center gap-1.5 min-h-[36px]"
+                                >
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                    </svg>
+                                    <span>{editingAlbumId === album.albumId ? '読込中...' : '編集'}</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={(e) => handleDownloadZip(e, album.albumId)}
+                                    disabled={downloadingAlbumId === album.albumId}
+                                    className="flex-1 px-3 py-2 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 active:bg-blue-200 rounded-xl transition-colors flex items-center justify-center gap-1.5 min-h-[36px]"
+                                >
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                    </svg>
+                                    <span>{downloadingAlbumId === album.albumId ? 'ダウンロード中...' : 'Zip'}</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 ))}
@@ -227,12 +259,22 @@ export function AlbumGrid({ onPhotoClick }: Props) {
 
                         {/* Detail Footer */}
                         {albumDetail && (
-                            <div className="p-4 border-t border-gray-200 bg-white flex justify-end gap-3">
+                            <div className="p-4 border-t border-gray-200 bg-white flex justify-end gap-3 flex-wrap">
+                                <button
+                                    type="button"
+                                    onClick={handleEditFromDetail}
+                                    className="px-5 py-2.5 text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 active:bg-gray-300 rounded-xl transition-colors flex items-center gap-2 min-h-[44px]"
+                                >
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                    </svg>
+                                    <span>このアルバムを編集</span>
+                                </button>
                                 <button
                                     type="button"
                                     onClick={(e) => handleDownloadZip(e, albumDetail.albumId)}
                                     disabled={downloadingAlbumId === albumDetail.albumId}
-                                    className="px-5 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-xl shadow-sm transition-colors flex items-center gap-2"
+                                    className="px-5 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-xl shadow-sm transition-colors flex items-center gap-2 min-h-[44px]"
                                 >
                                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
