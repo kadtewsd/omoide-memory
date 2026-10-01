@@ -7,8 +7,8 @@ import {
     FetchFeedParams,
     FetchRandomFillPhotosParams,
     FeedPageResponse,
-    SaveAlbumParams,
-    SaveAlbumResponse,
+    AlbumResource,
+    AlbumResponse,
 } from '@/shared/types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
@@ -74,7 +74,7 @@ export const getImageUrl = (id: string): string => {
 export const saveAlbum = async ({
     albumName,
     photoIds,
-}: SaveAlbumParams): Promise<SaveAlbumResponse> => {
+}: AlbumResource): Promise<AlbumResponse> => {
     const url = new URL('/albums', API_BASE_URL);
     const response = await fetch(url.toString(), {
         method: 'POST',
@@ -84,6 +84,25 @@ export const saveAlbum = async ({
     if (!response.ok) throw new Error('Failed to save album');
     return response.json();
 };
+
+export const updateAlbum = async ({
+    albumId,
+    resource,
+}: {
+    albumId: string;
+    resource: AlbumResource;
+}): Promise<AlbumResponse> => {
+    const url = new URL(`/albums/${albumId}`, API_BASE_URL);
+    const response = await fetch(url.toString(), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(resource),
+    });
+    if (!response.ok) throw new Error('Failed to update album');
+    return response.json();
+};
+
+
 
 export const startAlbumDownloadJob = async (
     albumId: string,

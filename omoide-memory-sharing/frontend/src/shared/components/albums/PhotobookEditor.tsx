@@ -10,9 +10,10 @@ import {
     PreviewingState,
     CreatingState,
 } from './types';
-import { saveAlbum } from '@/shared/api';
+import { saveAlbum, updateAlbum } from '@/shared/api';
 
 export interface PhotobookEditorProps {
+    albumId?: string;
     initialPhotos?: MemoryFeedItem[];
     initialAlbumName?: string;
     initialMaxCount?: number;
@@ -25,9 +26,10 @@ export interface PhotobookEditorProps {
 /**
  * フォトブック・アルバム作成および編集の共通ワークフローコンポーネント。
  * 写真選択フェーズ（SelectionView）とプレビュー確認フェーズ（PreviewView）を統括し、
- * アルバムの保存・ZIPダウンロード完了までを一貫して制御する。
+ * アルバムの保存・更新・ZIPダウンロード完了までを一貫して制御する。
  */
 export function PhotobookEditor({
+    albumId,
     initialPhotos,
     initialAlbumName,
     initialMaxCount,
@@ -85,12 +87,16 @@ export function PhotobookEditor({
             .filter((id): id is string => id !== null);
         if (photoIds.length === 0) return;
 
-        setState(new CreatingState('アルバムを作成中...'));
+        setState(new CreatingState(albumId ? 'アルバムを更新中...' : 'アルバムを作成中...'));
         try {
-            const album = await saveAlbum({ albumName, photoIds });
+            const resource = { albumName, photoIds };
+            const resultAlbum = albumId
+                ? await updateAlbum({ albumId, resource })
+                : await saveAlbum(resource);
+
             setState(new CreatingState('ダウンロード準備中...'));
             await startDownload({
-                albumId: album.albumId,
+                albumId: resultAlbum.albumId,
                 onProgress: (percentage) =>
                     setState(new CreatingState(`ZIPファイル作成中... (${percentage}%)`)),
             });
@@ -100,6 +106,7 @@ export function PhotobookEditor({
             setState(new PreviewingState());
         }
     };
+
 
     const handleDeletePhoto = (targetId: string) => {
         const targetPhoto = selectedPhotos.find(p => p.id === targetId);

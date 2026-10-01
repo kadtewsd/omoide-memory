@@ -1,9 +1,8 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from '@/shared/components/Layout';
 import { AllContentsPage } from '@/pages/feed/AllContents.tsx';
 import { ContentWithCommentPage } from '@/pages/feed/ContentsWithComment.tsx';
-import { PhotobookListPage } from '@/pages/albumlist/PhotobookListPage';
-import { PhotobookPage } from '@/pages/albums/PhotobookPage';
+import { AlbumListPage } from '@/pages/albums/AlbumListPage';
 
 function App() {
     return (
@@ -29,11 +28,11 @@ function App() {
                     path="/albums"
                     element={
                         <Layout>
-                            <PhotobookListPage />
+                            <AlbumListPage />
                         </Layout>
                     }
                 />
-                <Route path="/photobook" element={<PhotobookPage />} />
+                <Route path="/photobook" element={<Navigate to="/albums" replace />} />
             </Routes>
         </BrowserRouter>
     );
