@@ -1,9 +1,27 @@
 import { useState, useEffect } from 'react';
 import { AlbumSummary, AlbumDetail, MemoryFeedItem } from '@/shared/types';
-import { fetchAlbums, fetchAlbumDetail, getImageUrl } from '@/shared/api';
+import { fetchAlbums, fetchAlbumDetail, getImageUrl, updateAlbum } from '@/shared/api';
 import { useAlbumDownloadJob } from '@/shared/hooks/useAlbumDownloadJob';
 import { FeedPhotoCard } from '@/shared/components/feed/FeedPhotoCard';
 import { View } from '@/shared/components/feed/FeedPhotoCardMode';
+
+class ViewingDetailState {}
+
+class DeletingState {
+    constructor(readonly deleteTargetIds: Set<string>) {}
+
+    toggle(photoId: string): DeletingState {
+        const next = new Set(this.deleteTargetIds);
+        if (next.has(photoId)) {
+            next.delete(photoId);
+        } else {
+            next.add(photoId);
+        }
+        return new DeletingState(next);
+    }
+}
+
+type AlbumDetailState = ViewingDetailState | DeletingState;
 
 export interface AlbumGridProps {
     onPhotoClick: (item: MemoryFeedItem) => void;
@@ -18,8 +36,10 @@ export function AlbumGrid({ onPhotoClick, onEditAlbum }: AlbumGridProps) {
     const [selectedAlbumId, setSelectedAlbumId] = useState<string | null>(null);
     const [albumDetail, setAlbumDetail] = useState<AlbumDetail | null>(null);
     const [detailLoading, setDetailLoading] = useState<boolean>(false);
+    const [detailState, setDetailState] = useState<AlbumDetailState>(new ViewingDetailState());
     const [downloadingAlbumId, setDownloadingAlbumId] = useState<string | null>(null);
     const [editingAlbumId, setEditingAlbumId] = useState<string | null>(null);
+    const [submitting, setSubmitting] = useState(false);
 
     const { startDownload } = useAlbumDownloadJob();
 
@@ -53,9 +73,16 @@ export function AlbumGrid({ onPhotoClick, onEditAlbum }: AlbumGridProps) {
         initAlbums();
     }, []);
 
+    const closeModal = () => {
+        setSelectedAlbumId(null);
+        setAlbumDetail(null);
+        setDetailState(new ViewingDetailState());
+    };
+
     const handleAlbumClick = async (albumId: string) => {
         setSelectedAlbumId(albumId);
         setDetailLoading(true);
+        setDetailState(new ViewingDetailState());
         try {
             const detail = await fetchAlbumDetail(albumId);
             setAlbumDetail(detail);
@@ -80,10 +107,33 @@ export function AlbumGrid({ onPhotoClick, onEditAlbum }: AlbumGridProps) {
         }
     };
 
-    const handleEditFromDetail = () => {
+    const handleAddPhotos = () => {
         if (!albumDetail) return;
-        setSelectedAlbumId(null);
+        closeModal();
         onEditAlbum(albumDetail);
+    };
+
+    const handleCommitDelete = async () => {
+        if (!albumDetail || !(detailState instanceof DeletingState)) return;
+        if (submitting) return;
+
+        const remainingPhotoIds = albumDetail.photos
+            .map(p => p.id)
+            .filter((id): id is string => id !== null && !detailState.deleteTargetIds.has(id));
+
+        setSubmitting(true);
+        try {
+            await updateAlbum({
+                albumId: albumDetail.albumId,
+                resource: { albumName: albumDetail.albumName, photoIds: remainingPhotoIds },
+            });
+            closeModal();
+            await handleReload();
+        } catch (err) {
+            console.error('Failed to update album:', err);
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     const handleDownloadZip = async (e: React.MouseEvent, albumId: string) => {
@@ -216,16 +266,15 @@ export function AlbumGrid({ onPhotoClick, onEditAlbum }: AlbumGridProps) {
                                 </h2>
                                 {albumDetail && (
                                     <p className="text-xs sm:text-sm text-gray-500">
-                                        {albumDetail.count} 枚の写真
+                                        {detailState instanceof DeletingState
+                                            ? `${detailState.deleteTargetIds.size} 枚を削除対象に選択中`
+                                            : `${albumDetail.count} 枚の写真`}
                                     </p>
                                 )}
                             </div>
                             <button
                                 type="button"
-                                onClick={() => {
-                                    setSelectedAlbumId(null);
-                                    setAlbumDetail(null);
-                                }}
+                                onClick={closeModal}
                                 className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
                             >
                                 ✕
@@ -240,15 +289,52 @@ export function AlbumGrid({ onPhotoClick, onEditAlbum }: AlbumGridProps) {
                                 </div>
                             ) : albumDetail && albumDetail.photos.length > 0 ? (
                                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
-                                    {albumDetail.photos.map((item) => (
-                                        <div key={item.id} className="aspect-square rounded-xl overflow-hidden shadow-sm">
-                                            <FeedPhotoCard
-                                                item={item}
-                                                mode={new View()}
-                                                onClick={() => onPhotoClick(item)}
-                                            />
-                                        </div>
-                                    ))}
+                                    {albumDetail.photos.map((item) => {
+                                        const isDeleteTarget = detailState instanceof DeletingState
+                                            && item.id !== null
+                                            && detailState.deleteTargetIds.has(item.id);
+                                        return (
+                                            <div
+                                                key={item.id}
+                                                className="relative aspect-square rounded-xl overflow-hidden shadow-sm"
+                                            >
+                                                <div
+                                                    className={`w-full h-full transition-opacity ${isDeleteTarget ? 'opacity-40' : ''}`}
+                                                    onClick={() => {
+                                                        if (detailState instanceof DeletingState && item.id !== null) {
+                                                            setDetailState(detailState.toggle(item.id));
+                                                        } else {
+                                                            onPhotoClick(item);
+                                                        }
+                                                    }}
+                                                >
+                                                    <FeedPhotoCard
+                                                        item={item}
+                                                        mode={new View()}
+                                                        onClick={() => {}}
+                                                    />
+                                                </div>
+                                                {isDeleteTarget && (
+                                                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                                        <div className="bg-red-500 rounded-full p-1.5">
+                                                            <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                                                            </svg>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                {detailState instanceof DeletingState && !isDeleteTarget && (
+                                                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                                        <div className="bg-white/70 rounded-full p-1">
+                                                            <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                            </svg>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             ) : (
                                 <p className="text-center py-10 text-gray-500 text-sm">
@@ -260,31 +346,80 @@ export function AlbumGrid({ onPhotoClick, onEditAlbum }: AlbumGridProps) {
                         {/* Detail Footer */}
                         {albumDetail && (
                             <div className="p-4 border-t border-gray-200 bg-white flex justify-end gap-3 flex-wrap">
-                                <button
-                                    type="button"
-                                    onClick={handleEditFromDetail}
-                                    className="px-5 py-2.5 text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 active:bg-gray-300 rounded-xl transition-colors flex items-center gap-2 min-h-[44px]"
-                                >
-                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                    </svg>
-                                    <span>このアルバムを編集</span>
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={(e) => handleDownloadZip(e, albumDetail.albumId)}
-                                    disabled={downloadingAlbumId === albumDetail.albumId}
-                                    className="px-5 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-xl shadow-sm transition-colors flex items-center gap-2 min-h-[44px]"
-                                >
-                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                    </svg>
-                                    <span>
-                                        {downloadingAlbumId === albumDetail.albumId
-                                            ? 'ダウンロード中...'
-                                            : 'このアルバムをZipダウンロード'}
-                                    </span>
-                                </button>
+                                {detailState instanceof DeletingState ? (
+                                    <>
+                                        <button
+                                            type="button"
+                                            onClick={() => setDetailState(new ViewingDetailState())}
+                                            className="px-5 py-2.5 text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 active:bg-gray-300 rounded-xl transition-colors min-h-[44px]"
+                                        >
+                                            キャンセル
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={handleAddPhotos}
+                                            className="px-5 py-2.5 text-sm font-semibold text-green-700 bg-green-50 hover:bg-green-100 active:bg-green-200 rounded-xl transition-colors flex items-center gap-2 min-h-[44px]"
+                                        >
+                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                            </svg>
+                                            追加する
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={handleCommitDelete}
+                                            disabled={submitting || detailState.deleteTargetIds.size === 0}
+                                            className="px-5 py-2.5 text-sm font-semibold text-white bg-red-500 hover:bg-red-600 active:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl shadow-sm transition-colors flex items-center gap-2 min-h-[44px]"
+                                        >
+                                            {submitting ? (
+                                                <>
+                                                    <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                                                    <span>処理中...</span>
+                                                </>
+                                            ) : (
+                                                <span>決定（{detailState.deleteTargetIds.size} 枚削除）</span>
+                                            )}
+                                        </button>
+                                    </>
+                                ) : (
+                                    <>
+                                        <button
+                                            type="button"
+                                            onClick={() => setDetailState(new DeletingState(new Set()))}
+                                            className="px-5 py-2.5 text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 active:bg-gray-300 rounded-xl transition-colors flex items-center gap-2 min-h-[44px]"
+                                        >
+                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                            </svg>
+                                            編集
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={handleAddPhotos}
+                                            className="px-5 py-2.5 text-sm font-semibold text-green-700 bg-green-50 hover:bg-green-100 active:bg-green-200 rounded-xl transition-colors flex items-center gap-2 min-h-[44px]"
+                                        >
+                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                            </svg>
+                                            追加する
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={(e) => handleDownloadZip(e, albumDetail.albumId)}
+                                            disabled={downloadingAlbumId === albumDetail.albumId}
+                                            className="px-5 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-xl shadow-sm transition-colors flex items-center gap-2 min-h-[44px]"
+                                        >
+                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                            </svg>
+                                            <span>
+                                                {downloadingAlbumId === albumDetail.albumId
+                                                    ? 'ダウンロード中...'
+                                                    : 'このアルバムをZipダウンロード'}
+                                            </span>
+                                        </button>
+                                    </>
+                                )}
                             </div>
                         )}
                     </div>

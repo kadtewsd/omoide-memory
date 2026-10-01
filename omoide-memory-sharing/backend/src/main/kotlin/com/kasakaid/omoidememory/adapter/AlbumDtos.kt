@@ -2,12 +2,12 @@ package com.kasakaid.omoidememory.adapter
 
 import java.util.UUID
 
-class CreateAlbumRequest(
+class AlbumResource(
     val albumName: String,
     val photoIds: List<UUID>,
 )
 
-class CreateAlbumResponse(
+class AlbumResponse(
     val albumId: UUID,
     val albumName: String,
     val count: Int,
