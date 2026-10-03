@@ -2,8 +2,8 @@ import { MemoryFeedItem, PhotobookPeriod } from '@/shared/types';
 import { PeriodSelector, PeriodRange } from '@/shared/components/PeriodSelector';
 import { CountBox } from '@/shared/components/CountBox';
 import { getCurrentYearMonth } from '@/shared/hooks/useFeed';
-import { usePhotobookPhotos } from '@/pages/albums/hooks/usePhotobookPhotos';
-import { PHOTOBOOK_ABSOLUTE_MAX } from '@/pages/albums/hooks/usePhotobookSelection';
+import { usePhotobookPhotos } from '@/shared/hooks/usePhotobookPhotos';
+import { PHOTOBOOK_ABSOLUTE_MAX } from '@/shared/hooks/usePhotobookSelection';
 import { SelectionFeed } from '@/shared/components/feed';
 
 export interface PhotobookSelectionViewProps {
@@ -12,6 +12,7 @@ export interface PhotobookSelectionViewProps {
     maxCount: number;
     period: PhotobookPeriod;
     monthTabs: string[];
+    title: string;
     onTogglePhoto: (photo: MemoryFeedItem) => void;
     onSelectMonthTab: (ym: string) => void;
     onSelectDateRange: (params: { fromYearMonth: string; toYearMonth: string }) => void;
@@ -22,9 +23,9 @@ export interface PhotobookSelectionViewProps {
 }
 
 /**
- * フォトブック写真選択フェーズ。
+ * フォトブック・アルバム写真選択フェーズ。
  * アルバム固有の操作（枚数指定、期間指定、補完ボタン）を構築し、
- * shared 配下の SelectionFeed コンポーネントに渡して描画する。
+ * shared 配下の SelectionFeed コンポーネントに渡してフィードを Selected モードで描画する。
  */
 export function PhotobookSelectionView({
     selectedPhotoIds,
@@ -32,6 +33,7 @@ export function PhotobookSelectionView({
     maxCount,
     period,
     monthTabs,
+    title,
     onTogglePhoto,
     onSelectMonthTab,
     onSelectDateRange,
@@ -77,7 +79,7 @@ export function PhotobookSelectionView({
             selectedCount={selectedCount}
             maxCount={maxCount}
             onTogglePhoto={onTogglePhoto}
-            title="フォトブック用写真を選択"
+            title={title}
             onBack={onBackToMain}
             headerControls={
                 <>
@@ -122,4 +124,3 @@ export function PhotobookSelectionView({
         />
     );
 }
-

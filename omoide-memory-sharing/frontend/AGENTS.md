@@ -110,42 +110,48 @@ export const UserContent = () => {
 
 ---
 
-### 5. 文字列での状態比較の禁止（interface / class を定義し instanceof で比較せよ）
+### 5. 状態モデリング：Discriminated Union + switch（class / instanceof 禁止）
 
-- **【厳格遵守・絶対禁止】文字列での状態比較（`state.type === 'SELECT'` や `status === 'PROCESSING'` 等）を完全禁止。**
-  - **文字列はコンパイルエラーにならないのでリファクタ時に静かに壊れる。** タイポやステータス名の変更時に検知できず、実行時に不具合を引き起こす最大の原因となります。
-- **状態やモードを表現する場合は interface をきり、それを実装した class を定義して `instanceof` で比較すること。**
+- **TypeScript で ADT（直和型）を表現する正しいアプローチは、無名オブジェクトの Discriminated Union + `switch` である。**
+- **`class` を定義して `instanceof` で比較する Kotlin 風スタイルは TS では採用しない。**
 
-❌ **悪い例（文字列リテラルで状態を比較 / リファクタ時に静かに壊れる）**:
+#### なぜ class を使わないか
+
+`class` に `readonly value = "edit" as const` を書く方法は一見 ADT に見えるが、TS の型システムからは次の欠点がある：
+
+1. **`value` が自己申告になる** — その class 自身が正しい値を書く規約であり、型システムが「このクラスの value は必ず "edit"」と union 全体に対して保証するわけではない。
+2. **ペイロードとラベルの対応が型から見えない** — `"edit" なら albumDetail が必ずある` という制約が union の型定義として表現されず、コンパイラによる網羅チェックが働かない。
+3. **冗長** — `constructor`, `readonly` 宣言, クラス名の命名が必要で、Discriminated Union より記述量が多い。
+
+#### 正しいアプローチ：Discriminated Union
+
 ```tsx
-if (state.type === 'SELECTING') {
-    return <SelectionView ... />;
-}
-if (state.status === 'PROCESSING') {
-    return <ProcessingView ... />;
+// ✅ value とペイロードが型定義の中で必ず対になる
+type PageState =
+    | { value: "view" }
+    | { value: "create" }
+    | { value: "edit"; albumDetail: AlbumDetail };
+
+// switch で網羅チェックが効き、"edit" ケースでは albumDetail が型安全に使える
+switch (state.value) {
+    case "view":   return <ListView />;
+    case "create": return <CreateView />;
+    case "edit":   return <EditView albumDetail={state.albumDetail} />;
 }
 ```
 
-✅ **良い例（interface/class を定義し instanceof で型安全に比較）**:
+❌ **禁止（class + instanceof スタイル）**:
 ```tsx
-export interface PhotobookState {}
-
-export class SelectingState implements PhotobookState {}
-export class PreviewingState implements PhotobookState {}
-export class CreatingState implements PhotobookState {
-    constructor(readonly message: string) {}
+class EditingState {
+    readonly value = "edit" as const;  // 自己申告。型システムは union 全体を保証しない
+    constructor(readonly albumDetail: AlbumDetail) {}
 }
 
-// 判定時は instanceof で型安全に比較
-if (state instanceof SelectingState) {
-    return <SelectionView ... />;
-}
-if (state instanceof CreatingState) {
-    return <div>{state.message}</div>;
-}
+if (state instanceof EditingState) { ... }  // instanceof は TS では不要な冗長パターン
 ```
 
 ---
+
 
 ### 6. 過剰な状態細分化の禁止（無駄に状態を増やさず「なにかに集約」してシンプルに保つ）
 

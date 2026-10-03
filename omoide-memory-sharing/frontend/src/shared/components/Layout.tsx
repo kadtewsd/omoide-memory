@@ -30,9 +30,6 @@ export function Layout({ children }: Props) {
                         <NavLink to="/albums" className={navLinkClass}>
                             アルバム
                         </NavLink>
-                        <NavLink to="/photobook" className={navLinkClass}>
-                            フォトブック
-                        </NavLink>
                     </div>
                 </div>
             </header>
