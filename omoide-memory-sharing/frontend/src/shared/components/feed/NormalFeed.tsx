@@ -10,6 +10,7 @@ import { saveAlbum } from '@/shared/api';
 import { NormalFeedProps } from './types';
 import { FeedMonthTabs } from './FeedMonthTabs';
 import { FeedContentContainer } from './FeedContentContainer';
+import { PrimaryButton, SecondaryButton } from '@/shared/components/button';
 
 /**
  * 通常モードのフィードコンポーネント。
@@ -67,36 +68,32 @@ export function NormalFeed({ filterMode }: NormalFeedProps) {
                         {isSelectMode ? (
                             <>
                                 {selectedPhotoIds.size > 0 && (
-                                    <button
-                                        type="button"
+                                    <PrimaryButton
                                         onClick={() => setIsAlbumModalOpen(true)}
-                                        className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-xl shadow-sm transition-colors flex items-center gap-2 min-h-[44px]"
                                     >
                                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                         </svg>
                                         <span>アルバムを作成</span>
-                                    </button>
+                                    </PrimaryButton>
                                 )}
-                                <button
-                                    type="button"
+                                <SecondaryButton
                                     onClick={() => {
                                         setIsSelectMode(false);
                                         clearSelection();
                                     }}
-                                    className="px-3 py-2 text-xs sm:text-sm font-semibold text-gray-700 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors min-h-[44px]"
+                                    className="px-3 py-2 text-xs sm:text-sm"
                                 >
                                     選択を終了
-                                </button>
+                                </SecondaryButton>
                             </>
                         ) : (
-                            <button
-                                type="button"
+                            <SecondaryButton
                                 onClick={() => setIsSelectMode(true)}
-                                className="px-3.5 py-2 text-xs sm:text-sm font-semibold text-gray-700 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors min-h-[44px]"
+                                className="px-3.5 py-2 text-xs sm:text-sm"
                             >
                                 写真を選択
-                            </button>
+                            </SecondaryButton>
                         )}
                     </div>
                 </div>

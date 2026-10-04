@@ -3,6 +3,7 @@ import { MemoryFeedItem } from '@/shared/types';
 import { ContentNotFound } from '@/shared/components/ContentNotFound';
 import { CreateAlbumModal } from '@/shared/components/CreateAlbumModal';
 import { getImageUrl } from '@/shared/api';
+import { CancelButton, PrimaryButton } from '@/shared/components/button';
 import { PhotobookState, CreatingState } from './types';
 
 export interface PhotobookPreviewViewProps {
@@ -88,17 +89,15 @@ export function PhotobookPreviewView({
                             <span>{state.message}</span>
                         </div>
                     ) : (
-                        <button
-                            type="button"
+                        <PrimaryButton
                             onClick={() => setIsCreateModalOpen(true)}
                             disabled={selectedPhotos.length === 0}
-                            className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:bg-gray-300 disabled:cursor-not-allowed rounded-xl shadow-sm transition-colors min-h-[44px] flex items-center gap-2"
                         >
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                             </svg>
                             <span>アルバムを保存・ダウンロード</span>
-                        </button>
+                        </PrimaryButton>
                     )}
                 </div>
 
@@ -172,13 +171,10 @@ export function PhotobookPreviewView({
                         >
                             この写真を削除
                         </button>
-                        <button
-                            type="button"
+                        <CancelButton
                             onClick={() => setActionTargetId(null)}
-                            className="w-full px-4 py-3 text-sm font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors min-h-[48px]"
-                        >
-                            キャンセル
-                        </button>
+                            className="w-full py-3 min-h-[48px]"
+                        />
                     </div>
                 </div>
             )}

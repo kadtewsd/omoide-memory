@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { CancelButton, PrimaryButton } from '@/shared/components/button';
 
 interface Props {
     isOpen: boolean;
@@ -63,18 +64,10 @@ export function CreateAlbumModal({ isOpen, selectedCount, defaultAlbumName = '',
                     </div>
 
                     <div className="flex justify-end gap-3 pt-2">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            disabled={submitting}
-                            className="px-4 py-2.5 text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 active:bg-gray-300 rounded-xl transition-colors min-h-[44px]"
-                        >
-                            キャンセル
-                        </button>
-                        <button
+                        <CancelButton onClick={onClose} disabled={submitting} />
+                        <PrimaryButton
                             type="submit"
                             disabled={submitting || !albumName.trim()}
-                            className="px-5 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 rounded-xl transition-colors flex items-center justify-center gap-2 min-h-[44px]"
                         >
                             {submitting ? (
                                 <>
@@ -84,7 +77,7 @@ export function CreateAlbumModal({ isOpen, selectedCount, defaultAlbumName = '',
                             ) : (
                                 <span>作成＆ダウンロード</span>
                             )}
-                        </button>
+                        </PrimaryButton>
                     </div>
                 </form>
             </div>

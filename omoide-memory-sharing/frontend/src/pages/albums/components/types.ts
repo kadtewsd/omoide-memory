@@ -10,3 +10,7 @@ export class CreatingState {
 }
 
 export type PhotobookState = SelectingState | PreviewingState | CreatingState;
+
+export type AlbumDetailState =
+    | { value: 'view' }
+    | { value: 'delete'; deleteTargetIds: Set<string> };

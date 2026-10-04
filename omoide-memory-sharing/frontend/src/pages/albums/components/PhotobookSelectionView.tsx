@@ -5,6 +5,7 @@ import { getCurrentYearMonth } from '@/shared/hooks/useFeed';
 import { usePhotobookPhotos } from '@/shared/hooks/usePhotobookPhotos';
 import { PHOTOBOOK_ABSOLUTE_MAX } from '@/shared/hooks/usePhotobookSelection';
 import { SelectionFeed } from '@/shared/components/feed';
+import { PrimaryButton } from '@/shared/components/button';
 
 export interface PhotobookSelectionViewProps {
     selectedPhotoIds: Set<string>;
@@ -111,14 +112,12 @@ export function PhotobookSelectionView({
                             あと {remaining} 枚はランダムで補完する
                         </button>
                     )}
-                    <button
-                        type="button"
+                    <PrimaryButton
                         onClick={onConfirm}
                         disabled={selectedCount === 0}
-                        className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:bg-gray-300 disabled:cursor-not-allowed rounded-xl shadow-sm transition-colors min-h-[44px]"
                     >
-                        選択完了 → 確認へ ({selectedCount} 枚)
-                    </button>
+                        <span>選択完了 → 確認へ ({selectedCount} 枚)</span>
+                    </PrimaryButton>
                 </>
             }
         />
