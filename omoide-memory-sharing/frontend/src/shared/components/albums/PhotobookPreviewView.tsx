@@ -3,31 +3,13 @@ import { MemoryFeedItem } from '@/shared/types';
 import { ContentNotFound } from '@/shared/components/ContentNotFound';
 import { CreateAlbumModal } from '@/shared/components/CreateAlbumModal';
 import { getImageUrl } from '@/shared/api';
+import { PhotobookState, CreatingState } from './types';
 
-export interface PhotobookState {
-    readonly type: string
-}
-
-/** 写真選択中 */
-export class SelectingState implements PhotobookState {
-    type: string = "selecting"
-}
-
-/** プレビュー確認中 */
-export class PreviewingState implements PhotobookState {
-    type: string = "previewing"
-}
-
-/** アルバム作成中 */
-export class CreatingState implements PhotobookState {
-    type: string = "creating"
-    constructor(readonly message: string) { }
-}
-
-interface Props {
+export interface PhotobookPreviewViewProps {
     selectedPhotos: MemoryFeedItem[];
     maxCount: number;
-    defaultAlbumName?: string;
+    defaultAlbumName: string;
+    title: string;
     state: PhotobookState;
     onDeletePhoto: (targetId: string) => void;
     onReplacePhoto: (targetId: string) => Promise<void>;
@@ -36,20 +18,21 @@ interface Props {
 }
 
 /**
- * フォトブックプレビューフェーズ。
+ * フォトブック・アルバムプレビューフェーズ。
  * 選択済み写真を追加順で全件グリッド表示し、タップでアクションシートを表示する。
- * 写真の削除・差し替え、およびアルバムの新規作成・ダウンロードを実行する。
+ * 写真の削除・差し替え、およびアルバムの新規作成/保存・ダウンロードを実行する。
  */
 export function PhotobookPreviewView({
     selectedPhotos,
     maxCount,
-    defaultAlbumName = '',
+    defaultAlbumName,
+    title,
     state,
     onDeletePhoto,
     onReplacePhoto,
     onBackToSelect,
     onCreateAlbum,
-}: Props) {
+}: PhotobookPreviewViewProps) {
     const [actionTargetId, setActionTargetId] = useState<string | null>(null);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
@@ -92,7 +75,7 @@ export function PhotobookPreviewView({
                             </svg>
                         </button>
                         <h2 className="text-base sm:text-lg font-bold text-gray-900">
-                            フォトブック確認
+                            {title}
                         </h2>
                         <span className="text-sm font-semibold text-blue-700 bg-blue-50 px-3 py-1.5 rounded-full border border-blue-200">
                             {selectedPhotos.length} 枚 / {maxCount}枚
@@ -111,10 +94,10 @@ export function PhotobookPreviewView({
                             disabled={selectedPhotos.length === 0}
                             className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:bg-gray-300 disabled:cursor-not-allowed rounded-xl shadow-sm transition-colors min-h-[44px] flex items-center gap-2"
                         >
-                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                             </svg>
-                            <span>アルバムを作成する</span>
+                            <span>アルバムを保存・ダウンロード</span>
                         </button>
                     )}
                 </div>

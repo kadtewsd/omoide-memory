@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useFeed } from '@/shared/hooks/useFeed';
 import { useComments } from '@/shared/hooks/useComments';
 import { usePhotoSelection } from '@/shared/hooks/usePhotoSelection';
-import { useAlbumDownloadJob } from '@/pages/albums/hooks/useAlbumDownloadJob';
+import { useAlbumDownloadJob } from '@/shared/hooks/useAlbumDownloadJob';
 import { FeedGrid } from './FeedGrid';
 import { MemoryModal } from '@/shared/components/MemoryModal';
 import { CreateAlbumModal } from '@/shared/components/CreateAlbumModal';

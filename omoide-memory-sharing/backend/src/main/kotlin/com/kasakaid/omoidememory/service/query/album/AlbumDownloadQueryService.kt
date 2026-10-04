@@ -1,7 +1,8 @@
 package com.kasakaid.omoidememory.service.query.album
 
 import com.kasakaid.omoidememory.domain.model.FilePathFinder
-import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.ALBUM_PHOTO
+import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.ALBUM
+import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.ALBUM_CONTENT
 import com.kasakaid.omoidememory.r2dbc.DSLGenerator
 import com.kasakaid.omoidememory.service.query.shared.PhotoQueryService
 import com.kasakaid.omoidememory.shared.adapter.NotFoundException
@@ -37,20 +38,25 @@ class AlbumDownloadQueryService(
         albumId: UUID,
         onProgress: suspend (processed: Int, total: Int) -> Unit,
     ): AlbumZipResult {
-        val albumPhotoRecords =
+        val albumRecord =
             dslContext
                 .invoke()
-                .selectFrom(ALBUM_PHOTO)
-                .where(ALBUM_PHOTO.ALBUM_ID.eq(albumId))
+                .selectFrom(ALBUM)
+                .where(ALBUM.ID.eq(albumId))
                 .asFlow()
                 .toList()
+                .firstOrNull() ?: throw NotFoundException("Album not found with id: $albumId")
 
-        if (albumPhotoRecords.isEmpty()) {
-            throw NotFoundException("Album not found with id: $albumId")
-        }
+        val photoIds =
+            dslContext
+                .invoke()
+                .select(ALBUM_CONTENT.PHOTO_ID)
+                .from(ALBUM_CONTENT)
+                .where(ALBUM_CONTENT.ALBUM_ID.eq(albumId))
+                .asFlow()
+                .toList()
+                .map { it.value1()!! }
 
-        val albumName = albumPhotoRecords.first().albumName ?: "album"
-        val photoIds = albumPhotoRecords.mapNotNull { it.photoId }
         val photos = photoQueryService.findPhotosByIds(photoIds)
         val total = photos.size
 
@@ -75,7 +81,7 @@ class AlbumDownloadQueryService(
         }
 
         return AlbumZipResult(
-            albumName = albumName,
+            albumName = albumRecord.name,
             zipBytes = baos.toByteArray(),
         )
     }

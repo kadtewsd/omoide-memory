@@ -1,19 +1,43 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { usePhotobookSelection } from '@/pages/albums/hooks/usePhotobookSelection';
-import { useAlbumDownloadJob } from '@/pages/albums/hooks/useAlbumDownloadJob';
-import { PhotobookSelectionView } from '@/pages/albums/components/PhotobookSelectionView';
+import { MemoryFeedItem } from '@/shared/types';
+import { usePhotobookSelection } from '@/shared/hooks/usePhotobookSelection';
+import { useAlbumDownloadJob } from '@/shared/hooks/useAlbumDownloadJob';
+import { PhotobookSelectionView } from './PhotobookSelectionView';
+import { PhotobookPreviewView } from './PhotobookPreviewView';
 import {
-    PhotobookPreviewView,
     PhotobookState,
     SelectingState,
     PreviewingState,
     CreatingState,
-} from '@/pages/albums/components/PhotobookPreviewView';
-import { saveAlbum } from '@/shared/api';
+} from './types';
+import { saveAlbum, updateAlbum } from '@/shared/api';
 
-export function PhotobookPage() {
-    const navigate = useNavigate();
+export interface PhotobookEditorProps {
+    albumId?: string;
+    initialPhotos?: MemoryFeedItem[];
+    initialAlbumName?: string;
+    initialMaxCount?: number;
+    title: string;
+    previewTitle: string;
+    onComplete: () => void;
+    onCancel: () => void;
+}
+
+/**
+ * フォトブック・アルバム作成および編集の共通ワークフローコンポーネント。
+ * 写真選択フェーズ（SelectionView）とプレビュー確認フェーズ（PreviewView）を統括し、
+ * アルバムの保存・更新・ZIPダウンロード完了までを一貫して制御する。
+ */
+export function PhotobookEditor({
+    albumId,
+    initialPhotos,
+    initialAlbumName,
+    initialMaxCount,
+    title,
+    previewTitle,
+    onComplete,
+    onCancel,
+}: PhotobookEditorProps) {
     const [state, setState] = useState<PhotobookState>(new SelectingState());
 
     const {
@@ -29,11 +53,14 @@ export function PhotobookPage() {
         replacePhoto,
         selectMonthTab,
         selectDateRange,
-    } = usePhotobookSelection();
+    } = usePhotobookSelection({
+        initialPhotos,
+        initialAlbumName,
+        initialMaxCount,
+    });
 
     const { startDownload } = useAlbumDownloadJob();
 
-    // 1. 選択中（SelectingState）の場合は SelectionView を描画
     if (state instanceof SelectingState) {
         return (
             <PhotobookSelectionView
@@ -42,42 +69,50 @@ export function PhotobookPage() {
                 maxCount={maxCount}
                 period={period}
                 monthTabs={monthTabs}
+                title={title}
                 onTogglePhoto={togglePhotoSelection}
                 onSelectMonthTab={selectMonthTab}
                 onSelectDateRange={selectDateRange}
                 onChangeMaxCount={setMaxCount}
                 onFillRemaining={fillRemaining}
                 onConfirm={() => setState(new PreviewingState())}
-                onBackToMain={() => navigate('/')}
+                onBackToMain={onCancel}
             />
         );
     }
 
-    // 2. アルバム作成中（CreatingState）の処理
     const handleCreateAlbum = async (albumName: string) => {
         const photoIds = selectedPhotos
             .map(p => p.id)
             .filter((id): id is string => id !== null);
         if (photoIds.length === 0) return;
 
-        setState(new CreatingState('アルバムを作成中...'));
+        setState(new CreatingState(albumId ? 'アルバムを更新中...' : 'アルバムを作成中...'));
         try {
-            const album = await saveAlbum({ albumName, photoIds });
+            const resource = { albumName, photoIds };
+            const resultAlbum = albumId
+                ? await updateAlbum({ albumId, resource })
+                : await saveAlbum(resource);
+
             setState(new CreatingState('ダウンロード準備中...'));
             await startDownload({
-                albumId: album.albumId,
+                albumId: resultAlbum.albumId,
                 onProgress: (percentage) =>
                     setState(new CreatingState(`ZIPファイル作成中... (${percentage}%)`)),
             });
             setState(new SelectingState());
-            navigate('/albums');
+            onComplete();
         } catch {
             setState(new PreviewingState());
         }
     };
 
+
     const handleDeletePhoto = (targetId: string) => {
-        togglePhotoSelection(selectedPhotos.find(p => p.id === targetId)!);
+        const targetPhoto = selectedPhotos.find(p => p.id === targetId);
+        if (targetPhoto) {
+            togglePhotoSelection(targetPhoto);
+        }
     };
 
     return (
@@ -85,6 +120,7 @@ export function PhotobookPage() {
             selectedPhotos={selectedPhotos}
             maxCount={maxCount}
             defaultAlbumName={fileNamePrefix}
+            title={previewTitle}
             state={state}
             onDeletePhoto={handleDeletePhoto}
             onReplacePhoto={replacePhoto}
