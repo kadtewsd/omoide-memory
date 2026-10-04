@@ -107,7 +107,6 @@ export function PhotobookEditor({
         }
     };
 
-
     const handleDeletePhoto = (targetId: string) => {
         const targetPhoto = selectedPhotos.find(p => p.id === targetId);
         if (targetPhoto) {
