@@ -96,6 +96,24 @@ Write-Host "`n[2/3] Preparing Backend (Spring Boot)..." -ForegroundColor Cyan
 $buildJarDir = Join-Path $BackendDir "build\libs"
 
 if (-not $SkipBuild) {
+    # Kill any existing backend process that may be locking the JAR file.
+    # Without this, Gradle :clean fails with "Unable to delete directory" on Windows.
+    Write-Host "  Stopping existing backend processes before build..." -ForegroundColor Gray
+    $portInUse = Get-NetTCPConnection -LocalPort $BackendPort -State Listen -ErrorAction SilentlyContinue
+    if ($portInUse) {
+        Stop-Process -Id $portInUse.OwningProcess -Force -ErrorAction SilentlyContinue
+        Write-Host "  Killed process on port $BackendPort (PID: $($portInUse.OwningProcess))." -ForegroundColor DarkYellow
+    }
+    # Also find any java process referencing the JAR path directly (covers cases where the port check misses it).
+    $jarName = "omoide-memory-sharing.jar"
+    Get-WmiObject Win32_Process -Filter "Name='java.exe'" -ErrorAction SilentlyContinue |
+        Where-Object { $_.CommandLine -like "*$jarName*" } |
+        ForEach-Object {
+            Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
+            Write-Host "  Killed java process referencing $jarName (PID: $($_.ProcessId))." -ForegroundColor DarkYellow
+        }
+    Start-Sleep -Seconds 2
+
     Write-Host "  Building Backend with gradlew..." -ForegroundColor Gray
     Set-Location $BackendDir
     if (Test-Path ".\gradlew.bat") {
