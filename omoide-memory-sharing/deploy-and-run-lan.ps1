@@ -161,6 +161,8 @@ if (-not $SkipBuild) {
         Write-Host "  Removed stale dist/ directory for clean build." -ForegroundColor DarkYellow
     }
 
+    Write-Host "  Running npm install..." -ForegroundColor Gray
+    npm install
     Write-Host "  Running npm run build..." -ForegroundColor Gray
     npm run build
     if (-not (Test-Path $distDir)) {
