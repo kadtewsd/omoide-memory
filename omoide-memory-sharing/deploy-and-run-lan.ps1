@@ -96,12 +96,32 @@ Write-Host "`n[2/3] Preparing Backend (Spring Boot)..." -ForegroundColor Cyan
 $buildJarDir = Join-Path $BackendDir "build\libs"
 
 if (-not $SkipBuild) {
-    Write-Host "  Building Backend with gradlew..." -ForegroundColor Gray
+    # Kill any existing backend process that may be locking the JAR file.
+    # Without this, Gradle :clean fails with "Unable to delete directory" on Windows.
+    Write-Host "  Stopping existing backend processes before build..." -ForegroundColor Gray
+    $portInUse = Get-NetTCPConnection -LocalPort $BackendPort -State Listen -ErrorAction SilentlyContinue
+    if ($portInUse) {
+        Stop-Process -Id $portInUse.OwningProcess -Force -ErrorAction SilentlyContinue
+        Write-Host "  Killed process on port $BackendPort (PID: $($portInUse.OwningProcess))." -ForegroundColor DarkYellow
+    }
+    # Also find any java process referencing the JAR path directly (covers cases where the port check misses it).
+    $jarName = "omoide-memory-sharing.jar"
+    Get-WmiObject Win32_Process -Filter "Name='java.exe'" -ErrorAction SilentlyContinue |
+        Where-Object { $_.CommandLine -like "*$jarName*" } |
+        ForEach-Object {
+            Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
+            Write-Host "  Killed java process referencing $jarName (PID: $($_.ProcessId))." -ForegroundColor DarkYellow
+        }
+    Start-Sleep -Seconds 2
+
+    # build.gradle.kts declares: tasks.named("compileKotlin") { dependsOn("generateJooq") }
+    # so generateJooq runs automatically before compileKotlin within a single Gradle invocation.
+    Write-Host "  Building Backend with gradlew (clean -> generateJooq -> build)..." -ForegroundColor Gray
     Set-Location $BackendDir
     if (Test-Path ".\gradlew.bat") {
-        .\gradlew.bat clean generateJooq build -x test
+        .\gradlew.bat clean build -x test
     } else {
-        sh gradlew clean generateJooq build -x test
+        sh gradlew clean build -x test
     }
 }
 
@@ -132,9 +152,19 @@ if (-not $SkipBuild) {
         }
     }
 
+    # Remove the entire dist/ directory to guarantee a clean build.
+    # Without this, Vite may leave stale files from a previous build intact,
+    # causing an outdated version (e.g. missing the Photobook feature) to be served.
+    $distDir = Join-Path $FrontendDir "dist"
+    if (Test-Path $distDir) {
+        Remove-Item $distDir -Recurse -Force
+        Write-Host "  Removed stale dist/ directory for clean build." -ForegroundColor DarkYellow
+    }
+
+    Write-Host "  Running npm install..." -ForegroundColor Gray
+    npm install
     Write-Host "  Running npm run build..." -ForegroundColor Gray
     npm run build
-    $distDir = Join-Path $FrontendDir "dist"
     if (-not (Test-Path $distDir)) {
         Write-Error "Frontend dist directory not found: $distDir"
         exit 1

@@ -154,3 +154,10 @@ tasks.named("generateJooq") {
         println(delete(dir))
     }
 }
+
+// compileKotlin は src/main/generated（generateJooq の出力）を srcDir として参照するため、
+// Gradle の task validation が implicit dependency エラーを出す。
+// dependsOn で明示することで generateJooq → compileKotlin の順序を保証する。
+tasks.named("compileKotlin") {
+    dependsOn("generateJooq")
+}
