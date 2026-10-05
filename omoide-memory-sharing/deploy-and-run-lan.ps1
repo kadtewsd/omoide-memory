@@ -114,12 +114,14 @@ if (-not $SkipBuild) {
         }
     Start-Sleep -Seconds 2
 
-    Write-Host "  Building Backend with gradlew..." -ForegroundColor Gray
+    # build.gradle.kts declares: tasks.named("compileKotlin") { dependsOn("generateJooq") }
+    # so generateJooq runs automatically before compileKotlin within a single Gradle invocation.
+    Write-Host "  Building Backend with gradlew (clean -> generateJooq -> build)..." -ForegroundColor Gray
     Set-Location $BackendDir
     if (Test-Path ".\gradlew.bat") {
-        .\gradlew.bat clean generateJooq build -x test
+        .\gradlew.bat clean build -x test
     } else {
-        sh gradlew clean generateJooq build -x test
+        sh gradlew clean build -x test
     }
 }
 
