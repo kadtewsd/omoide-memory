@@ -132,9 +132,17 @@ if (-not $SkipBuild) {
         }
     }
 
+    # Remove the entire dist/ directory to guarantee a clean build.
+    # Without this, Vite may leave stale files from a previous build intact,
+    # causing an outdated version (e.g. missing the Photobook feature) to be served.
+    $distDir = Join-Path $FrontendDir "dist"
+    if (Test-Path $distDir) {
+        Remove-Item $distDir -Recurse -Force
+        Write-Host "  Removed stale dist/ directory for clean build." -ForegroundColor DarkYellow
+    }
+
     Write-Host "  Running npm run build..." -ForegroundColor Gray
     npm run build
-    $distDir = Join-Path $FrontendDir "dist"
     if (-not (Test-Path $distDir)) {
         Write-Error "Frontend dist directory not found: $distDir"
         exit 1
