@@ -99,9 +99,9 @@ if (-not $SkipBuild) {
     Write-Host "  Building Backend with gradlew..." -ForegroundColor Gray
     Set-Location $BackendDir
     if (Test-Path ".\gradlew.bat") {
-        .\gradlew.bat build -x test
+        .\gradlew.bat clean generateJooq build -x test
     } else {
-        sh gradlew build -x test
+        sh gradlew clean generateJooq build -x test
     }
 }
 
