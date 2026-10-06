@@ -5,6 +5,7 @@ import com.kasakaid.omoidememory.jooq.omoide_memory.tables.SyncedOmoidePhoto.Com
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.SyncedOmoideVideo
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.SyncedOmoideVideo.Companion.SYNCED_OMOIDE_VIDEO
 import org.jooq.Field
+import org.jooq.SortField
 import org.jooq.Table
 import org.jooq.impl.DSL
 import java.time.OffsetDateTime
@@ -16,6 +17,12 @@ interface OmoideMemoryTable {
     val type: Field<String>
     val fileName: Field<String?>
     val captureTime: Field<OffsetDateTime?>
+
+    fun asc(): List<SortField<*>> =
+        listOf(
+            captureTime.asc(),
+            id.asc(),
+        )
 }
 
 object SyncedOmoideMemoryPhoto : OmoideMemoryTable {

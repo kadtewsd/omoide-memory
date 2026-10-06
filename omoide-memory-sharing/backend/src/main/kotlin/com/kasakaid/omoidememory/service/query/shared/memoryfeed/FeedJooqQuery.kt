@@ -111,8 +111,7 @@ suspend fun DSLGenerator.executeWithContentOrder(
 ): List<Record> =
     createMemoryQuery(omoideMemory = omoideMemoryTable, condition = condition)
         .orderBy(
-            omoideMemoryTable.captureTime.desc(),
-            omoideMemoryTable.id.desc(),
+            omoideMemoryTable.asc(),
         ).limit(limit)
         .asFlow()
         .toList()
