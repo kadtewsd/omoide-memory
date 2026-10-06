@@ -71,6 +71,7 @@ export function PhotobookEditor({
                 period={period}
                 monthTabs={monthTabs}
                 title={title}
+                isSelectingRandom={isSelectingRandom}
                 onTogglePhoto={togglePhotoSelection}
                 onSelectMonthTab={selectMonthTab}
                 onSelectDateRange={selectDateRange}

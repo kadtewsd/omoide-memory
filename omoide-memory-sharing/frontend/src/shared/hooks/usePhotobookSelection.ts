@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { fetchCapturedYearMonths, fetchFeed, fetchRandomPhoto } from '@/shared/api';
+import { fetchCapturedYearMonths, fetchRandomPhoto } from '@/shared/api';
 import { MemoryFeedItem, PhotobookPeriod } from '@/shared/types';
 import { isoToJstYearMonth, getCurrentYearMonth } from '@/shared/hooks/useFeed';
 import { getPeriodIsoRange } from '@/shared/hooks/usePhotobookPhotos';
@@ -107,56 +107,52 @@ export function usePhotobookSelection(params: UsePhotobookSelectionParams): UseP
 
     /**
      * 自動補完: 現在選択中の期間の未選択写真を (maxCount - 現在の選択数) 件補充する。
-     * maxCount に達している場合は何もしない。
+     * ランダムエンドポイントから写真を取得し、クライアント側で重複しないものを補充する。
      */
     const fillRemaining = useCallback(async () => {
         const remaining = maxCount - selectedPhotos.length;
         if (remaining <= 0) return;
 
         const { startInclusive, endExclusive } = getPeriodIsoRange(period);
-        if (!startInclusive || !endExclusive) return;
+        if (!endExclusive) return;
 
-        const selectedIdSet = new Set(
-            selectedPhotos.map(p => p.id).filter((id): id is string => id !== null)
-        );
+        setIsSelectingRandom(true);
+        try {
+            const selectedIdSet = new Set(
+                selectedPhotos.map(p => p.id).filter((id): id is string => id !== null)
+            );
 
-        const newlySelected: MemoryFeedItem[] = [];
-        let cursorCaptureTime: string | undefined = undefined;
-        let cursorId: string | undefined = undefined;
+            const newlySelected: MemoryFeedItem[] = [];
+            const maxAttempts = remaining * 10 + 30;
+            let consecutiveFailures = 0;
 
-        while (newlySelected.length < remaining) {
-            const response = await fetchFeed({
-                startInclusive,
-                endExclusive,
-                cursorCaptureTime,
-                cursorId,
-                limit: 200,
-                contentType: 'PHOTO',
-            });
+            for (let attempt = 0; attempt < maxAttempts && newlySelected.length < remaining; attempt++) {
+                const photo = await fetchRandomPhoto({
+                    startInclusive: startInclusive || undefined,
+                    endExclusive,
+                });
 
-            if (response.items.length === 0) break;
+                if (!photo || photo.id === null) {
+                    break;
+                }
 
-            for (const item of response.items) {
-                if (item.id !== null && !selectedIdSet.has(item.id)) {
-                    selectedIdSet.add(item.id);
-                    newlySelected.push(item);
-                    if (newlySelected.length >= remaining) {
+                if (!selectedIdSet.has(photo.id)) {
+                    selectedIdSet.add(photo.id);
+                    newlySelected.push(photo);
+                    consecutiveFailures = 0;
+                } else {
+                    consecutiveFailures++;
+                    if (consecutiveFailures > 30) {
                         break;
                     }
                 }
             }
 
-            if (!response.hasNext || response.items.length < 200) {
-                break;
+            if (newlySelected.length > 0) {
+                setSelectedPhotos(prev => [...prev, ...newlySelected]);
             }
-
-            const lastItem = response.items[response.items.length - 1];
-            cursorCaptureTime = lastItem.captureTime ?? undefined;
-            cursorId = lastItem.id ?? undefined;
-        }
-
-        if (newlySelected.length > 0) {
-            setSelectedPhotos(prev => [...prev, ...newlySelected]);
+        } finally {
+            setIsSelectingRandom(false);
         }
     }, [selectedPhotos, period, maxCount]);
 
