@@ -69,11 +69,11 @@ suspend fun DSLGenerator.createMemoryQuery(
     val cursorCondition =
         condition.cursor?.let { c ->
             omoideMemory.captureTime
-                .lt(c.captureTime)
+                .gt(c.captureTime)
                 .or(
                     omoideMemory.captureTime
                         .eq(c.captureTime)
-                        .and(omoideMemory.id.lt(c.id)),
+                        .and(omoideMemory.id.gt(c.id)),
                 )
         } ?: DSL.noCondition()
 
@@ -111,8 +111,7 @@ suspend fun DSLGenerator.executeWithContentOrder(
 ): List<Record> =
     createMemoryQuery(omoideMemory = omoideMemoryTable, condition = condition)
         .orderBy(
-            omoideMemoryTable.captureTime.desc(),
-            omoideMemoryTable.id.desc(),
+            omoideMemoryTable.asc(),
         ).limit(limit)
         .asFlow()
         .toList()
