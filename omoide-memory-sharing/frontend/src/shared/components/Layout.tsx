@@ -21,13 +21,13 @@ export function Layout({ children }: Props) {
                     </h1>
 
                     <div className="inline-flex rounded-xl border border-gray-300 bg-gray-100 p-1 min-h-[44px]">
-                        <NavLink to="/" end className={navLinkClass}>
+                        <NavLink to="/pages/all" className={navLinkClass}>
                             すべて
                         </NavLink>
-                        <NavLink to="/comment" className={navLinkClass}>
+                        <NavLink to="/pages/comment" className={navLinkClass}>
                             コメントのみ
                         </NavLink>
-                        <NavLink to="/albums" className={navLinkClass}>
+                        <NavLink to="/pages/albums" className={navLinkClass}>
                             アルバム
                         </NavLink>
                     </div>
