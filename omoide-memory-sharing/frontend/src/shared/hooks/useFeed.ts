@@ -47,6 +47,7 @@ export function isoToJstYearMonth(isoStr: string): string {
 export interface UseFeedResult {
     items: MemoryFeedItem[];
     hasNext: boolean;
+    totalCount: number;
     loadingInitial: boolean;
     loadingMore: boolean;
     loadMore: () => Promise<void>;
@@ -100,6 +101,7 @@ export function useFeed(filterMode: FilterMode): UseFeedResult {
     const {
         items,
         hasNext,
+        totalCount,
         loadingInitial,
         loadingMore,
         loadMore,
@@ -117,6 +119,7 @@ export function useFeed(filterMode: FilterMode): UseFeedResult {
     return {
         items,
         hasNext,
+        totalCount,
         loadingInitial,
         loadingMore,
         loadMore,
