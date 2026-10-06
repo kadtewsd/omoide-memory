@@ -45,8 +45,8 @@ export function InfiniteScrollLoader({ onLoadMore, hasMore, loading }: Props) {
                 }
             },
             {
-                threshold: 0.1,      // 10% 見えたら反応
-                rootMargin: '100px', // 実際に入る 100px 前から「入った」とみなして先読みする
+                threshold: 0,        // アンカーの端が領域に入った瞬間に即トリガー
+                rootMargin: '800px', // 画面下部から800px手前（約1〜2画面分手前）で早期リクエストしてシームレスに描画
             }
         );
 

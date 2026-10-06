@@ -109,7 +109,7 @@ export function useFeed(filterMode: FilterMode): UseFeedResult {
         startInclusive,
         endExclusive,
         mode: filterMode,
-        limit: 25,
+        limit: 60,
     });
 
     const selectMonthTab = useCallback((ym: string) => {

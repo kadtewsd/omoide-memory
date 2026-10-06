@@ -57,7 +57,7 @@ export function useFeedPagination({
     endExclusive,
     mode,
     contentType,
-    limit = 25,
+    limit = 60,
 }: UseFeedPaginationParams): UseFeedPaginationResult {
     const [items, setItems] = useState<MemoryFeedItem[]>([]);
     const [nextCursor, setNextCursor] = useState<FeedCursor | null>(null);
