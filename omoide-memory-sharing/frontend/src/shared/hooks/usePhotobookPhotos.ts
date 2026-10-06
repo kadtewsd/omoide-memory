@@ -50,7 +50,7 @@ export function usePhotobookPhotos(period: PhotobookPeriod): UsePhotobookPhotosR
         startInclusive,
         endExclusive,
         contentType: 'PHOTO',
-        limit: 25,
+        limit: 60,
     });
 
     return {
