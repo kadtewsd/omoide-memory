@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { fetchContentsCount } from '@/shared/api';
 import { ContentType, FilterMode } from '@/shared/types';
 import { isValidIsoDateRange } from '@/shared/components/PeriodSelector';
@@ -11,6 +11,7 @@ export interface ContentsCounterProps {
     label: string;
     unit: string;
     className?: string;
+    onCountChange?: (count: number) => void;
 }
 
 /**
@@ -25,8 +26,14 @@ export function ContentsCounter({
     label,
     unit,
     className,
+    onCountChange,
 }: ContentsCounterProps) {
     const [count, setCount] = useState<number | null>(null);
+    const onCountChangeRef = useRef(onCountChange);
+    useEffect(() => {
+        onCountChangeRef.current = onCountChange;
+    });
+
     const isValid = isValidIsoDateRange(startInclusive, endExclusive);
 
     useEffect(() => {
@@ -45,6 +52,7 @@ export function ContentsCounter({
             .then(res => {
                 if (!isCancelled) {
                     setCount(res.count);
+                    onCountChangeRef.current?.(res.count);
                 }
             })
             .catch(err => {

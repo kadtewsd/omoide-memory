@@ -1,3 +1,4 @@
+import { useState, useCallback } from 'react';
 import { MemoryFeedItem, PhotobookPeriod } from '@/shared/types';
 import { PeriodSelector, PeriodRange } from '@/shared/components/PeriodSelector';
 import { CountBox } from '@/shared/components/CountBox';
@@ -54,8 +55,18 @@ export function PhotobookSelectionView({
         loadingMore,
         loadMore,
     } = usePhotobookPhotos(period);
-    const effectiveMax = PHOTOBOOK_ABSOLUTE_MAX;
+
+    const [totalPhotoCount, setTotalPhotoCount] = useState<number | null>(null);
+    const effectiveMax = totalPhotoCount !== null && totalPhotoCount > 0
+        ? Math.min(PHOTOBOOK_ABSOLUTE_MAX, totalPhotoCount)
+        : PHOTOBOOK_ABSOLUTE_MAX;
     const remaining = maxCount - selectedCount;
+
+    const handleCountChange = useCallback((count: number) => {
+        setTotalPhotoCount(count);
+        const targetMax = count > 0 ? Math.min(PHOTOBOOK_ABSOLUTE_MAX, count) : PHOTOBOOK_ABSOLUTE_MAX;
+        onChangeMaxCount(targetMax);
+    }, [onChangeMaxCount]);
 
     // period からカレンダー表示用 range を直接導出（Derived State）
     const initialMonth = period.type === 'MONTH_TAB' ? period.yearMonth : getCurrentYearMonth();
@@ -143,6 +154,7 @@ export function PhotobookSelectionView({
                         contentType="PHOTO"
                         label="該当期間の写真"
                         unit="枚"
+                        onCountChange={handleCountChange}
                     />
                 </div>
 
