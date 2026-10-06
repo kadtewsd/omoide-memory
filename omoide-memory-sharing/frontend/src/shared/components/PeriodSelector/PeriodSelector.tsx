@@ -3,6 +3,7 @@ import DatePicker, { registerLocale, CalendarContainer } from 'react-datepicker'
 import { ja } from 'date-fns/locale/ja';
 import 'react-datepicker/dist/react-datepicker.css';
 import { isValidYearMonth, normalizeYearMonth } from '@/shared/date';
+import { periodRangeSchema } from './periodSchema';
 
 registerLocale('ja', ja);
 
@@ -12,6 +13,7 @@ export interface PeriodRange {
 }
 
 interface Props {
+
     range: PeriodRange;
     isActive: boolean;
     onRangeChange: (range: PeriodRange) => void;
@@ -46,9 +48,9 @@ function yearMonthToDate(ym: string): Date | null {
  * - 外側クリックや Escape キーによるクローズは react-datepicker の組み込み機能（onClickOutside / onKeyDown）に委任。
  * - ポップオーバー内で [開始年月 (From)] と [終了年月 (To)] を切り替えて選択可能。
  * - デフォルトは From 選択モード。From 選択後は自動的に To 選択へ誘導。
- * - 開始年月・終了年月のテキスト欄は Props (range) に直接バインドされた Controlled Component。
+ * - 手入力欄（開始年月・終了年月）はローカル state と Zod バリデーションで制御され、人間による自由なキー入力を保証。
  * - 手入力欄クリック・フォーカス時はテキスト編集のみで、カレンダーは開かない。
- * - 日付フォーマットが不正または開始月 > 終了月のときはエラー表示を行い、フィード取得を抑制する。
+ * - 日付フォーマットが不正または開始月 > 終了月のときは Zod スキーマ由来のエラーメッセージを表示する。
  */
 export function PeriodSelector({
     range,
@@ -56,38 +58,81 @@ export function PeriodSelector({
     onRangeChange,
     onActivate,
 }: Props) {
+    const [fromInput, setFromInput] = useState<string>(range.fromYearMonth);
+    const [toInput, setToInput] = useState<string>(range.toYearMonth);
+    const [errorMessage, setErrorMessage] = useState<string>('');
+    const [prevRange, setPrevRange] = useState<PeriodRange>(range);
+
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
     const [activeTarget, setActiveTarget] = useState<ActiveTarget>('FROM');
     const buttonRef = useRef<HTMLButtonElement>(null);
 
-    const isFromInvalid = !isValidYearMonth(range.fromYearMonth);
-    const isToInvalid = !isValidYearMonth(range.toYearMonth);
-    const isRangeReversed = !isFromInvalid && !isToInvalid && range.fromYearMonth > range.toYearMonth;
+    if (range.fromYearMonth !== prevRange.fromYearMonth || range.toYearMonth !== prevRange.toYearMonth) {
+        setPrevRange(range);
+        if (fromInput !== range.fromYearMonth || toInput !== range.toYearMonth) {
+            setFromInput(range.fromYearMonth);
+            setToInput(range.toYearMonth);
+            setErrorMessage('');
+        }
+    }
 
     // 手入力: 開始年月
     const handleFromTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const raw = e.target.value;
-        const normalized = normalizeYearMonth(raw);
-        onRangeChange({
-            fromYearMonth: normalized,
-            toYearMonth: range.toYearMonth,
-        });
+        setFromInput(raw);
         if (!isActive) {
             onActivate();
+        }
+
+        const result = periodRangeSchema.safeParse({
+            fromYearMonth: raw,
+            toYearMonth: toInput,
+        });
+
+        if (result.success) {
+            setErrorMessage('');
+            onRangeChange(result.data);
+        } else if (raw.length >= 7) {
+            setErrorMessage(result.error.issues[0]?.message ?? '入力内容を確認してください');
         }
     };
 
     // 手入力: 終了年月
     const handleToTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const raw = e.target.value;
-        const normalized = normalizeYearMonth(raw);
-        onRangeChange({
-            fromYearMonth: range.fromYearMonth,
-            toYearMonth: normalized,
-        });
+        setToInput(raw);
         if (!isActive) {
             onActivate();
         }
+
+        const result = periodRangeSchema.safeParse({
+            fromYearMonth: fromInput,
+            toYearMonth: raw,
+        });
+
+        if (result.success) {
+            setErrorMessage('');
+            onRangeChange(result.data);
+        } else if (raw.length >= 7) {
+            setErrorMessage(result.error.issues[0]?.message ?? '入力内容を確認してください');
+        }
+    };
+
+    const handleBlur = () => {
+        const result = periodRangeSchema.safeParse({
+            fromYearMonth: fromInput,
+            toYearMonth: toInput,
+        });
+
+        if (!result.success) {
+            setErrorMessage(result.error.issues[0]?.message ?? '入力内容を確認してください');
+            return;
+        }
+
+        setErrorMessage('');
+        setFromInput(result.data.fromYearMonth);
+        setToInput(result.data.toYearMonth);
+        onRangeChange(result.data);
     };
 
     // カレンダーで月がクリックされた時の処理
@@ -96,18 +141,36 @@ export function PeriodSelector({
         const ym = dateToYearMonth(selectedDate);
 
         if (activeTarget === 'FROM') {
-            onRangeChange({
+            const nextTo = ym > toInput ? ym : toInput;
+            const nextRange = {
                 fromYearMonth: ym,
-                toYearMonth: range.toYearMonth,
-            });
+                toYearMonth: nextTo,
+            };
+            setFromInput(ym);
+            setToInput(nextTo);
+            const result = periodRangeSchema.safeParse(nextRange);
+            if (result.success) {
+                setErrorMessage('');
+                onRangeChange(result.data);
+            } else {
+                setErrorMessage(result.error.issues[0]?.message ?? '入力内容を確認してください');
+            }
             if (!isActive) onActivate();
             // From 選択後は To 選択へ自動遷移
             setActiveTarget('TO');
         } else {
-            onRangeChange({
-                fromYearMonth: range.fromYearMonth,
+            const nextRange = {
+                fromYearMonth: fromInput,
                 toYearMonth: ym,
-            });
+            };
+            setToInput(ym);
+            const result = periodRangeSchema.safeParse(nextRange);
+            if (result.success) {
+                setErrorMessage('');
+                onRangeChange(result.data);
+            } else {
+                setErrorMessage(result.error.issues[0]?.message ?? '入力内容を確認してください');
+            }
             if (!isActive) onActivate();
             setIsCalendarOpen(false);
         }
@@ -121,8 +184,8 @@ export function PeriodSelector({
         setIsCalendarOpen(prev => !prev);
     };
 
-    const startDate = yearMonthToDate(range.fromYearMonth);
-    const endDate = yearMonthToDate(range.toYearMonth);
+    const startDate = yearMonthToDate(fromInput);
+    const endDate = yearMonthToDate(toInput);
 
     const currentTargetDate = activeTarget === 'FROM'
         ? (startDate ?? new Date())
@@ -133,7 +196,7 @@ export function PeriodSelector({
             <div
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-colors ${
                     isActive
-                        ? isFromInvalid || isToInvalid || isRangeReversed
+                        ? errorMessage.length > 0
                             ? 'bg-red-50/50 border-red-300 ring-2 ring-red-400/20'
                             : 'bg-blue-50 border-blue-300 ring-2 ring-blue-500/20'
                         : 'bg-gray-100 border-gray-200 opacity-60'
@@ -168,11 +231,12 @@ export function PeriodSelector({
                     aria-label="開始年月"
                     placeholder="YYYY-MM"
                     maxLength={7}
-                    value={range.fromYearMonth}
+                    value={fromInput}
                     onChange={handleFromTextChange}
+                    onBlur={handleBlur}
                     onFocus={onActivate}
                     className={`px-2.5 py-1 text-xs sm:text-sm font-semibold border rounded-lg bg-white focus:outline-none focus:ring-2 w-24 sm:w-28 text-center transition-colors ${
-                        isFromInvalid || isRangeReversed
+                        errorMessage.length > 0
                             ? 'border-red-400 text-red-700 focus:ring-red-400 bg-red-50/50'
                             : 'border-gray-300 text-gray-900 focus:ring-blue-500'
                     }`}
@@ -187,11 +251,12 @@ export function PeriodSelector({
                     aria-label="終了年月"
                     placeholder="YYYY-MM"
                     maxLength={7}
-                    value={range.toYearMonth}
+                    value={toInput}
                     onChange={handleToTextChange}
+                    onBlur={handleBlur}
                     onFocus={onActivate}
                     className={`px-2.5 py-1 text-xs sm:text-sm font-semibold border rounded-lg bg-white focus:outline-none focus:ring-2 w-24 sm:w-28 text-center transition-colors ${
-                        isToInvalid || isRangeReversed
+                        errorMessage.length > 0
                             ? 'border-red-400 text-red-700 focus:ring-red-400 bg-red-50/50'
                             : 'border-gray-300 text-gray-900 focus:ring-blue-500'
                     }`}
@@ -294,7 +359,7 @@ export function PeriodSelector({
                                                 : 'text-gray-600 hover:text-gray-900'
                                         }`}
                                     >
-                                        開始: {range.fromYearMonth || '未指定'}
+                                        開始: {fromInput || '未指定'}
                                     </button>
                                     <button
                                         type="button"
@@ -305,7 +370,7 @@ export function PeriodSelector({
                                                 : 'text-gray-600 hover:text-gray-900'
                                         }`}
                                     >
-                                        終了: {range.toYearMonth || '未指定'}
+                                        終了: {toInput || '未指定'}
                                     </button>
                                 </div>
 
@@ -379,17 +444,13 @@ export function PeriodSelector({
                 </div>
             )}
 
-            {/* 日付不正時のエラーメッセージ */}
-            {isActive && (isFromInvalid || isToInvalid || isRangeReversed) && (
+            {/* 日付不正時のエラーメッセージ（Zod 由来） */}
+            {isActive && errorMessage.length > 0 && (
                 <div className="text-[11px] text-red-600 font-medium px-1 flex items-center gap-1">
                     <svg className="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
                         <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                     </svg>
-                    <span>
-                        {isFromInvalid || isToInvalid
-                            ? 'YYYY-MM 形式で入力してください（例: 2026-09）'
-                            : '開始年月は終了年月以前の日付を指定してください'}
-                    </span>
+                    <span>{errorMessage}</span>
                 </div>
             )}
         </div>
