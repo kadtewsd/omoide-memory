@@ -10,6 +10,7 @@ import com.kasakaid.omoidememory.service.query.shared.memoryfeed.ContentType
 import com.kasakaid.omoidememory.service.query.shared.memoryfeed.FeedCursor
 import com.kasakaid.omoidememory.service.query.shared.memoryfeed.FeedPageResponse
 import com.kasakaid.omoidememory.service.query.shared.memoryfeed.FilterMode
+import com.kasakaid.omoidememory.service.query.shared.memoryfeed.MemoryFeedDto
 import com.kasakaid.omoidememory.service.query.shared.memoryfeed.OmoideCondition
 import com.kasakaid.omoidememory.service.query.shared.memoryfeed.OmoideMemoryFeedQueryService
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -69,6 +70,30 @@ class MemorySharingController(
                 ),
             limit = pageSize + 1,
         )
+    }
+
+    @GetMapping("/photos/random")
+    suspend fun getRandomPhoto(
+        @RequestParam(required = false)
+        @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+        startInclusive: OffsetDateTime?,
+        @RequestParam(required = true)
+        @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+        endExclusive: OffsetDateTime,
+    ): MemoryFeedDto? {
+        val feedResponse =
+            memmoryFeedQueryService.fetchFeedPage(
+                condition =
+                    OmoideCondition(
+                        startInclusive = startInclusive,
+                        endExclusive = endExclusive,
+                        cursor = null,
+                        filterMode = FilterMode.ALL,
+                        contentType = ContentType.PHOTO,
+                    ),
+                limit = Int.MAX_VALUE,
+            )
+        return feedResponse.items.shuffled().firstOrNull()
     }
 
     @GetMapping("/content/{id}/image")

@@ -47,6 +47,7 @@ export function PhotobookEditor({
         monthTabs,
         maxCount,
         fileNamePrefix,
+        isSelectingRandom,
         setMaxCount,
         togglePhotoSelection,
         fillRemaining,
@@ -70,6 +71,7 @@ export function PhotobookEditor({
                 period={period}
                 monthTabs={monthTabs}
                 title={title}
+                isSelectingRandom={isSelectingRandom}
                 onTogglePhoto={togglePhotoSelection}
                 onSelectMonthTab={selectMonthTab}
                 onSelectDateRange={selectDateRange}
@@ -121,6 +123,7 @@ export function PhotobookEditor({
             defaultAlbumName={fileNamePrefix}
             title={previewTitle}
             state={state}
+            isSelectingRandom={isSelectingRandom}
             onDeletePhoto={handleDeletePhoto}
             onReplacePhoto={replacePhoto}
             onBackToSelect={() => setState(new SelectingState())}

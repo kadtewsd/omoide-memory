@@ -5,7 +5,7 @@ import {
     AlbumSummary,
     AlbumDetail,
     FetchFeedParams,
-    FetchRandomFillPhotosParams,
+    FetchRandomPhotoParams,
     FeedPageResponse,
     AlbumResource,
     AlbumResponse,
@@ -153,23 +153,19 @@ export const fetchAlbumDetail = async (albumId: string): Promise<AlbumDetail> =>
     return response.json();
 };
 
-/**
- * フォトブック自動補完: 指定期間の未選択写真をランダムに count 件取得する。
- * excludeIds に含まれる写真は除外されるため重複なしで補充できる。
- */
-export const fetchRandomFillPhotos = async ({
+export const fetchRandomPhoto = async ({
     startInclusive,
     endExclusive,
-    excludeIds,
-    count,
-}: FetchRandomFillPhotosParams): Promise<MemoryFeedItem[]> => {
-    const url = new URL('/photos/random-fill', API_BASE_URL);
-    url.searchParams.append('startInclusive', startInclusive);
+}: FetchRandomPhotoParams): Promise<MemoryFeedItem | null> => {
+    const url = new URL('/photos/random', API_BASE_URL);
+    if (startInclusive) url.searchParams.append('startInclusive', startInclusive);
     url.searchParams.append('endExclusive', endExclusive);
-    excludeIds.forEach(id => url.searchParams.append('excludeIds', id));
-    url.searchParams.append('count', String(count));
 
     const response = await fetch(url.toString());
-    if (!response.ok) throw new Error('Failed to fetch random fill photos');
-    return response.json();
+    if (response.status === 204) return null;
+    if (!response.ok) throw new Error('Failed to fetch random photo');
+    const text = await response.text();
+    if (!text) return null;
+    return JSON.parse(text) as MemoryFeedItem;
 };
+

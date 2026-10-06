@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { fetchCapturedYearMonths, fetchRandomFillPhotos } from '@/shared/api';
+import { fetchCapturedYearMonths, fetchRandomPhoto } from '@/shared/api';
 import { MemoryFeedItem, PhotobookPeriod } from '@/shared/types';
 import { isoToJstYearMonth, getCurrentYearMonth } from '@/shared/hooks/useFeed';
 import { getPeriodIsoRange } from '@/shared/hooks/usePhotobookPhotos';
@@ -32,6 +32,7 @@ export interface UsePhotobookSelectionResult {
     monthTabs: string[];
     maxCount: number;
     fileNamePrefix: string;
+    isSelectingRandom: boolean;
     setMaxCount: (count: number) => void;
     togglePhotoSelection: (photo: MemoryFeedItem) => void;
     clearSelection: () => void;
@@ -57,6 +58,8 @@ export function usePhotobookSelection(params: UsePhotobookSelectionParams): UseP
      * PHOTOBOOK_ABSOLUTE_MAX (200) を超えることはできない。
      */
     const [maxCount, setMaxCount] = useState<number>(params.initialMaxCount || PHOTOBOOK_ABSOLUTE_MAX);
+
+    const [isSelectingRandom, setIsSelectingRandom] = useState(false);
 
     // 選択済み写真IDのSetは selectedPhotos から都度導出する（単一の状態ソース）
     const selectedPhotoIds: Set<string> = new Set(
@@ -104,53 +107,101 @@ export function usePhotobookSelection(params: UsePhotobookSelectionParams): UseP
 
     /**
      * 自動補完: 現在選択中の期間の未選択写真を (maxCount - 現在の選択数) 件補充する。
-     * maxCount に達している場合は何もしない。
+     * ランダムエンドポイントから写真を取得し、クライアント側で重複しないものを補充する。
      */
     const fillRemaining = useCallback(async () => {
         const remaining = maxCount - selectedPhotos.length;
         if (remaining <= 0) return;
 
         const { startInclusive, endExclusive } = getPeriodIsoRange(period);
-        if (!startInclusive || !endExclusive) return;
+        if (!endExclusive) return;
 
-        const currentExcludeIds = selectedPhotos
-            .map(p => p.id)
-            .filter((id): id is string => id !== null);
+        setIsSelectingRandom(true);
+        try {
+            const selectedIdSet = new Set(
+                selectedPhotos.map(p => p.id).filter((id): id is string => id !== null)
+            );
 
-        const filled = await fetchRandomFillPhotos({
-            startInclusive,
-            endExclusive,
-            excludeIds: currentExcludeIds,
-            count: remaining,
-        });
+            const newlySelected: MemoryFeedItem[] = [];
+            const maxAttempts = remaining * 10 + 30;
+            let consecutiveFailures = 0;
 
-        setSelectedPhotos(prev => [...prev, ...filled]);
+            for (let attempt = 0; attempt < maxAttempts && newlySelected.length < remaining; attempt++) {
+                const photo = await fetchRandomPhoto({
+                    startInclusive: startInclusive || undefined,
+                    endExclusive,
+                });
+
+                if (!photo || photo.id === null) {
+                    break;
+                }
+
+                if (!selectedIdSet.has(photo.id)) {
+                    selectedIdSet.add(photo.id);
+                    newlySelected.push(photo);
+                    consecutiveFailures = 0;
+                } else {
+                    consecutiveFailures++;
+                    if (consecutiveFailures > 30) {
+                        break;
+                    }
+                }
+            }
+
+            if (newlySelected.length > 0) {
+                setSelectedPhotos(prev => [...prev, ...newlySelected]);
+            }
+        } finally {
+            setIsSelectingRandom(false);
+        }
     }, [selectedPhotos, period, maxCount]);
 
     /**
      * 差し替え: プレビュー画面で targetId の写真を同期間の別の写真1枚と差し替える。
-     * 差し替え後も合計枚数は変わらない（1対1の交換）。
+     * ランダムエンドポイントから写真を取得し、クライアント側ですでに選択されていないかを確認する。
+     * すでに選択されている場合は再度取得し、重複しない写真が得られたら差し替える。
+     * もう存在しない場合は、取得をやめて該当写真を削除する。
      */
     const replacePhoto = useCallback(async (targetId: string) => {
         const { startInclusive, endExclusive } = getPeriodIsoRange(period);
-        if (!startInclusive || !endExclusive) return;
+        if (!endExclusive) return;
 
-        const currentExcludeIds = selectedPhotos
-            .map(p => p.id)
-            .filter((id): id is string => id !== null);
+        setIsSelectingRandom(true);
+        try {
+            const selectedIdSet = new Set(
+                selectedPhotos.map(p => p.id).filter((id): id is string => id !== null)
+            );
 
-        const replacements = await fetchRandomFillPhotos({
-            startInclusive,
-            endExclusive,
-            excludeIds: currentExcludeIds,
-            count: 1,
-        });
+            let foundPhoto: MemoryFeedItem | null = null;
+            const maxRetryCount = 15;
 
-        if (replacements.length === 0) return;
+            for (let attempt = 0; attempt < maxRetryCount; attempt++) {
+                const photo = await fetchRandomPhoto({
+                    startInclusive: startInclusive || undefined,
+                    endExclusive,
+                });
 
-        setSelectedPhotos(prev =>
-            prev.map(p => (p.id === targetId ? replacements[0] : p))
-        );
+                if (!photo || photo.id === null) {
+                    break;
+                }
+
+                if (!selectedIdSet.has(photo.id)) {
+                    foundPhoto = photo;
+                    break;
+                }
+            }
+
+            if (foundPhoto) {
+                setSelectedPhotos(prev =>
+                    prev.map(p => (p.id === targetId ? foundPhoto : p))
+                );
+            } else {
+                // もう存在しないので削除
+                setSelectedPhotos(prev => prev.filter(p => p.id !== targetId));
+            }
+        } finally {
+            setIsSelectingRandom(false);
+        }
     }, [selectedPhotos, period]);
 
     /**
@@ -184,6 +235,7 @@ export function usePhotobookSelection(params: UsePhotobookSelectionParams): UseP
         monthTabs,
         maxCount,
         fileNamePrefix,
+        isSelectingRandom,
         setMaxCount,
         togglePhotoSelection,
         clearSelection,

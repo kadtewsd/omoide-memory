@@ -14,6 +14,7 @@ export interface PhotobookSelectionViewProps {
     period: PhotobookPeriod;
     monthTabs: string[];
     title: string;
+    isSelectingRandom: boolean;
     onTogglePhoto: (photo: MemoryFeedItem) => void;
     onSelectMonthTab: (ym: string) => void;
     onSelectDateRange: (params: { fromYearMonth: string; toYearMonth: string }) => void;
@@ -35,6 +36,7 @@ export function PhotobookSelectionView({
     period,
     monthTabs,
     title,
+    isSelectingRandom,
     onTogglePhoto,
     onSelectMonthTab,
     onSelectDateRange,
@@ -67,7 +69,8 @@ export function PhotobookSelectionView({
     };
 
     return (
-        <SelectionFeed
+        <>
+            <SelectionFeed
             items={photos}
             hasNext={hasNext}
             loadingInitial={loadingInitial}
@@ -107,19 +110,29 @@ export function PhotobookSelectionView({
                         <button
                             type="button"
                             onClick={onFillRemaining}
-                            className="px-4 py-2 text-sm font-semibold text-white bg-green-600 hover:bg-green-700 active:bg-green-800 rounded-xl shadow-sm transition-colors min-h-[44px]"
+                            disabled={isSelectingRandom}
+                            className="px-4 py-2 text-sm font-semibold text-white bg-green-600 hover:bg-green-700 active:bg-green-800 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl shadow-sm transition-colors min-h-[44px]"
                         >
                             あと {remaining} 枚はランダムで補完する
                         </button>
                     )}
                     <PrimaryButton
                         onClick={onConfirm}
-                        disabled={selectedCount === 0}
+                        disabled={selectedCount === 0 || isSelectingRandom}
                     >
                         <span>選択完了 → 確認へ ({selectedCount} 枚)</span>
                     </PrimaryButton>
                 </>
             }
         />
+        {isSelectingRandom && (
+            <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex flex-col items-center justify-center">
+                <div className="bg-white px-6 py-5 rounded-2xl shadow-xl flex flex-col items-center gap-3 border border-gray-100">
+                    <div className="animate-spin rounded-full h-8 w-8 border-3 border-blue-600 border-t-transparent" />
+                    <p className="text-sm font-semibold text-gray-800">コンテンツ選出中...</p>
+                </div>
+            </div>
+        )}
+        </>
     );
 }
