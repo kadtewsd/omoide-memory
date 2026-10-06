@@ -53,7 +53,17 @@ export interface FeedPageResponse {
     items: MemoryFeedItem[];
     nextCursor: FeedCursor | null;
     hasNext: boolean;
-    totalCount: number;
+}
+
+export interface ContentsCountResponse {
+    count: number;
+}
+
+export interface FetchContentsCountParams {
+    startInclusive?: string;
+    endExclusive: string;
+    mode?: FilterMode;
+    contentType?: ContentType;
 }
 
 /** `fetchRandomPhoto` のパラメータ */

@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { fetchCapturedYearMonths, fetchRandomPhoto } from '@/shared/api';
+import { fetchCapturedYearMonths, fetchContentsCount, fetchRandomPhoto } from '@/shared/api';
 import { MemoryFeedItem, PhotobookPeriod } from '@/shared/types';
 import { isoToJstYearMonth, getCurrentYearMonth } from '@/shared/hooks/useFeed';
 import { getPeriodIsoRange } from '@/shared/hooks/usePhotobookPhotos';
@@ -36,7 +36,7 @@ export interface UsePhotobookSelectionResult {
     setMaxCount: (count: number) => void;
     togglePhotoSelection: (photo: MemoryFeedItem) => void;
     clearSelection: () => void;
-    fillRemaining: (totalCount: number) => Promise<void>;
+    fillRemaining: () => Promise<void>;
     replacePhoto: (targetId: string) => Promise<void>;
     selectMonthTab: (ym: string) => void;
     selectDateRange: (params: { fromYearMonth: string; toYearMonth: string }) => void;
@@ -109,7 +109,7 @@ export function usePhotobookSelection(params: UsePhotobookSelectionParams): UseP
      * 自動補完: 現在選択中の期間の未選択写真を (maxCount - 現在の選択数) 件補充する。
      * ランダムエンドポイントから写真を取得し、クライアント側で重複しないものを補充する。
      */
-    const fillRemaining = useCallback(async (totalCount: number) => {
+    const fillRemaining = useCallback(async () => {
         const remaining = maxCount - selectedPhotos.length;
         if (remaining <= 0) return;
 
@@ -118,6 +118,14 @@ export function usePhotobookSelection(params: UsePhotobookSelectionParams): UseP
 
         setIsSelectingRandom(true);
         try {
+            const countRes = await fetchContentsCount({
+                startInclusive,
+                endExclusive,
+                mode: 'ALL',
+                contentType: 'PHOTO',
+            });
+            const totalCount = countRes.count;
+
             const selectedIdSet = new Set(
                 selectedPhotos.map(p => p.id).filter((id): id is string => id !== null)
             );

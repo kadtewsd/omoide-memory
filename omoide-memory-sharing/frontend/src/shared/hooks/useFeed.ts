@@ -51,6 +51,8 @@ export interface UseFeedResult {
     loadingMore: boolean;
     loadMore: () => Promise<void>;
     currentYearMonth: string;
+    startInclusive?: string;
+    endExclusive?: string;
     monthTabs: string[];
     selectMonthTab: (ym: string) => void;
 }
@@ -121,6 +123,8 @@ export function useFeed(filterMode: FilterMode): UseFeedResult {
         loadingMore,
         loadMore,
         currentYearMonth,
+        startInclusive,
+        endExclusive,
         monthTabs,
         selectMonthTab,
     };
