@@ -12,6 +12,7 @@ export interface PhotobookPreviewViewProps {
     defaultAlbumName: string;
     title: string;
     state: PhotobookState;
+    isSelectingRandom: boolean;
     onDeletePhoto: (targetId: string) => void;
     onReplacePhoto: (targetId: string) => Promise<void>;
     onBackToSelect: () => void;
@@ -29,6 +30,7 @@ export function PhotobookPreviewView({
     defaultAlbumName,
     title,
     state,
+    isSelectingRandom,
     onDeletePhoto,
     onReplacePhoto,
     onBackToSelect,
@@ -187,6 +189,16 @@ export function PhotobookPreviewView({
                 onClose={() => setIsCreateModalOpen(false)}
                 onSubmit={handleCreateAlbumSubmit}
             />
+
+            {/* コンテンツ選出中オーバーレイ */}
+            {isSelectingRandom && (
+                <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex flex-col items-center justify-center">
+                    <div className="bg-white px-6 py-5 rounded-2xl shadow-xl flex flex-col items-center gap-3 border border-gray-100">
+                        <div className="animate-spin rounded-full h-8 w-8 border-3 border-blue-600 border-t-transparent" />
+                        <p className="text-sm font-semibold text-gray-800">コンテンツ選出中...</p>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

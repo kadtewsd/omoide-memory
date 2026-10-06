@@ -55,13 +55,12 @@ export interface FeedPageResponse {
     hasNext: boolean;
 }
 
-/** `fetchRandomFillPhotos` のパラメータ */
-export interface FetchRandomFillPhotosParams {
-    startInclusive: string;
+/** `fetchRandomPhoto` のパラメータ */
+export interface FetchRandomPhotoParams {
+    startInclusive?: string;
     endExclusive: string;
-    excludeIds: string[];
-    count: number;
 }
+
 
 /** 期間選択の種別 */
 export type PeriodSelectionType = 'MONTH_TAB' | 'DATE_RANGE';
