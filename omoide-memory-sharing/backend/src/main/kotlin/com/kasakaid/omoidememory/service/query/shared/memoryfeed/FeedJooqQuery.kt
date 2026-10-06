@@ -9,10 +9,10 @@ import org.jooq.Record
 import org.jooq.SelectConditionStep
 import org.jooq.impl.DSL
 
-suspend fun DSLGenerator.createMemoryQuery(
+fun createBaseCondition(
     omoideMemory: OmoideMemoryTable,
     condition: OmoideCondition,
-): SelectConditionStep<Record> {
+): org.jooq.Condition {
     val dateCondition =
         when {
             condition.startInclusive != null && condition.endExclusive != null -> {
@@ -25,17 +25,6 @@ suspend fun DSLGenerator.createMemoryQuery(
                 DSL.noCondition()
             }
         }
-
-    val cursorCondition =
-        condition.cursor?.let { c ->
-            omoideMemory.captureTime
-                .lt(c.captureTime)
-                .or(
-                    omoideMemory.captureTime
-                        .eq(c.captureTime)
-                        .and(omoideMemory.id.lt(c.id)),
-                )
-        } ?: DSL.noCondition()
 
     val commentCondition =
         when (condition.filterMode) {
@@ -69,6 +58,25 @@ suspend fun DSLGenerator.createMemoryQuery(
             }
         }
 
+    return dateCondition.and(commentCondition)
+}
+
+suspend fun DSLGenerator.createMemoryQuery(
+    omoideMemory: OmoideMemoryTable,
+    condition: OmoideCondition,
+): SelectConditionStep<Record> {
+    val baseCondition = createBaseCondition(omoideMemory = omoideMemory, condition = condition)
+    val cursorCondition =
+        condition.cursor?.let { c ->
+            omoideMemory.captureTime
+                .lt(c.captureTime)
+                .or(
+                    omoideMemory.captureTime
+                        .eq(c.captureTime)
+                        .and(omoideMemory.id.lt(c.id)),
+                )
+        } ?: DSL.noCondition()
+
     return invoke()
         .select(
             listOf(
@@ -79,11 +87,22 @@ suspend fun DSLGenerator.createMemoryQuery(
             ),
         ).from(omoideMemory.table)
         .where(
-            dateCondition
-                .and(cursorCondition)
-                .and(commentCondition),
+            baseCondition.and(cursorCondition),
         )
 }
+
+suspend fun DSLGenerator.countMemory(
+    omoideMemory: OmoideMemoryTable,
+    condition: OmoideCondition,
+): Int =
+    invoke()
+        .selectCount()
+        .from(omoideMemory.table)
+        .where(createBaseCondition(omoideMemory = omoideMemory, condition = condition))
+        .asFlow()
+        .toList()
+        .firstOrNull()
+        ?.value1() ?: 0
 
 suspend fun DSLGenerator.executeWithContentOrder(
     omoideMemoryTable: OmoideMemoryTable,

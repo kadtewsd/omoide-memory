@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { MemoryFeedItem, PhotobookPeriod } from '@/shared/types';
 import { PeriodSelector, PeriodRange } from '@/shared/components/PeriodSelector';
 import { CountBox } from '@/shared/components/CountBox';
@@ -19,7 +20,7 @@ export interface PhotobookSelectionViewProps {
     onSelectMonthTab: (ym: string) => void;
     onSelectDateRange: (params: { fromYearMonth: string; toYearMonth: string }) => void;
     onChangeMaxCount: (count: number) => void;
-    onFillRemaining: () => Promise<void>;
+    onFillRemaining: (totalCount: number) => Promise<void>;
     onConfirm: () => void;
     onBackToMain: () => void;
 }
@@ -45,8 +46,17 @@ export function PhotobookSelectionView({
     onConfirm,
     onBackToMain,
 }: PhotobookSelectionViewProps) {
-    const { photos, hasNext, loadingInitial, loadingMore, loadMore } = usePhotobookPhotos(period);
+    const { photos, hasNext, totalCount, loadingInitial, loadingMore, loadMore } = usePhotobookPhotos(period);
+    // 期間の写真件数と絶対上限の小さい方を実効上限とする（totalCount が 0 のときはまだ未ロードなので絶対上限で代替）
+    const effectiveMax = totalCount > 0 ? Math.min(PHOTOBOOK_ABSOLUTE_MAX, totalCount) : PHOTOBOOK_ABSOLUTE_MAX;
     const remaining = maxCount - selectedCount;
+
+    // 期間内の写真総数が取得され、現在の maxCount が実効上限を超えている場合は実効上限に補正する
+    useEffect(() => {
+        if (totalCount > 0 && maxCount > effectiveMax) {
+            onChangeMaxCount(effectiveMax);
+        }
+    }, [totalCount, effectiveMax, maxCount, onChangeMaxCount]);
 
     // period からカレンダー表示用 range を直接導出（Derived State）
     const initialMonth = period.type === 'MONTH_TAB' ? period.yearMonth : getCurrentYearMonth();
@@ -91,7 +101,7 @@ export function PhotobookSelectionView({
                         label="このアルバムの枚数:"
                         value={maxCount}
                         min={1}
-                        max={PHOTOBOOK_ABSOLUTE_MAX}
+                        max={effectiveMax}
                         unit="枚"
                         onChange={onChangeMaxCount}
                     />
@@ -106,10 +116,10 @@ export function PhotobookSelectionView({
             }
             headerActions={
                 <>
-                    {remaining > 0 && (
+                    {remaining > 0 && selectedCount < effectiveMax && (
                         <button
                             type="button"
-                            onClick={onFillRemaining}
+                            onClick={() => onFillRemaining(totalCount)}
                             disabled={isSelectingRandom}
                             className="px-4 py-2 text-sm font-semibold text-white bg-green-600 hover:bg-green-700 active:bg-green-800 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl shadow-sm transition-colors min-h-[44px]"
                         >
