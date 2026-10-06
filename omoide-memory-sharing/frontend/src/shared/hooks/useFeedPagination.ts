@@ -32,7 +32,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { fetchFeed } from '@/shared/api';
 import { ContentType, FeedCursor, FeedPageResponse, FilterMode, MemoryFeedItem } from '@/shared/types';
-import { isValidIsoDate } from '@/shared/date';
+import { isValidIsoDateRange } from '@/shared/components/PeriodSelector';
 import { buildCacheKey, FeedPageResult, readCache, writeCache } from '@/shared/hooks/feedPageCache';
 
 export interface UseFeedPaginationParams {
@@ -46,6 +46,7 @@ export interface UseFeedPaginationParams {
 export interface UseFeedPaginationResult {
     items: MemoryFeedItem[];
     hasNext: boolean;
+    totalCount: number;
     loadingInitial: boolean;
     loadingMore: boolean;
     loadMore: () => Promise<void>;
@@ -62,6 +63,7 @@ export function useFeedPagination({
     const [items, setItems] = useState<MemoryFeedItem[]>([]);
     const [nextCursor, setNextCursor] = useState<FeedCursor | null>(null);
     const [hasNext, setHasNext] = useState(false);
+    const [totalCount, setTotalCount] = useState(0);
     const [loadingInitial, setLoadingInitial] = useState(false);
     const [loadingMore, setLoadingMore] = useState(false);
 
@@ -72,12 +74,11 @@ export function useFeedPagination({
      */
     const executeFetch = useCallback(
         async (cursor: FeedCursor | null): Promise<FeedPageResponse | null> => {
-            if (!startInclusive || !endExclusive) return null;
-            if (!isValidIsoDate(startInclusive) || !isValidIsoDate(endExclusive)) return null;
+            if (!isValidIsoDateRange(startInclusive, endExclusive)) return null;
 
             return fetchFeed({
-                startInclusive,
-                endExclusive,
+                startInclusive: startInclusive!,
+                endExclusive: endExclusive!,
                 mode,
                 contentType,
                 cursorCaptureTime: cursor?.captureTime,
@@ -94,12 +95,13 @@ export function useFeedPagination({
      */
     const toEntry = (res: FeedPageResponse | null): FeedPageResult => {
         if (!res) {
-            return { feedItems: [], nextCursor: null, hasNext: false };
+            return { feedItems: [], nextCursor: null, hasNext: false, totalCount: 0 };
         }
         return {
             feedItems: res.items ?? [],
             nextCursor: res.nextCursor ?? null,
             hasNext: res.hasNext ?? false,
+            totalCount: res.totalCount ?? 0,
         };
     };
 
@@ -123,22 +125,23 @@ export function useFeedPagination({
             mergeItems: (prev: MemoryFeedItem[], fetched: MemoryFeedItem[]) => MemoryFeedItem[],
         ): Promise<void> => {
             const res = await executeFetch(cursor);
-            const { feedItems, nextCursor: newCursor, hasNext: newHasNext } = toEntry(res);
+            const { feedItems, nextCursor: newCursor, hasNext: newHasNext, totalCount: newTotalCount } = toEntry(res);
             setItems(prev => {
                 const merged = mergeItems(prev, feedItems);
                 // setItems updater 内でキャッシュを書き込む。
                 // prev が必ず最新値なので merged も正確な全件になる。
-                writeCache(cacheKey, { items: merged, nextCursor: newCursor, hasNext: newHasNext });
+                writeCache(cacheKey, { items: merged, nextCursor: newCursor, hasNext: newHasNext, totalCount: newTotalCount });
                 return merged;
             });
             setNextCursor(newCursor);
             setHasNext(newHasNext);
+            setTotalCount(newTotalCount);
         },
         [executeFetch]
     );
 
     /**
-     * 先頭ページを取得する。年月タブ確定時や条件変更時に呼ばれる。
+     * 先頭ページを取得する。年月タブ確定時や手動リフレッシュ時に呼ばれる。
      *
      * セッションストレージにキャッシュが残っていれば APIコールなしで即座に復元する。
      * これにより：
@@ -146,31 +149,26 @@ export function useFeedPagination({
      * - 同じ条件で再マウントされても余計なリクエストが発生しない
      */
     const loadInitial = useCallback(async () => {
-        if (!startInclusive || !endExclusive || !isValidIsoDate(startInclusive) || !isValidIsoDate(endExclusive)) {
+        if (!isValidIsoDateRange(startInclusive, endExclusive)) {
             setItems([]);
             setNextCursor(null);
             setHasNext(false);
-            setLoadingInitial(false);
+            setTotalCount(0);
             return;
         }
 
-        // キャッシュヒット → APIをスキップして即復元
-        const cacheKey = buildCacheKey(startInclusive, endExclusive, mode, contentType);
+        const cacheKey = buildCacheKey(startInclusive!, endExclusive!, mode, contentType);
         const cached = readCache(cacheKey);
         if (cached) {
             setItems(cached.items);
             setNextCursor(cached.nextCursor);
             setHasNext(cached.hasNext);
+            setTotalCount(cached.totalCount ?? 0);
             return;
         }
 
-        // キャッシュミス → サーバーへ先頭ページをリクエスト
         setLoadingInitial(true);
-        setItems([]);
-        setNextCursor(null);
-        setHasNext(false);
         try {
-            // 先頭ページは全件置き換えなので fetched をそのまま返す
             await loadPage(null, cacheKey, (_prev, fetched) => fetched);
         } catch (err) {
             console.error('フィードの取得に失敗しました:', err);
@@ -183,25 +181,32 @@ export function useFeedPagination({
     /**
      * 次のページを追加取得する。InfiniteScrollLoader が画面下部のアンカーを検知した時に呼ばれる。
      *
+     * 【IntersectionObserver とは】
+     * ブラウザ標準の Web API で、ターゲットとなる DOM 要素がビューポート（画面の表示領域）または
+     * 指定した祖先要素と交差（侵入・離脱）したタイミングを非同期かつ高パフォーマンスに監視・検知する仕組み。
+     * 従来の `scroll` イベントリスナーのようにスクロール毎に同期計算（getBoundingClientRect 等）を
+     * 実行してメインスレッドをブロックすることがないため、滑らかな無限スクロールを実現できる。
+     *
      * 【無限スクロールの仕組み】
-     * InfiniteScrollLoader は IntersectionObserver でアンカー要素の可視を監視する。
-     * アンカーが画面内に入ると onLoadMore（= この loadMore）が呼ばれる。
-     * 取得した新ページは既存アイテムに追加され、同時にキャッシュも全件で更新される。
-     * hasNext が false になった時点でアンカーがアンマウントされ、監視が自動停止する。
+     * InfiniteScrollLoader は IntersectionObserver でリスト末尾のアンカー要素（div）の可視を監視する。
+     * ユーザーがスクロールしてアンカーが画面内に入ると、Observer コールバック経由で onLoadMore（= この loadMore）が発火する。
+     * 取得した新ページは既存アイテムに追加され、同時にセッションキャッシュも全件で更新される。
+     * hasNext が false になった時点でアンカー要素がアンマウントされ、監視が自動的に停止する。
      *
      * 【items を deps に含めない理由】
-     * items を deps に入れると setItems のたびに loadMore の参照が変わり、
+     * items を deps に入れると setItems のたびに loadMore の関数参照が変わり、
      * InfiniteScrollLoader が IntersectionObserver を再生成してしまう。
-     * 再生成のたびにアンカーが画面内なら即座に発火するため loadMore が多重呼出しされる。
-     * setItems updater 内で prev を受け取ることで items を deps 不要にしている。
+     * 再生成のたびにアンカーが画面内にあると即座に交差イベントが再発火するため、loadMore が多重呼出しされる。
+     * loadPage 内の setItems updater（`(prev) => ...`）で最新の items を受け取る設計にすることで、
+     * loadMore の deps から items を排除し、安定した関数参照を維持している。
      */
     const loadMore = useCallback(async () => {
         if (!hasNext || loadingMore || loadingInitial || !nextCursor) return;
-        if (!startInclusive || !endExclusive) return;
+        if (!isValidIsoDateRange(startInclusive, endExclusive)) return;
 
         setLoadingMore(true);
         try {
-            const cacheKey = buildCacheKey(startInclusive, endExclusive, mode, contentType);
+            const cacheKey = buildCacheKey(startInclusive!, endExclusive!, mode, contentType);
             // 続きページは既存アイテムに追加するので [...prev, ...fetched] で結合する
             await loadPage(nextCursor, cacheKey, (prev, fetched) => [...prev, ...fetched]);
         } catch (err) {
@@ -209,17 +214,68 @@ export function useFeedPagination({
         } finally {
             setLoadingMore(false);
         }
-        // items は loadPage の updater 内で prev として取得するため deps 不要
     }, [hasNext, loadingMore, loadingInitial, nextCursor, startInclusive, endExclusive, mode, contentType, loadPage]);
 
     // 期間・条件が確定したら先頭ページを取得する
     useEffect(() => {
-        loadInitial();
-    }, [loadInitial]);
+        let isCancelled = false;
+
+        const execute = async () => {
+            if (!isValidIsoDateRange(startInclusive, endExclusive)) {
+                return;
+            }
+
+            const cacheKey = buildCacheKey(startInclusive!, endExclusive!, mode, contentType);
+            const cached = readCache(cacheKey);
+            if (cached) {
+                // 非同期マイクロタスクで setState することで同期カスケードレンダリングを回避
+                await Promise.resolve();
+                if (!isCancelled) {
+                    setItems(cached.items);
+                    setNextCursor(cached.nextCursor);
+                    setHasNext(cached.hasNext);
+                    setTotalCount(cached.totalCount ?? 0);
+                }
+                return;
+            }
+
+            setLoadingInitial(true);
+            try {
+                const res = await executeFetch(null);
+                if (isCancelled) return;
+                const { feedItems, nextCursor: newCursor, hasNext: newHasNext, totalCount: newTotalCount } = toEntry(res);
+                writeCache(cacheKey, {
+                    items: feedItems,
+                    nextCursor: newCursor,
+                    hasNext: newHasNext,
+                    totalCount: newTotalCount,
+                });
+                setItems(feedItems);
+                setNextCursor(newCursor);
+                setHasNext(newHasNext);
+                setTotalCount(newTotalCount);
+            } catch (err) {
+                if (isCancelled) return;
+                console.error('フィードの取得に失敗しました:', err);
+                setItems([]);
+            } finally {
+                if (!isCancelled) {
+                    setLoadingInitial(false);
+                }
+            }
+        };
+
+        void execute();
+
+        return () => {
+            isCancelled = true;
+        };
+    }, [startInclusive, endExclusive, mode, contentType, executeFetch]);
 
     return {
         items,
         hasNext,
+        totalCount,
         loadingInitial,
         loadingMore,
         loadMore,

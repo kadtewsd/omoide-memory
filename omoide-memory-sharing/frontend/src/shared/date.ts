@@ -26,3 +26,4 @@ export function isValidYearMonth(value: string | null | undefined): value is str
     return year >= 1000 && year <= 9999 && month >= 1 && month <= 12;
 }
 
+

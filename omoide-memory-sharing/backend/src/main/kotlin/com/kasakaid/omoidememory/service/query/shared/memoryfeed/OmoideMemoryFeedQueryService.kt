@@ -22,11 +22,17 @@ class OmoideMemoryFeedQueryService(
                 ContentType.PHOTO -> photo.fetchPage(condition = condition, limit = limit)
                 ContentType.VIDEO -> video.fetchPage(condition = condition, limit = limit)
             }
+        val totalCount =
+            when (condition.contentType) {
+                ContentType.ALL -> all.count(condition = condition)
+                ContentType.PHOTO -> photo.count(condition = condition)
+                ContentType.VIDEO -> video.count(condition = condition)
+            }
 
         return OmoideUnionRecordList(
             records = rawRecords,
             commentCounts = commentMap,
-        ).toFeedPageResponse(limit = limit)
+        ).toFeedPageResponse(limit = limit, totalCount = totalCount)
     }
 }
 
@@ -61,15 +67,20 @@ class OmoideUnionRecordList(
      * クライアントへ返却するアイテム一覧からは先読み用の末尾 1 件を除外（[List.dropLast]）します。
      *
      * @param limit DB クエリ時に指定した取得件数（pageSize + 1）
+     * @param totalCount 期間内の総件数
      * @return ページネーションメタデータを含むフィードレスポンス
      */
-    fun toFeedPageResponse(limit: Int): FeedPageResponse {
+    fun toFeedPageResponse(
+        limit: Int,
+        totalCount: Int,
+    ): FeedPageResponse {
         val hasNext = omoideMemories.size == limit
         val pageItems = if (hasNext) omoideMemories.dropLast(1) else omoideMemories
         return FeedPageResponse(
             items = pageItems,
             nextCursor = calculateNextCursor(hasNext = hasNext, pageItems = pageItems),
             hasNext = hasNext,
+            totalCount = totalCount,
         )
     }
 

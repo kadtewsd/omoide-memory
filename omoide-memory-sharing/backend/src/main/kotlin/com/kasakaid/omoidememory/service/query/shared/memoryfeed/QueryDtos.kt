@@ -28,6 +28,7 @@ class FeedPageResponse(
     val items: List<MemoryFeedDto>,
     val nextCursor: FeedCursor?,
     val hasNext: Boolean,
+    val totalCount: Int,
 )
 
 enum class FilterMode {

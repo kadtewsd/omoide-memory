@@ -36,7 +36,7 @@ export interface UsePhotobookSelectionResult {
     setMaxCount: (count: number) => void;
     togglePhotoSelection: (photo: MemoryFeedItem) => void;
     clearSelection: () => void;
-    fillRemaining: () => Promise<void>;
+    fillRemaining: (totalCount: number) => Promise<void>;
     replacePhoto: (targetId: string) => Promise<void>;
     selectMonthTab: (ym: string) => void;
     selectDateRange: (params: { fromYearMonth: string; toYearMonth: string }) => void;
@@ -109,7 +109,7 @@ export function usePhotobookSelection(params: UsePhotobookSelectionParams): UseP
      * 自動補完: 現在選択中の期間の未選択写真を (maxCount - 現在の選択数) 件補充する。
      * ランダムエンドポイントから写真を取得し、クライアント側で重複しないものを補充する。
      */
-    const fillRemaining = useCallback(async () => {
+    const fillRemaining = useCallback(async (totalCount: number) => {
         const remaining = maxCount - selectedPhotos.length;
         if (remaining <= 0) return;
 
@@ -127,6 +127,11 @@ export function usePhotobookSelection(params: UsePhotobookSelectionParams): UseP
             let consecutiveFailures = 0;
 
             for (let attempt = 0; attempt < maxAttempts && newlySelected.length < remaining; attempt++) {
+                // 選択済み数が期間の全写真数に達したらそれ以上は取得できないので終了
+                if (selectedIdSet.size >= totalCount) {
+                    break;
+                }
+
                 const photo = await fetchRandomPhoto({
                     startInclusive: startInclusive || undefined,
                     endExclusive,

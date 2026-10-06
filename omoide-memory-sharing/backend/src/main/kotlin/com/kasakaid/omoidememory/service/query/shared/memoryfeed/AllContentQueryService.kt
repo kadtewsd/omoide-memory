@@ -42,4 +42,8 @@ class AllContentQueryService(
             rawRecords.mapNotNull { it.get(SYNCED_OMOIDE_PHOTO.FILE_NAME) }.distinct().toSet(),
         ) to rawRecords
     }
+
+    suspend fun count(condition: OmoideCondition): Int =
+        dslContext.countMemory(omoideMemory = photoMemory, condition = condition) +
+            dslContext.countMemory(omoideMemory = videoMemory, condition = condition)
 }
