@@ -1,7 +1,7 @@
 import { MemoryFeedItem, PhotobookPeriod } from '@/shared/types';
 import { getYearMonthRangeIso } from '@/shared/hooks/useFeed';
 import { useFeedPagination } from '@/shared/hooks/useFeedPagination';
-import { isValidYearMonth } from '@/shared/date';
+import { isValidYearMonth } from '@/shared/components/PeriodSelector';
 
 /**
  * 期間（単月または from ~ to）から API 呼び出し用の ISO 範囲を算出する純粋関数。

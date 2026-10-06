@@ -2,8 +2,7 @@ import { useState, useRef } from 'react';
 import DatePicker, { registerLocale, CalendarContainer } from 'react-datepicker';
 import { ja } from 'date-fns/locale/ja';
 import 'react-datepicker/dist/react-datepicker.css';
-import { isValidYearMonth, normalizeYearMonth } from '@/shared/date';
-import { periodRangeSchema } from './periodSchema';
+import { isValidYearMonth, normalizeYearMonth, periodRangeSchema } from './date';
 
 registerLocale('ja', ja);
 

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { fetchCapturedYearMonths, fetchCommentCreatedYearMonths } from '@/shared/api';
 import { FilterMode, MemoryFeedItem } from '@/shared/types';
 import { useFeedPagination } from '@/shared/hooks/useFeedPagination';
-import { isValidYearMonth, normalizeYearMonth } from '@/shared/date';
+import { isValidYearMonth, normalizeYearMonth } from '@/shared/components/PeriodSelector';
 
 export function getCurrentYearMonth(): string {
     const now = new Date();
