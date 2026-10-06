@@ -26,7 +26,8 @@ export function getPeriodIsoRange(period: PhotobookPeriod): { startInclusive?: s
 export interface UsePhotobookPhotosResult {
     photos: MemoryFeedItem[];
     hasNext: boolean;
-    totalCount: number;
+    startInclusive?: string;
+    endExclusive?: string;
     loadingInitial: boolean;
     loadingMore: boolean;
     loadMore: () => Promise<void>;
@@ -42,7 +43,6 @@ export function usePhotobookPhotos(period: PhotobookPeriod): UsePhotobookPhotosR
     const {
         items: photos,
         hasNext,
-        totalCount,
         loadingInitial,
         loadingMore,
         loadMore,
@@ -56,7 +56,8 @@ export function usePhotobookPhotos(period: PhotobookPeriod): UsePhotobookPhotosR
     return {
         photos,
         hasNext,
-        totalCount,
+        startInclusive,
+        endExclusive,
         loadingInitial,
         loadingMore,
         loadMore,

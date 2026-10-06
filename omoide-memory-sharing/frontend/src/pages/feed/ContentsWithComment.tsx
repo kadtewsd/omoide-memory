@@ -1,36 +1,51 @@
 import { useFeed } from '@/shared/hooks/useFeed';
 import { useComments } from '@/shared/hooks/useComments';
-import { Feed, FeedGrid } from '@/shared/components/feed';
+import { ContentsCounter, Feed, FeedGrid, FeedHeader, FeedMonthTabs } from '@/shared/components/feed';
 import { MemoryModal } from '@/shared/components/MemoryModal';
 
 export function ContentWithCommentPage() {
     const {
         items,
         hasNext,
-        totalCount,
         loadingInitial,
         loadingMore,
         loadMore,
         currentYearMonth,
+        startInclusive,
+        endExclusive,
         monthTabs,
         selectMonthTab,
     } = useFeed('COMMENT_ONLY');
     const { selectedItem, comments, commentsLoading, openModal, closeModal } = useComments();
 
     return (
-        <>
+        <div className="min-h-screen bg-gray-50 text-gray-900">
+            <FeedHeader>
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <ContentsCounter
+                        startInclusive={startInclusive}
+                        endExclusive={endExclusive}
+                        mode="COMMENT_ONLY"
+                        label="コメント付き思い出"
+                        unit="件"
+                    />
+                </div>
+
+                {monthTabs.length > 0 && (
+                    <FeedMonthTabs
+                        monthTabs={monthTabs}
+                        selectedYearMonth={currentYearMonth}
+                        onSelectMonthTab={selectMonthTab}
+                    />
+                )}
+            </FeedHeader>
+
             <Feed
                 items={items}
                 hasNext={hasNext}
-                totalCount={totalCount}
-                totalCountLabel="コメント付き思い出"
-                totalCountUnit="件"
                 loadingInitial={loadingInitial}
                 loadingMore={loadingMore}
                 loadMore={loadMore}
-                monthTabs={monthTabs}
-                selectedYearMonth={currentYearMonth}
-                onSelectMonthTab={selectMonthTab}
             >
                 <FeedGrid
                     items={items || []}
@@ -46,6 +61,6 @@ export function ContentWithCommentPage() {
                 commentsLoading={commentsLoading}
                 onClose={closeModal}
             />
-        </>
+        </div>
     );
 }

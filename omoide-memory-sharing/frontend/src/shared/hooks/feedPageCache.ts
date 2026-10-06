@@ -23,7 +23,6 @@ export interface FeedPageCacheEntry {
     items: MemoryFeedItem[];
     nextCursor: FeedCursor | null;
     hasNext: boolean;
-    totalCount: number;
 }
 
 /** APIレスポンスを正規化した結果。loadPage に渡すためのページ単位のデータ。 */
@@ -31,7 +30,6 @@ export interface FeedPageResult {
     feedItems: MemoryFeedItem[];
     nextCursor: FeedCursor | null;
     hasNext: boolean;
-    totalCount: number;
 }
 
 const SESSION_STORAGE_KEY_PREFIX = 'feed_cache:';

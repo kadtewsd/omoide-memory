@@ -7,6 +7,7 @@ import com.kasakaid.omoidememory.service.query.shared.PhotoQueryService
 import com.kasakaid.omoidememory.service.query.shared.VideoQueryService
 import com.kasakaid.omoidememory.service.query.shared.memoryfeed.CommentDto
 import com.kasakaid.omoidememory.service.query.shared.memoryfeed.ContentType
+import com.kasakaid.omoidememory.service.query.shared.memoryfeed.ContentsCountResponse
 import com.kasakaid.omoidememory.service.query.shared.memoryfeed.FeedCursor
 import com.kasakaid.omoidememory.service.query.shared.memoryfeed.FeedPageResponse
 import com.kasakaid.omoidememory.service.query.shared.memoryfeed.FilterMode
@@ -70,6 +71,31 @@ class MemorySharingController(
                 ),
             limit = pageSize + 1,
         )
+    }
+
+    @GetMapping("/contents-count")
+    suspend fun getContentsCount(
+        @RequestParam(required = false)
+        @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+        startInclusive: OffsetDateTime?,
+        @RequestParam(required = true)
+        @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+        endExclusive: OffsetDateTime?,
+        @RequestParam(required = false) mode: FilterMode = FilterMode.ALL,
+        @RequestParam(required = false) contentType: ContentType = ContentType.ALL,
+    ): ContentsCountResponse {
+        val count =
+            memmoryFeedQueryService.count(
+                condition =
+                    OmoideCondition(
+                        startInclusive = startInclusive,
+                        endExclusive = endExclusive,
+                        cursor = null,
+                        filterMode = mode,
+                        contentType = contentType,
+                    ),
+            )
+        return ContentsCountResponse(count = count)
     }
 
     @GetMapping("/photos/random")

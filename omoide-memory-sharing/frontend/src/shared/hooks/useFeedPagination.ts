@@ -46,7 +46,6 @@ export interface UseFeedPaginationParams {
 export interface UseFeedPaginationResult {
     items: MemoryFeedItem[];
     hasNext: boolean;
-    totalCount: number;
     loadingInitial: boolean;
     loadingMore: boolean;
     loadMore: () => Promise<void>;
@@ -63,7 +62,6 @@ export function useFeedPagination({
     const [items, setItems] = useState<MemoryFeedItem[]>([]);
     const [nextCursor, setNextCursor] = useState<FeedCursor | null>(null);
     const [hasNext, setHasNext] = useState(false);
-    const [totalCount, setTotalCount] = useState(0);
     const [loadingInitial, setLoadingInitial] = useState(false);
     const [loadingMore, setLoadingMore] = useState(false);
 
@@ -95,13 +93,12 @@ export function useFeedPagination({
      */
     const toEntry = (res: FeedPageResponse | null): FeedPageResult => {
         if (!res) {
-            return { feedItems: [], nextCursor: null, hasNext: false, totalCount: 0 };
+            return { feedItems: [], nextCursor: null, hasNext: false };
         }
         return {
             feedItems: res.items ?? [],
             nextCursor: res.nextCursor ?? null,
             hasNext: res.hasNext ?? false,
-            totalCount: res.totalCount ?? 0,
         };
     };
 
@@ -125,17 +122,16 @@ export function useFeedPagination({
             mergeItems: (prev: MemoryFeedItem[], fetched: MemoryFeedItem[]) => MemoryFeedItem[],
         ): Promise<void> => {
             const res = await executeFetch(cursor);
-            const { feedItems, nextCursor: newCursor, hasNext: newHasNext, totalCount: newTotalCount } = toEntry(res);
+            const { feedItems, nextCursor: newCursor, hasNext: newHasNext } = toEntry(res);
             setItems(prev => {
                 const merged = mergeItems(prev, feedItems);
                 // setItems updater 内でキャッシュを書き込む。
                 // prev が必ず最新値なので merged も正確な全件になる。
-                writeCache(cacheKey, { items: merged, nextCursor: newCursor, hasNext: newHasNext, totalCount: newTotalCount });
+                writeCache(cacheKey, { items: merged, nextCursor: newCursor, hasNext: newHasNext });
                 return merged;
             });
             setNextCursor(newCursor);
             setHasNext(newHasNext);
-            setTotalCount(newTotalCount);
         },
         [executeFetch]
     );
@@ -153,7 +149,6 @@ export function useFeedPagination({
             setItems([]);
             setNextCursor(null);
             setHasNext(false);
-            setTotalCount(0);
             return;
         }
 
@@ -163,7 +158,6 @@ export function useFeedPagination({
             setItems(cached.items);
             setNextCursor(cached.nextCursor);
             setHasNext(cached.hasNext);
-            setTotalCount(cached.totalCount ?? 0);
             return;
         }
 
@@ -234,7 +228,6 @@ export function useFeedPagination({
                     setItems(cached.items);
                     setNextCursor(cached.nextCursor);
                     setHasNext(cached.hasNext);
-                    setTotalCount(cached.totalCount ?? 0);
                 }
                 return;
             }
@@ -243,17 +236,15 @@ export function useFeedPagination({
             try {
                 const res = await executeFetch(null);
                 if (isCancelled) return;
-                const { feedItems, nextCursor: newCursor, hasNext: newHasNext, totalCount: newTotalCount } = toEntry(res);
+                const { feedItems, nextCursor: newCursor, hasNext: newHasNext } = toEntry(res);
                 writeCache(cacheKey, {
                     items: feedItems,
                     nextCursor: newCursor,
                     hasNext: newHasNext,
-                    totalCount: newTotalCount,
                 });
                 setItems(feedItems);
                 setNextCursor(newCursor);
                 setHasNext(newHasNext);
-                setTotalCount(newTotalCount);
             } catch (err) {
                 if (isCancelled) return;
                 console.error('フィードの取得に失敗しました:', err);
@@ -275,7 +266,6 @@ export function useFeedPagination({
     return {
         items,
         hasNext,
-        totalCount,
         loadingInitial,
         loadingMore,
         loadMore,

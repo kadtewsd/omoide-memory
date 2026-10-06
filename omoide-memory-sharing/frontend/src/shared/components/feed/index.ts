@@ -1,4 +1,5 @@
 export * from './Feed';
+export * from './FeedHeader';
 export * from './FeedMonthTabs';
 export * from './FeedLoadingSpinner';
 export * from './FeedEmptyView';
@@ -7,4 +8,4 @@ export * from './FeedPhotoCard';
 export * from './FeedPhotoCardMode';
 export * from './FeedVideoCard';
 export * from './FeedGrid';
-export * from './FeedCountBadge';
+export * from './ContentsCounter';

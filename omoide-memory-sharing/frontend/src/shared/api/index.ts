@@ -9,6 +9,8 @@ import {
     FeedPageResponse,
     AlbumResource,
     AlbumResponse,
+    ContentsCountResponse,
+    FetchContentsCountParams,
 } from '@/shared/types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
@@ -33,6 +35,23 @@ export const fetchFeed = async ({
 
     const response = await fetch(url.toString());
     if (!response.ok) throw new Error('Failed to fetch feed');
+    return response.json();
+};
+
+export const fetchContentsCount = async ({
+    startInclusive,
+    endExclusive,
+    mode,
+    contentType,
+}: FetchContentsCountParams): Promise<ContentsCountResponse> => {
+    const url = new URL('/contents-count', API_BASE_URL);
+    if (startInclusive) url.searchParams.append('startInclusive', startInclusive);
+    url.searchParams.append('endExclusive', endExclusive);
+    if (mode) url.searchParams.append('mode', mode);
+    if (contentType) url.searchParams.append('contentType', contentType);
+
+    const response = await fetch(url.toString());
+    if (!response.ok) throw new Error('Failed to fetch contents count');
     return response.json();
 };
 

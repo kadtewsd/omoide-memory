@@ -59,6 +59,9 @@ export const UserContent = () => {
 **ルール**:
 - 大きなコンポーネントを一つ作るのではなく、小さな単一責任のコンポーネントに分割する
 - 各コンポーネントは再利用可能な粒度で設計する
+- **【Props の上限は最大 8 個が限度（責務過多のシグナル）】**:
+  - コンポーネントに渡す props が 8 個前後に達している場合、そのコンポーネントは**責務が多すぎる（肥大化・制御結合している）可能性が極めて高い**。
+  - ヘッダー、フッター、コントロール、タブ、バッジなどの UI 要素やコールバックを親から大量の props 経由で注入させず、コンポーネントの責務を「結果の描画」等に純化し、周辺要素は呼び出し元で直接レンダリングするか、別コンポーネントに分割することを強く検討すること。
 
 ---
 
@@ -170,4 +173,47 @@ if (state instanceof EditingState) { ... }  // instanceof は TS では不要な
 - **フラグで言い換えることは、冗長に何度も短い判断を直接書くことよりも更に悪である。**
   - フラグ変数を作成すると、そのフラグがコンポーネント内やスコープ内で一人歩きし、本来排他的に表現されているはずの状態モデリングや最新のデータ状態が崩壊し、再びフラグベースの曖昧な制御・状態爆発に逆戻りする。
 - 判断・判定が必要な箇所では妥協せず、直接その場に判定式（`state instanceof CreatingState`, `selectedPhotos.length === 0` 等）を記述すること。
+
+---
+
+### 8. `useEffect` の中で「ついでに値を変えちゃう」処理の絶対禁止
+
+- **【厳格遵守・絶対禁止】`useEffect` の実行ブロック内で、条件チェックのついでに同期的に `setState` を呼び出す処理を徹底禁止。**
+  - `useEffect` は React の外部システム（ネットワーク API、DOM、イベントリスナー等）と状態を同期させるための機構である。
+  - `useEffect` の先頭や事前ガードで「条件を満たさないから」「初期状態に戻したいから」と `setCount(null)` や `setValue(initial)` を同期的に呼び出してはならない。
+  - 同期的な `setState` はカスケードレンダリング（無駄な追加レンダリングとパフォーマンス劣化）を引き起こし、React ESLint ルール（`react-hooks/set-state-in-effect`）や React Compiler の重大なエラー原因となる。
+
+- **「その値の変更は本当に Effect で行う必要があるか？」を徹底して見直すこと**:
+  1. **レンダリング時に計算（Derived State: 派生状態）できるものはステートを持たず、レンダリング時に直接計算・判定せよ**:
+     - ❌ **悪い例（Effect で同期的に null リセット）**:
+       ```tsx
+       useEffect(() => {
+           if (!isValidIsoDateRange(start, end)) {
+               setCount(null); // ❌ 禁止！同期的な setState
+               return;
+           }
+           fetchCount(...).then(res => setCount(res.count));
+       }, [start, end]);
+       ```
+     - ✅ **良い例（レンダリング時に判定・Effect では何もせず早期リターン）**:
+       ```tsx
+       const isValid = isValidIsoDateRange(start, end);
+
+       useEffect(() => {
+           if (!isValid) return; // ✅ Effect 内では同期 setState を呼ばない
+
+           let isCancelled = false;
+           fetchCount(...).then(res => {
+               if (!isCancelled) setCount(res.count);
+           });
+           return () => { isCancelled = true; };
+       }, [isValid, start, end]);
+
+       if (!isValid || count === null || count <= 0) return null; // レンダリング時にガード
+       ```
+  2. **props の変化に応じてリセットしたい場合は `key` を使え**:
+     - props が変わったときに内部ステートを初期化したい場合は、Effect で同期 `setState` するのではなく、呼び出し元でコンポーネントに `key={uniqueKey}` を渡して自然に再マウントさせること。
+  3. **非同期コールバックの中でのみ状態を更新せよ**:
+     - `setState` は API レスポンスやイベント発火などの非同期コールバック関数内でのみ実行し、Effect の同期実行パスで「ついでに値を書き換える」コードを完全排除すること。
+
 
