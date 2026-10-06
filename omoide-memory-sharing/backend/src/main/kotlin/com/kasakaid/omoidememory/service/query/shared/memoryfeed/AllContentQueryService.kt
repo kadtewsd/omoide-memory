@@ -33,7 +33,7 @@ class AllContentQueryService(
             dslContext
                 .invoke()
                 .selectFrom(unionSelect.asTable("feed_union"))
-                .orderBy(captureTimeField.asc())
+                .orderBy(captureTimeField.asc(), idField.asc())
                 .limit(limit)
                 .asFlow()
                 .toList()
