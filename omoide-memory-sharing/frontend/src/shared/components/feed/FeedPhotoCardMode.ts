@@ -57,9 +57,11 @@ export class Select implements CardMode {
     readonly indicatorStyleName: string;
     readonly ariaLabel: string;
     readonly onToggle: (e: React.MouseEvent) => void;
+    readonly isLoading: boolean;
 
-    constructor(selected: boolean, onToggle: (e: React.MouseEvent) => void) {
+    constructor(selected: boolean, onToggle: (e: React.MouseEvent) => void, isLoading: boolean) {
         this.onToggle = onToggle;
+        this.isLoading = isLoading;
         const config = Select.MODE_MAP.get(selected)!;
         this.styleName = config.styleName;
         this.indicatorStyleName = config.indicatorStyleName;

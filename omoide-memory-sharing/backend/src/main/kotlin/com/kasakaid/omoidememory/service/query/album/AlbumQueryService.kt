@@ -103,34 +103,35 @@ class AlbumQueryService(
         startInclusive: OffsetDateTime?,
         endExclusive: OffsetDateTime,
         count: Int,
-    ): List<MemoryFeedDto> {
-        val excludedPhotoIds =
-            dslContext
-                .invoke()
-                .select(ALBUM_CONTENT.PHOTO_ID)
-                .from(ALBUM_CONTENT)
-                .where(ALBUM_CONTENT.ALBUM_ID.eq(albumId))
-                .asFlow()
-                .toList()
-                .mapNotNull { it.value1() }
-                .toSet()
+    ): List<MemoryFeedDto> =
+        ALBUM_CONTENT.run {
+            val excludedPhotoIds =
+                dslContext
+                    .invoke()
+                    .select(PHOTO_ID)
+                    .from(ALBUM_CONTENT)
+                    .where(ALBUM_ID.eq(albumId))
+                    .asFlow()
+                    .toList()
+                    .mapNotNull { it.value1() }
+                    .toSet()
 
-        val feedResponse =
-            memmoryFeedQueryService.fetchFeedPage(
-                condition =
-                    OmoideCondition(
-                        startInclusive = startInclusive,
-                        endExclusive = endExclusive,
-                        cursor = null,
-                        filterMode = FilterMode.ALL,
-                        contentType = ContentType.PHOTO,
-                    ),
-                limit = Int.MAX_VALUE,
-            )
+            val feedResponse =
+                memmoryFeedQueryService.fetchFeedPage(
+                    condition =
+                        OmoideCondition(
+                            startInclusive = startInclusive,
+                            endExclusive = endExclusive,
+                            cursor = null,
+                            filterMode = FilterMode.ALL,
+                            contentType = ContentType.PHOTO,
+                        ),
+                    limit = Int.MAX_VALUE,
+                )
 
-        return feedResponse.items
-            .filterNot { item -> item.id != null && excludedPhotoIds.contains(item.id) }
-            .shuffled()
-            .take(count)
-    }
+            return feedResponse.items
+                .filterNot { item -> item.id != null && excludedPhotoIds.contains(item.id) }
+                .shuffled()
+                .take(count)
+        }
 }

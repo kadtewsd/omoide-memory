@@ -11,6 +11,7 @@ import { PrimaryButton } from '@/shared/components/button';
 export interface PhotobookSelectionViewProps {
     selectedPhotoIds: Set<string>;
     selectedCount: number;
+    savingPhotoIds: Set<string>;
     maxCount: number;
     period: PhotobookPeriod;
     monthTabs: string[];
@@ -33,6 +34,7 @@ export interface PhotobookSelectionViewProps {
 export function PhotobookSelectionView({
     selectedPhotoIds,
     selectedCount,
+    savingPhotoIds,
     maxCount,
     period,
     monthTabs,
@@ -56,11 +58,21 @@ export function PhotobookSelectionView({
         loadMore,
     } = usePhotobookPhotos(period);
 
+    const [isFillingLocally, setIsFillingLocally] = useState(false);
     const [totalPhotoCount, setTotalPhotoCount] = useState<number | null>(null);
     const effectiveMax = totalPhotoCount !== null && totalPhotoCount > 0
         ? Math.min(PHOTOBOOK_ABSOLUTE_MAX, totalPhotoCount)
         : PHOTOBOOK_ABSOLUTE_MAX;
     const remaining = maxCount - selectedCount;
+
+    const handleFillRemaining = async () => {
+        setIsFillingLocally(true);
+        try {
+            await onFillRemaining();
+        } finally {
+            setIsFillingLocally(false);
+        }
+    };
 
     const handleCountChange = useCallback((count: number) => {
         setTotalPhotoCount(count);
@@ -109,22 +121,28 @@ export function PhotobookSelectionView({
                     </div>
 
                     <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-semibold text-blue-700 bg-blue-50 px-3 py-1.5 rounded-full border border-blue-200">
-                            {selectedCount} / {maxCount} 枚選択中
+                        <span className="text-sm font-semibold text-blue-700 bg-blue-50 px-3 py-1.5 rounded-full border border-blue-200 flex items-center gap-1.5">
+                            {savingPhotoIds.size > 0 && (
+                                <div className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-blue-600 border-t-transparent" />
+                            )}
+                            <span>{selectedCount} / {maxCount} 枚選択中</span>
                         </span>
                         {remaining > 0 && selectedCount < effectiveMax && (
                             <button
                                 type="button"
-                                onClick={() => onFillRemaining()}
-                                disabled={isSelectingRandom}
-                                className="px-4 py-2 text-sm font-semibold text-white bg-green-600 hover:bg-green-700 active:bg-green-800 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl shadow-sm transition-colors min-h-[44px] cursor-pointer"
+                                onClick={handleFillRemaining}
+                                disabled={isSelectingRandom || isFillingLocally || savingPhotoIds.size > 0}
+                                className="px-4 py-2 text-sm font-semibold text-white bg-green-600 hover:bg-green-700 active:bg-green-800 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl shadow-sm transition-colors min-h-[44px] cursor-pointer flex items-center gap-2"
                             >
-                                あと {remaining} 枚はランダムで補完する
+                                {(isSelectingRandom || isFillingLocally) && (
+                                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                                )}
+                                <span>あと {remaining} 枚はランダムで補完する</span>
                             </button>
                         )}
                         <PrimaryButton
                             onClick={onConfirm}
-                            disabled={selectedCount === 0 || isSelectingRandom}
+                            disabled={selectedCount === 0 || isSelectingRandom || isFillingLocally || savingPhotoIds.size > 0}
                         >
                             <span>選択完了 → 確認へ ({selectedCount} 枚)</span>
                         </PrimaryButton>
@@ -177,12 +195,13 @@ export function PhotobookSelectionView({
                 <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-1 sm:gap-2">
                     {photos.map(item => {
                         const isSelected = item.id !== null && selectedPhotoIds.has(item.id);
+                        const isSavingThisPhoto = item.id !== null && savingPhotoIds.has(item.id);
                         const isAtLimit = selectedCount >= maxCount && !isSelected;
                         return (
                             <div key={item.id} className={isAtLimit ? 'opacity-50' : ''}>
                                 <FeedPhotoCard
                                     item={item}
-                                    mode={new Select(isSelected, () => onTogglePhoto(item))}
+                                    mode={new Select(isSelected, () => onTogglePhoto(item), isSavingThisPhoto)}
                                     onClick={() => onTogglePhoto(item)}
                                 />
                             </div>
@@ -190,7 +209,7 @@ export function PhotobookSelectionView({
                     })}
                 </div>
             </Feed>
-            {isSelectingRandom && (
+            {(isSelectingRandom || isFillingLocally) && (
                 <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex flex-col items-center justify-center">
                     <div className="bg-white px-6 py-5 rounded-2xl shadow-xl flex flex-col items-center gap-3 border border-gray-100">
                         <div className="animate-spin rounded-full h-8 w-8 border-3 border-blue-600 border-t-transparent" />

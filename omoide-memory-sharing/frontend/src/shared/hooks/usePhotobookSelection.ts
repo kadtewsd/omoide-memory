@@ -29,6 +29,7 @@ export interface UsePhotobookSelectionParams {
 export interface UsePhotobookSelectionResult {
     selectedPhotoIds: Set<string>;
     selectedPhotos: MemoryFeedItem[];
+    savingPhotoIds: Set<string>;
     period: PhotobookPeriod;
     monthTabs: string[];
     maxCount: number;
@@ -53,6 +54,7 @@ export function usePhotobookSelection({
     initialMaxCount = PHOTOBOOK_ABSOLUTE_MAX,
 }: UsePhotobookSelectionParams): UsePhotobookSelectionResult {
     const [selectedPhotos, setSelectedPhotos] = useState<MemoryFeedItem[]>(initialPhotos);
+    const [savingPhotoIds, setSavingPhotoIds] = useState<Set<string>>(new Set());
     const [period, setPeriod] = useState<PhotobookPeriod>({
         type: 'MONTH_TAB',
         yearMonth: getCurrentYearMonth(),
@@ -106,13 +108,23 @@ export function usePhotobookSelection({
 
     const togglePhotoSelection = useCallback(async (photo: MemoryFeedItem) => {
         if (photo.id === null) return;
+        const photoId = photo.id;
 
-        const isAlreadySelected = selectedPhotos.some(p => p.id === photo.id);
+        setSavingPhotoIds(prev => new Set([...prev, photoId]));
+
+        const isAlreadySelected = selectedPhotos.some(p => p.id === photoId);
         let nextPhotos: MemoryFeedItem[];
         if (isAlreadySelected) {
-            nextPhotos = selectedPhotos.filter(p => p.id !== photo.id);
+            nextPhotos = selectedPhotos.filter(p => p.id !== photoId);
         } else {
-            if (selectedPhotos.length >= maxCount) return;
+            if (selectedPhotos.length >= maxCount) {
+                setSavingPhotoIds(prev => {
+                    const next = new Set(prev);
+                    next.delete(photoId);
+                    return next;
+                });
+                return;
+            }
             nextPhotos = [...selectedPhotos, photo];
         }
 
@@ -121,6 +133,12 @@ export function usePhotobookSelection({
             await savePhotosToAlbum(nextPhotos);
         } catch (err) {
             console.error('写真の保存に失敗しました:', err);
+        } finally {
+            setSavingPhotoIds(prev => {
+                const next = new Set(prev);
+                next.delete(photoId);
+                return next;
+            });
         }
     }, [selectedPhotos, maxCount, savePhotosToAlbum]);
 
@@ -222,6 +240,7 @@ export function usePhotobookSelection({
     return {
         selectedPhotoIds,
         selectedPhotos,
+        savingPhotoIds,
         period,
         monthTabs,
         maxCount,

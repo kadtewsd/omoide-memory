@@ -38,6 +38,7 @@ export function PhotobookEditor({
     const {
         selectedPhotoIds,
         selectedPhotos,
+        savingPhotoIds,
         period,
         monthTabs,
         maxCount,
@@ -63,6 +64,7 @@ export function PhotobookEditor({
             <PhotobookSelectionView
                 selectedPhotoIds={selectedPhotoIds}
                 selectedCount={selectedPhotos.length}
+                savingPhotoIds={savingPhotoIds}
                 maxCount={maxCount}
                 period={period}
                 monthTabs={monthTabs}
