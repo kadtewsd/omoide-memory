@@ -1,6 +1,8 @@
 package com.kasakaid.omoidememory.infrastructure
 
 import com.kasakaid.omoidememory.domain.model.Album
+import com.kasakaid.omoidememory.domain.model.AlbumContent
+import com.kasakaid.omoidememory.domain.model.AlbumStatus
 import com.kasakaid.omoidememory.domain.repository.AlbumRepository
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.ALBUM
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.ALBUM_CONTENT
@@ -24,27 +26,8 @@ class AlbumRepositoryImpl(
             mapOf(
                 ID to album.id,
                 FAMILY_ID to album.familyId,
-                CREATED_AT to OffsetDateTime.now(),
-            ) + albumUpdateMap(album)
-        }
-
-    private fun albumUpdateMap(album: Album): Map<Field<*>, Any?> =
-        ALBUM.run {
-            mapOf(
                 NAME to album.name,
-                UPDATED_AT to OffsetDateTime.now(),
-            )
-        }
-
-    private fun albumContentInsertMap(
-        album: Album,
-        photoId: UUID,
-    ): Map<Field<*>, Any?> =
-        ALBUM_CONTENT.run {
-            mapOf(
-                ID to UUID.randomUUID(),
-                ALBUM_ID to album.id,
-                PHOTO_ID to photoId,
+                STATUS to album.status.name,
                 CREATED_AT to OffsetDateTime.now(),
                 UPDATED_AT to OffsetDateTime.now(),
             )
@@ -60,20 +43,22 @@ class AlbumRepositoryImpl(
                 .toList()
                 .firstOrNull() ?: return null
 
-        val photoIds =
+        val contents =
             dslContext
                 .invoke()
-                .select(ALBUM_CONTENT.PHOTO_ID)
+                .select(ALBUM_CONTENT.PHOTO_ID, ALBUM_CONTENT.CAPTURED_AT)
                 .from(ALBUM_CONTENT)
                 .where(ALBUM_CONTENT.ALBUM_ID.eq(albumId))
+                .orderBy(ALBUM_CONTENT.CAPTURED_AT.asc().nullsLast(), ALBUM_CONTENT.ID.asc())
                 .asFlow()
                 .toList()
-                .map { it.value1()!! }
+                .map { AlbumContent(photoId = it.value1()!!, capturedAt = it.value2()) }
 
         return Album(
             id = albumRecord.id,
             name = albumRecord.name,
-            photoIds = photoIds,
+            status = albumRecord.status?.let { AlbumStatus.valueOf(it) } ?: AlbumStatus.DRAFT,
+            contents = contents,
             familyId = albumRecord.familyId,
         )
     }
@@ -87,77 +72,52 @@ class AlbumRepositoryImpl(
                     .set(albumInsertMap(album = album)),
             ).asFlow()
             .collect {}
-
-        val contentInsertMaps = album.photoIds.map { photoId -> albumContentInsertMap(album = album, photoId = photoId) }
-        if (contentInsertMaps.isNotEmpty()) {
-            val columns = contentInsertMaps.first().keys.toList()
-            Flux
-                .from(
-                    dslContext
-                        .invoke()
-                        .insertInto(ALBUM_CONTENT)
-                        .columns(columns)
-                        .valuesOfRows(
-                            contentInsertMaps.map { insertMap ->
-                                DSL.row(columns.map { column -> insertMap[column] })
-                            },
-                        ),
-                ).asFlow()
-                .collect {}
-        }
-
         return album
     }
 
-    override suspend fun update(
-        album: Album,
-        existence: Album,
-    ): Album {
+    override suspend fun addContent(
+        albumId: UUID,
+        contentId: UUID,
+        content: AlbumContent,
+    ) {
+        val insertMap: Map<Field<*>, Any?> =
+            ALBUM_CONTENT.run {
+                mapOf(
+                    ID to contentId,
+                    ALBUM_ID to albumId,
+                    PHOTO_ID to content.photoId,
+                    CAPTURED_AT to content.capturedAt,
+                    CREATED_AT to OffsetDateTime.now(),
+                    UPDATED_AT to OffsetDateTime.now(),
+                )
+            }
+        val columns = insertMap.keys.toList()
+        Flux
+            .from(
+                dslContext
+                    .invoke()
+                    .insertInto(ALBUM_CONTENT)
+                    .columns(columns)
+                    .values(DSL.row(columns.map { insertMap[it] }))
+                    .onConflict(ALBUM_CONTENT.ID)
+                    .doUpdate()
+                    .set(ALBUM_CONTENT.PHOTO_ID, content.photoId)
+                    .set(ALBUM_CONTENT.CAPTURED_AT, content.capturedAt)
+                    .set(ALBUM_CONTENT.UPDATED_AT, OffsetDateTime.now()),
+            ).asFlow()
+            .collect {}
+    }
+
+    override suspend fun confirm(albumId: UUID) {
         Flux
             .from(
                 dslContext
                     .invoke()
                     .update(ALBUM)
-                    .set(albumUpdateMap(album = album))
-                    .where(ALBUM.ID.eq(album.id)),
+                    .set(ALBUM.STATUS, AlbumStatus.CONFIRMED.name)
+                    .set(ALBUM.UPDATED_AT, OffsetDateTime.now())
+                    .where(ALBUM.ID.eq(albumId)),
             ).asFlow()
             .collect {}
-
-        val photoIdsToDelete = existence.photoIds - album.photoIds.toSet()
-        if (photoIdsToDelete.isNotEmpty()) {
-            Flux
-                .from(
-                    dslContext
-                        .invoke()
-                        .deleteFrom(ALBUM_CONTENT)
-                        .where(
-                            ALBUM_CONTENT.ALBUM_ID
-                                .eq(album.id)
-                                .and(ALBUM_CONTENT.PHOTO_ID.`in`(photoIdsToDelete)),
-                        ),
-                ).asFlow()
-                .collect {}
-        }
-
-        val photoIdsToInsert = album.photoIds - existence.photoIds.toSet()
-        if (photoIdsToInsert.isNotEmpty()) {
-            val contentInsertMaps = photoIdsToInsert.map { photoId -> albumContentInsertMap(album = album, photoId = photoId) }
-            val columns = contentInsertMaps.first().keys.toList()
-            Flux
-                .from(
-                    dslContext
-                        .invoke()
-                        .insertInto(ALBUM_CONTENT)
-                        .columns(columns)
-                        .valuesOfRows(
-                            contentInsertMaps.map { insertMap ->
-                                DSL.row(columns.map { column -> insertMap[column] })
-                            },
-                        ),
-                ).asFlow()
-                .collect {}
-        }
-
-        return album
     }
 }

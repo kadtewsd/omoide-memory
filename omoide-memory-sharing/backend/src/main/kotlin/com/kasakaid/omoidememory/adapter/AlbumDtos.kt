@@ -1,16 +1,22 @@
 package com.kasakaid.omoidememory.adapter
 
+import com.kasakaid.omoidememory.domain.model.AlbumStatus
+import java.time.OffsetDateTime
 import java.util.UUID
 
-class AlbumResource(
+class CreateAlbumResource(
     val albumName: String,
-    val photoIds: List<UUID>,
+)
+
+class AddContentResource(
+    val photoId: UUID,
+    val capturedAt: OffsetDateTime?,
 )
 
 class AlbumResponse(
     val albumId: UUID,
     val albumName: String,
-    val count: Int,
+    val status: AlbumStatus,
 )
 
 class StartAlbumDownloadResponse(

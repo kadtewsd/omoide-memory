@@ -31,7 +31,7 @@ export function FeedGrid({ items, filterMode, selectedPhotoIds, onTogglePhotoSel
                 const isPhoto = item.type === 'PHOTO';
                 const isSelected = isPhoto && !!item.id && selectedPhotoIds.has(item.id);
                 const mode = isSelecting && isPhoto && item.id && onTogglePhotoSelect
-                    ? new Select(isSelected, () => onTogglePhotoSelect(item.id!))
+                    ? new Select(isSelected, () => onTogglePhotoSelect(item.id!), false)
                     : new View();
 
                 return (

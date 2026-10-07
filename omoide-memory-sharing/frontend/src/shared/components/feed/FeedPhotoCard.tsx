@@ -12,30 +12,64 @@ interface Props {
 
 export function FeedPhotoCard({ item, mode, onClick }: Props) {
     const [hasError, setHasError] = useState(false);
+    const [isLocallyLoading, setIsLocallyLoading] = useState(false);
+
+    const isLoading = (mode instanceof Select && mode.isLoading) || isLocallyLoading;
+
+    const handleToggle = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (isLoading) return;
+        setIsLocallyLoading(true);
+        try {
+            await mode.onToggle(e);
+        } finally {
+            setIsLocallyLoading(false);
+        }
+    };
+
+    const handleClick = async () => {
+        if (isLoading) return;
+        setIsLocallyLoading(true);
+        try {
+            await onClick();
+        } finally {
+            setIsLocallyLoading(false);
+        }
+    };
+
     return (
         <div
             className={`group relative rounded-2xl overflow-hidden cursor-pointer bg-gray-100 transition-transform active:scale-95 aspect-square ${mode.styleName}`}
-            onClick={onClick}
+            onClick={handleClick}
         >
             {/* Selection Checkbox */}
             {mode instanceof Select && (
                 <button
                     type="button"
                     aria-label={mode.ariaLabel}
+                    disabled={isLoading}
                     className="absolute top-2 left-2 z-[2] p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full focus:outline-none"
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        mode.onToggle(e);
-                    }}
+                    onClick={handleToggle}
                 >
                     <div
                         className={`w-7 h-7 rounded-full flex items-center justify-center border-2 border-white transition-colors ${mode.indicatorStyleName}`}
                     >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                        </svg>
+                        {isLoading ? (
+                            <div className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent" />
+                        ) : (
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                            </svg>
+                        )}
                     </div>
                 </button>
+            )}
+
+            {/* Loading Overlay */}
+            {mode instanceof Select && isLoading && (
+                <div className="absolute inset-0 z-[1] bg-black/20 flex items-center justify-center pointer-events-none">
+                    <div className="animate-spin rounded-full h-6 w-6 border-2 border-white border-t-transparent" />
+                </div>
             )}
 
             {item.id && !hasError ? (

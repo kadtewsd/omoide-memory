@@ -17,6 +17,8 @@ export interface Comment {
     commentedAt: string;
 }
 
+export type AlbumStatus = 'DRAFT' | 'CONFIRMED';
+
 export interface AlbumSummary {
     albumId: string;
     albumName: string;
@@ -72,6 +74,13 @@ export interface FetchRandomPhotoParams {
     endExclusive: string;
 }
 
+/** `fetchAlbumRandomPhotos` のパラメータ */
+export interface FetchAlbumRandomPhotosParams {
+    albumId: string;
+    startInclusive?: string;
+    endExclusive: string;
+    count?: number;
+}
 
 /** 期間選択の種別 */
 export type PeriodSelectionType = 'MONTH_TAB' | 'DATE_RANGE';
@@ -91,18 +100,15 @@ export interface DateRangePeriod {
 
 export type PhotobookPeriod = MonthTabPeriod | DateRangePeriod;
 
-/** アルバム作成・更新リソース */
-export interface AlbumResource {
-    albumName: string;
-    photoIds: string[];
-}
-
-/** アルバム作成・更新レスポンス */
+/** アルバム作成レスポンス */
 export interface AlbumResponse {
     albumId: string;
     albumName: string;
-    count: number;
+    status: AlbumStatus;
 }
 
-
-
+/** PUT /albums/{albumId}/contents/{contentId} リクエストボディ */
+export interface AddContentResource {
+    photoId: string;
+    capturedAt: string | null;
+}
