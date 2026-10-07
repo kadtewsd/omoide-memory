@@ -6,6 +6,7 @@ import { MemoryModal } from '@/shared/components/MemoryModal';
 import { PrimaryButton } from '@/shared/components/button';
 import { AlbumDetail } from '@/shared/types';
 import { PHOTOBOOK_ABSOLUTE_MAX } from '@/shared/hooks/usePhotobookSelection';
+import { datesToPhotobookPeriod } from '@/shared/components/PeriodSelector';
 
 export function AlbumListPage() {
     const navigate = useNavigate();
@@ -20,6 +21,7 @@ export function AlbumListPage() {
                 previewTitle={`アルバム確認: ${editingAlbum.albumName}`}
                 initialPhotos={editingAlbum.photos}
                 initialAlbumName={editingAlbum.albumName}
+                initialPeriod={datesToPhotobookPeriod(editingAlbum.periodFrom, editingAlbum.periodTo)}
                 initialMaxCount={
                     editingAlbum.photos.length > 0
                         ? Math.max(editingAlbum.photos.length, PHOTOBOOK_ABSOLUTE_MAX)

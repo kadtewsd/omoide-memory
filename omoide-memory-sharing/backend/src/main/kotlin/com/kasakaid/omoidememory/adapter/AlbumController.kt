@@ -18,6 +18,7 @@ import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.http.codec.ServerSentEvent
 import org.springframework.web.bind.annotation.CrossOrigin
+import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
@@ -55,8 +56,24 @@ class AlbumController(
     suspend fun createAlbum(
         @RequestBody resource: CreateAlbumResource,
     ): AlbumResponse {
-        val album = albumCommandService.createAlbum(albumName = resource.albumName, familyId = environment.familyId())
+        val album =
+            albumCommandService.createAlbum(
+                albumName = resource.albumName,
+                familyId = environment.familyId(),
+            )
         return AlbumResponse(albumId = album.id, albumName = album.name, status = album.status)
+    }
+
+    @DeleteMapping("/{albumId}/contents")
+    suspend fun clearContents(
+        @PathVariable albumId: UUID,
+        @RequestBody resource: ClearAlbumContentsResource,
+    ) {
+        albumCommandService.clearContentsAndUpdatePeriod(
+            albumId = albumId,
+            periodFrom = resource.periodFrom,
+            periodTo = resource.periodTo,
+        )
     }
 
     @PutMapping("/{albumId}/contents/{contentId}")
@@ -84,18 +101,10 @@ class AlbumController(
     suspend fun getRandomPhotos(
         @PathVariable albumId: UUID,
         @RequestParam(required = false)
-        @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-        startInclusive: OffsetDateTime?,
-        @RequestParam(required = true)
-        @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-        endExclusive: OffsetDateTime,
-        @RequestParam(required = false)
         count: Int?,
     ): List<MemoryFeedDto> =
         albumQueryService.getRandomPhotosForAlbum(
             albumId = albumId,
-            startInclusive = startInclusive,
-            endExclusive = endExclusive,
             count = count ?: 1,
         )
 

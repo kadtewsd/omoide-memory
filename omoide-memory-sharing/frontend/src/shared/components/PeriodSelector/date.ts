@@ -92,3 +92,27 @@ export const periodRangeSchema = z
     .refine((data) => data.fromYearMonth <= data.toYearMonth, {
         message: '開始年月は終了年月以前の日付を指定してください',
     });
+
+/**
+ * PeriodRange (YYYY-MM) から開始日 (YYYY-MM-01) と終了日 (YYYY-MM-末日) を算出する
+ */
+export function periodRangeToDates(range: { fromYearMonth: string; toYearMonth: string }): { periodFrom: string; periodTo: string } {
+    const [toYear, toMonth] = range.toYearMonth.split('-').map(Number);
+    const lastDay = new Date(toYear, toMonth, 0).getDate();
+    return {
+        periodFrom: `${range.fromYearMonth}-01`,
+        periodTo: `${range.toYearMonth}-${String(lastDay).padStart(2, '0')}`,
+    };
+}
+
+/**
+ * periodFrom, periodTo (YYYY-MM-DD) から PhotobookPeriod を復元する
+ */
+export function datesToPhotobookPeriod(periodFrom: string, periodTo: string): { type: 'MONTH_TAB'; yearMonth: string } | { type: 'DATE_RANGE'; fromYearMonth: string; toYearMonth: string } {
+    const fromYm = periodFrom.substring(0, 7);
+    const toYm = periodTo.substring(0, 7);
+    if (fromYm === toYm) {
+        return { type: 'MONTH_TAB', yearMonth: fromYm };
+    }
+    return { type: 'DATE_RANGE', fromYearMonth: fromYm, toYearMonth: toYm };
+}

@@ -10,6 +10,7 @@ import org.jooq.impl.DefaultConfiguration
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.core.env.Environment
+import org.springframework.r2dbc.connection.TransactionAwareConnectionFactoryProxy
 import java.time.Duration
 
 @Configuration
@@ -45,14 +46,15 @@ class R2DBCConfiguration(
                     .option(PASSWORD, password)
                     .option(CONNECT_TIMEOUT, Duration.ofSeconds(20))
                     .build(),
-            ).let { R2DBCLoggingConnectionFactory(it) }
+            ).let { R2DBCLoggingConnectionFactory(TransactionAwareConnectionFactoryProxy(it)) }
     }
 
     @Bean
     fun dslContext(connectionFactory: ConnectionFactory): DSLGenerator =
         DSL
             .using(
-                connectionFactory,
+                // JOOQ で @Transactional を R2DBC で実施するもの
+                R2DBCLoggingConnectionFactory(TransactionAwareConnectionFactoryProxy(connectionFactory)),
                 SQLDialect.POSTGRES,
                 DefaultConfiguration()
                     .apply {

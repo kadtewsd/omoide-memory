@@ -12,6 +12,7 @@ import {
     AddContentResource,
     ContentsCountResponse,
     FetchContentsCountParams,
+    ClearAlbumContentsParams,
 } from '@/shared/types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
@@ -102,6 +103,20 @@ export const createAlbum = async (albumName: string): Promise<AlbumResponse> => 
     return response.json();
 };
 
+export const clearAlbumContentsAndChangePeriod = async ({
+    albumId,
+    periodFrom,
+    periodTo,
+}: ClearAlbumContentsParams): Promise<void> => {
+    const url = new URL(`/albums/${albumId}/contents`, API_BASE_URL);
+    const response = await fetch(url.toString(), {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ periodFrom, periodTo }),
+    });
+    if (!response.ok) throw new Error('Failed to clear album contents and update period');
+};
+
 export const addContent = async ({
     albumId,
     contentId,
@@ -128,13 +143,9 @@ export const confirmAlbum = async (albumId: string): Promise<void> => {
 
 export const fetchAlbumRandomPhotos = async ({
     albumId,
-    startInclusive,
-    endExclusive,
     count,
 }: FetchAlbumRandomPhotosParams): Promise<MemoryFeedItem[]> => {
     const url = new URL(`/albums/${albumId}/photos/random`, API_BASE_URL);
-    if (startInclusive) url.searchParams.append('startInclusive', startInclusive);
-    url.searchParams.append('endExclusive', endExclusive);
     if (count !== undefined) url.searchParams.append('count', String(count));
 
     const response = await fetch(url.toString());

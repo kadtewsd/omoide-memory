@@ -32,6 +32,8 @@ export interface AlbumDetail {
     albumName: string;
     count: number;
     createdAt: string;
+    periodFrom: string;
+    periodTo: string;
     photos: MemoryFeedItem[];
 }
 
@@ -77,9 +79,13 @@ export interface FetchRandomPhotoParams {
 /** `fetchAlbumRandomPhotos` のパラメータ */
 export interface FetchAlbumRandomPhotosParams {
     albumId: string;
-    startInclusive?: string;
-    endExclusive: string;
     count?: number;
+}
+
+export interface ClearAlbumContentsParams {
+    albumId: string;
+    periodFrom: string;
+    periodTo: string;
 }
 
 /** 期間選択の種別 */
