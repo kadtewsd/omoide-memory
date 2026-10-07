@@ -5,7 +5,7 @@ import { useAlbumDownloadJob } from '@/shared/hooks/useAlbumDownloadJob';
 import { PhotobookSelectionView } from './PhotobookSelectionView';
 import { PhotobookPreviewView } from './PhotobookPreviewView';
 import { PhotobookState } from './types';
-import { updateAlbum } from '@/shared/api';
+import { confirmAlbum } from '@/shared/api';
 
 export interface PhotobookEditorProps {
     albumId: string;
@@ -81,16 +81,12 @@ export function PhotobookEditor({
         );
     }
 
-    const handleConfirmAlbum = async (albumName: string) => {
-        const photoIds = selectedPhotos
-            .map(p => p.id)
-            .filter((id): id is string => id !== null);
-        if (photoIds.length === 0) return;
+    const handleConfirmAlbum = async () => {
+        if (selectedPhotos.length === 0) return;
 
         setState({ value: 'confirming', message: 'アルバムを確定中...' });
         try {
-            const resource = { albumName, photoIds, status: 'CONFIRMED' as const };
-            await updateAlbum({ albumId, resource });
+            await confirmAlbum(albumId);
 
             setState({ value: 'confirming', message: 'ダウンロード準備中...' });
             await startDownload({
@@ -127,4 +123,3 @@ export function PhotobookEditor({
         />
     );
 }
-

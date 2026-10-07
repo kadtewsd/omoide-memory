@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { saveAlbum } from '@/shared/api';
+import { createAlbum } from '@/shared/api';
 import { CancelButton, PrimaryButton } from '@/shared/components/button';
 import { PhotobookEditor } from './components';
 
@@ -28,11 +28,7 @@ export function AlbumCreatePage() {
         setState({ value: 'creating', albumName: trimmed });
 
         try {
-            const created = await saveAlbum({
-                albumName: trimmed,
-                photoIds: [],
-                status: 'DRAFT',
-            });
+            const created = await createAlbum(trimmed);
             setState({
                 value: 'select_photos',
                 albumId: created.albumId,

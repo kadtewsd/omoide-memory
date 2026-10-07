@@ -100,20 +100,15 @@ export interface DateRangePeriod {
 
 export type PhotobookPeriod = MonthTabPeriod | DateRangePeriod;
 
-/** アルバム作成・更新リソース */
-export interface AlbumResource {
-    albumName: string;
-    photoIds: string[];
-    status: AlbumStatus;
-}
-
-/** アルバム作成・更新レスポンス */
+/** アルバム作成レスポンス */
 export interface AlbumResponse {
     albumId: string;
     albumName: string;
     status: AlbumStatus;
-    count: number;
 }
 
-
-
+/** PUT /albums/{albumId}/contents/{contentId} リクエストボディ */
+export interface AddContentResource {
+    photoId: string;
+    capturedAt: string | null;
+}

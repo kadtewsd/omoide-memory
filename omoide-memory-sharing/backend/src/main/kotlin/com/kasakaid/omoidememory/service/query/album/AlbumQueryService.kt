@@ -76,6 +76,7 @@ class AlbumQueryService(
                 .select(ALBUM_CONTENT.PHOTO_ID)
                 .from(ALBUM_CONTENT)
                 .where(ALBUM_CONTENT.ALBUM_ID.eq(albumId))
+                .orderBy(ALBUM_CONTENT.CAPTURED_AT.asc().nullsLast(), ALBUM_CONTENT.ID.asc())
                 .asFlow()
                 .toList()
                 .map { it.value1()!! }

@@ -1,10 +1,11 @@
 package com.kasakaid.omoidememory.service.command
 
 import com.kasakaid.omoidememory.domain.model.Album
-import com.kasakaid.omoidememory.domain.model.AlbumStatus
+import com.kasakaid.omoidememory.domain.model.AlbumContent
 import com.kasakaid.omoidememory.domain.repository.AlbumRepository
 import com.kasakaid.omoidememory.shared.adapter.NotFoundException
 import org.springframework.stereotype.Service
+import java.time.OffsetDateTime
 import java.util.UUID
 
 @Service
@@ -13,36 +14,25 @@ class AlbumCommandService(
 ) {
     suspend fun createAlbum(
         albumName: String,
-        photoIds: List<UUID>,
         familyId: String,
-        status: AlbumStatus,
-    ): Album {
-        val album =
-            Album(
-                id = UUID.randomUUID(),
-                name = albumName,
-                status = status,
-                photoIds = photoIds,
-                familyId = familyId,
-            )
-        return albumRepository.save(album = album)
+    ): Album = albumRepository.save(album = Album.initial(name = albumName, familyId = familyId))
+
+    suspend fun addContent(
+        albumId: UUID,
+        contentId: UUID,
+        photoId: UUID,
+        capturedAt: OffsetDateTime?,
+    ) {
+        albumRepository.get(albumId = albumId) ?: throw NotFoundException("Album not found with id: $albumId")
+        albumRepository.addContent(
+            albumId = albumId,
+            contentId = contentId,
+            content = AlbumContent(photoId = photoId, capturedAt = capturedAt),
+        )
     }
 
-    suspend fun updateAlbum(
-        albumId: UUID,
-        albumName: String,
-        photoIds: List<UUID>,
-        status: AlbumStatus,
-    ): Album {
-        val album =
-            albumRepository.get(albumId = albumId)
-                ?: throw NotFoundException("Album not found with id: $albumId")
-        val renewed =
-            album.renew(
-                name = albumName,
-                status = status,
-                photoIds = photoIds,
-            )
-        return albumRepository.update(album = renewed, existence = album)
+    suspend fun confirm(albumId: UUID) {
+        albumRepository.get(albumId = albumId) ?: throw NotFoundException("Album not found with id: $albumId")
+        albumRepository.confirm(albumId = albumId)
     }
 }

@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { fetchCapturedYearMonths, fetchAlbumRandomPhotos, updateAlbum } from '@/shared/api';
+import { fetchCapturedYearMonths, fetchAlbumRandomPhotos, addContent } from '@/shared/api';
 import { MemoryFeedItem, PhotobookPeriod } from '@/shared/types';
 import { isoToJstYearMonth, getCurrentYearMonth } from '@/shared/hooks/useFeed';
 import { getPeriodIsoRange } from '@/shared/hooks/usePhotobookPhotos';
@@ -37,7 +37,7 @@ export interface UsePhotobookSelectionResult {
     isSelectingRandom: boolean;
     setMaxCount: (count: number) => void;
     togglePhotoSelection: (photo: MemoryFeedItem) => Promise<void>;
-    clearSelection: () => Promise<void>;
+    clearSelection: () => void;
     fillRemaining: () => Promise<void>;
     replacePhoto: (targetId: string) => Promise<void>;
     selectMonthTab: (ym: string) => void;
@@ -92,64 +92,43 @@ export function usePhotobookSelection({
         initYearMonths();
     }, []);
 
-    const savePhotosToAlbum = useCallback(async (photos: MemoryFeedItem[]) => {
-        const photoIds = photos
-            .map(p => p.id)
-            .filter((id): id is string => id !== null);
-        await updateAlbum({
-            albumId,
-            resource: {
-                albumName: fileNamePrefix,
-                photoIds,
-                status: 'DRAFT',
-            },
-        });
-    }, [albumId, fileNamePrefix]);
-
     const togglePhotoSelection = useCallback(async (photo: MemoryFeedItem) => {
         if (photo.id === null) return;
         const photoId = photo.id;
 
+        const isAlreadySelected = selectedPhotos.some(p => p.id === photoId);
+        if (!isAlreadySelected && selectedPhotos.length >= maxCount) return;
+
         setSavingPhotoIds(prev => new Set([...prev, photoId]));
 
-        const isAlreadySelected = selectedPhotos.some(p => p.id === photoId);
-        let nextPhotos: MemoryFeedItem[];
-        if (isAlreadySelected) {
-            nextPhotos = selectedPhotos.filter(p => p.id !== photoId);
-        } else {
-            if (selectedPhotos.length >= maxCount) {
-                setSavingPhotoIds(prev => {
-                    const next = new Set(prev);
-                    next.delete(photoId);
-                    return next;
-                });
-                return;
-            }
-            nextPhotos = [...selectedPhotos, photo];
-        }
+        const nextPhotos = isAlreadySelected
+            ? selectedPhotos.filter(p => p.id !== photoId)
+            : [...selectedPhotos, photo];
 
         setSelectedPhotos(nextPhotos);
-        try {
-            await savePhotosToAlbum(nextPhotos);
-        } catch (err) {
-            console.error('写真の保存に失敗しました:', err);
-        } finally {
-            setSavingPhotoIds(prev => {
-                const next = new Set(prev);
-                next.delete(photoId);
-                return next;
-            });
-        }
-    }, [selectedPhotos, maxCount, savePhotosToAlbum]);
 
-    const clearSelection = useCallback(async () => {
-        setSelectedPhotos([]);
-        try {
-            await savePhotosToAlbum([]);
-        } catch (err) {
-            console.error('写真のクリアに失敗しました:', err);
+        if (!isAlreadySelected) {
+            try {
+                await addContent({
+                    albumId,
+                    contentId: crypto.randomUUID(),
+                    resource: { photoId, capturedAt: photo.captureTime ?? null },
+                });
+            } catch (err) {
+                console.error('写真の保存に失敗しました:', err);
+            }
         }
-    }, [savePhotosToAlbum]);
+
+        setSavingPhotoIds(prev => {
+            const next = new Set(prev);
+            next.delete(photoId);
+            return next;
+        });
+    }, [albumId, selectedPhotos, maxCount]);
+
+    const clearSelection = useCallback(() => {
+        setSelectedPhotos([]);
+    }, []);
 
     /**
      * 自動補完: サーバー側で albumId の既存写真を除外した上でランダムに (maxCount - 現在の選択数) 件選出
@@ -173,14 +152,22 @@ export function usePhotobookSelection({
             if (newlySelected.length > 0) {
                 const nextPhotos = [...selectedPhotos, ...newlySelected];
                 setSelectedPhotos(nextPhotos);
-                await savePhotosToAlbum(nextPhotos);
+                await Promise.all(
+                    newlySelected.map(photo =>
+                        addContent({
+                            albumId,
+                            contentId: crypto.randomUUID(),
+                            resource: { photoId: photo.id!, capturedAt: photo.captureTime ?? null },
+                        })
+                    )
+                );
             }
         } catch (err) {
             console.error('ランダム選出に失敗しました:', err);
         } finally {
             setIsSelectingRandom(false);
         }
-    }, [albumId, maxCount, selectedPhotos, period, savePhotosToAlbum]);
+    }, [albumId, maxCount, selectedPhotos, period]);
 
     /**
      * 差し替え: サーバー側で albumId の既存写真を除外した上で同期間の別の写真を1件選出
@@ -199,21 +186,23 @@ export function usePhotobookSelection({
             });
 
             const newPhoto = candidates.length > 0 ? candidates[0] : null;
-            let nextPhotos: MemoryFeedItem[];
             if (newPhoto) {
-                nextPhotos = selectedPhotos.map(p => (p.id === targetId ? newPhoto : p));
+                setSelectedPhotos(selectedPhotos.map(p => (p.id === targetId ? newPhoto : p)));
+                await addContent({
+                    albumId,
+                    contentId: crypto.randomUUID(),
+                    resource: { photoId: newPhoto.id!, capturedAt: newPhoto.captureTime ?? null },
+                });
             } else {
-                // もう存在しないので削除
-                nextPhotos = selectedPhotos.filter(p => p.id !== targetId);
+                // 候補がないので削除
+                setSelectedPhotos(selectedPhotos.filter(p => p.id !== targetId));
             }
-            setSelectedPhotos(nextPhotos);
-            await savePhotosToAlbum(nextPhotos);
         } catch (err) {
             console.error('写真差し替えに失敗しました:', err);
         } finally {
             setIsSelectingRandom(false);
         }
-    }, [albumId, period, selectedPhotos, savePhotosToAlbum]);
+    }, [albumId, period, selectedPhotos]);
 
     /**
      * 年月タブ選択: 単月モードに切り替え、カレンダー選択を解除

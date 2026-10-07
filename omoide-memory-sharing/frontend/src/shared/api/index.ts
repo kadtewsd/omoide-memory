@@ -8,8 +8,8 @@ import {
     FetchRandomPhotoParams,
     FetchAlbumRandomPhotosParams,
     FeedPageResponse,
-    AlbumResource,
     AlbumResponse,
+    AddContentResource,
     ContentsCountResponse,
     FetchContentsCountParams,
 } from '@/shared/types';
@@ -91,19 +91,39 @@ export const getImageUrl = (id: string): string => {
     return `${API_BASE_URL}/content/${id}/image`;
 };
 
-export const saveAlbum = async ({
-    albumName,
-    photoIds,
-    status,
-}: AlbumResource): Promise<AlbumResponse> => {
+export const createAlbum = async (albumName: string): Promise<AlbumResponse> => {
     const url = new URL('/albums', API_BASE_URL);
     const response = await fetch(url.toString(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ albumName, photoIds, status }),
+        body: JSON.stringify({ albumName }),
     });
-    if (!response.ok) throw new Error('Failed to save album');
+    if (!response.ok) throw new Error('Failed to create album');
     return response.json();
+};
+
+export const addContent = async ({
+    albumId,
+    contentId,
+    resource,
+}: {
+    albumId: string;
+    contentId: string;
+    resource: AddContentResource;
+}): Promise<void> => {
+    const url = new URL(`/albums/${albumId}/contents/${contentId}`, API_BASE_URL);
+    const response = await fetch(url.toString(), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(resource),
+    });
+    if (!response.ok) throw new Error('Failed to add content');
+};
+
+export const confirmAlbum = async (albumId: string): Promise<void> => {
+    const url = new URL(`/albums/${albumId}/confirm`, API_BASE_URL);
+    const response = await fetch(url.toString(), { method: 'POST' });
+    if (!response.ok) throw new Error('Failed to confirm album');
 };
 
 export const fetchAlbumRandomPhotos = async ({
@@ -121,25 +141,6 @@ export const fetchAlbumRandomPhotos = async ({
     if (!response.ok) throw new Error('Failed to fetch album random photos');
     return response.json();
 };
-
-export const updateAlbum = async ({
-    albumId,
-    resource,
-}: {
-    albumId: string;
-    resource: AlbumResource;
-}): Promise<AlbumResponse> => {
-    const url = new URL(`/albums/${albumId}`, API_BASE_URL);
-    const response = await fetch(url.toString(), {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(resource),
-    });
-    if (!response.ok) throw new Error('Failed to update album');
-    return response.json();
-};
-
-
 
 export const startAlbumDownloadJob = async (
     albumId: string,
@@ -205,4 +206,3 @@ export const fetchRandomPhoto = async ({
     if (!text) return null;
     return JSON.parse(text) as MemoryFeedItem;
 };
-

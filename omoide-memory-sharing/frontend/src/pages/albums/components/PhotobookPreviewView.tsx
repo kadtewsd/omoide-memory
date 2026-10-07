@@ -15,7 +15,7 @@ export interface PhotobookPreviewViewProps {
     onDeletePhoto: (targetId: string) => void;
     onReplacePhoto: (targetId: string) => Promise<void>;
     onBackToSelect: () => void;
-    onCreateAlbum: (albumName: string) => Promise<void>;
+    onCreateAlbum: () => Promise<void>;
 }
 
 /**
@@ -26,7 +26,6 @@ export interface PhotobookPreviewViewProps {
 export function PhotobookPreviewView({
     selectedPhotos,
     maxCount,
-    defaultAlbumName,
     title,
     state,
     isSelectingRandom,
@@ -43,7 +42,7 @@ export function PhotobookPreviewView({
     };
 
     const handleConfirm = async () => {
-        await onCreateAlbum(defaultAlbumName);
+        await onCreateAlbum();
     };
 
     const handleDelete = () => {

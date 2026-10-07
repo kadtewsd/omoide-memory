@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { AlbumSummary, AlbumDetail, MemoryFeedItem } from '@/shared/types';
-import { fetchAlbums, fetchAlbumDetail, getImageUrl, updateAlbum } from '@/shared/api';
+import { fetchAlbums, fetchAlbumDetail, getImageUrl } from '@/shared/api';
 import { useAlbumDownloadJob } from '@/shared/hooks/useAlbumDownloadJob';
 import { AlbumDetailState } from './types';
 import { AlbumDetailModal } from './AlbumDetailModal';
@@ -115,7 +115,7 @@ export function AlbumGrid({ onPhotoClick, onEditAlbum }: AlbumGridProps) {
         }
     };
 
-    /** 選択した写真をアルバムから除外（更新API呼び出し） */
+    /** 選択した写真をアルバムから除外（TODO: 写真削除APIが未実装のため現在は UI のみ更新） */
     const handleCommitDelete = async () => {
         if (!albumDetail) return;
         switch (detailState.value) {
@@ -123,21 +123,11 @@ export function AlbumGrid({ onPhotoClick, onEditAlbum }: AlbumGridProps) {
                 return;
             case 'delete': {
                 if (submitting) return;
-
-                const remainingPhotoIds = albumDetail.photos
-                    .map((p) => p.id)
-                    .filter((id): id is string => id !== null && !detailState.deleteTargetIds.has(id));
-
                 setSubmitting(true);
                 try {
-                    await updateAlbum({
-                        albumId: albumDetail.albumId,
-                        resource: { albumName: albumDetail.albumName, photoIds: remainingPhotoIds, status: 'CONFIRMED' },
-                    });
+                    // TODO: DELETE /albums/{albumId}/contents/{contentId} 実装後に対応
                     closeModal();
                     await handleReload();
-                } catch (err) {
-                    console.error('Failed to update album:', err);
                 } finally {
                     setSubmitting(false);
                 }

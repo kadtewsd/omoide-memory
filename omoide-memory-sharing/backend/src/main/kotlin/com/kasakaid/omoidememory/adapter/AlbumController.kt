@@ -53,41 +53,31 @@ class AlbumController(
 
     @PostMapping
     suspend fun createAlbum(
-        @RequestBody resource: AlbumResource,
+        @RequestBody resource: CreateAlbumResource,
     ): AlbumResponse {
-        val album =
-            albumCommandService.createAlbum(
-                albumName = resource.albumName,
-                photoIds = resource.photoIds,
-                familyId = environment.familyId(),
-                status = resource.status,
-            )
-        return AlbumResponse(
-            albumId = album.id,
-            albumName = album.name,
-            status = album.status,
-            count = album.photoIds.size,
+        val album = albumCommandService.createAlbum(albumName = resource.albumName, familyId = environment.familyId())
+        return AlbumResponse(albumId = album.id, albumName = album.name, status = album.status)
+    }
+
+    @PutMapping("/{albumId}/contents/{contentId}")
+    suspend fun addContent(
+        @PathVariable albumId: UUID,
+        @PathVariable contentId: UUID,
+        @RequestBody resource: AddContentResource,
+    ) {
+        albumCommandService.addContent(
+            albumId = albumId,
+            contentId = contentId,
+            photoId = resource.photoId,
+            capturedAt = resource.capturedAt,
         )
     }
 
-    @PutMapping("/{albumId}")
-    suspend fun updateAlbum(
+    @PostMapping("/{albumId}/confirm")
+    suspend fun confirm(
         @PathVariable albumId: UUID,
-        @RequestBody resource: AlbumResource,
-    ): AlbumResponse {
-        val album =
-            albumCommandService.updateAlbum(
-                albumId = albumId,
-                albumName = resource.albumName,
-                photoIds = resource.photoIds,
-                status = resource.status,
-            )
-        return AlbumResponse(
-            albumId = album.id,
-            albumName = album.name,
-            status = album.status,
-            count = album.photoIds.size,
-        )
+    ) {
+        albumCommandService.confirm(albumId = albumId)
     }
 
     @GetMapping("/{albumId}/photos/random")
