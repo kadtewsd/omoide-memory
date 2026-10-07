@@ -1,15 +1,18 @@
 package com.kasakaid.omoidememory.adapter
 
+import com.kasakaid.omoidememory.domain.model.AlbumStatus
 import java.util.UUID
 
 class AlbumResource(
     val albumName: String,
     val photoIds: List<UUID>,
+    val status: AlbumStatus,
 )
 
 class AlbumResponse(
     val albumId: UUID,
     val albumName: String,
+    val status: AlbumStatus,
     val count: Int,
 )
 

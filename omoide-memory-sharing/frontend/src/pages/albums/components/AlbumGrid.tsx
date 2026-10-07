@@ -132,7 +132,7 @@ export function AlbumGrid({ onPhotoClick, onEditAlbum }: AlbumGridProps) {
                 try {
                     await updateAlbum({
                         albumId: albumDetail.albumId,
-                        resource: { albumName: albumDetail.albumName, photoIds: remainingPhotoIds },
+                        resource: { albumName: albumDetail.albumName, photoIds: remainingPhotoIds, status: 'CONFIRMED' },
                     });
                     closeModal();
                     await handleReload();

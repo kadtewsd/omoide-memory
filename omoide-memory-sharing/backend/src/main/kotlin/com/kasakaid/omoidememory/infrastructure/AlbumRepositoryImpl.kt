@@ -1,6 +1,7 @@
 package com.kasakaid.omoidememory.infrastructure
 
 import com.kasakaid.omoidememory.domain.model.Album
+import com.kasakaid.omoidememory.domain.model.AlbumStatus
 import com.kasakaid.omoidememory.domain.repository.AlbumRepository
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.ALBUM
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.ALBUM_CONTENT
@@ -32,6 +33,7 @@ class AlbumRepositoryImpl(
         ALBUM.run {
             mapOf(
                 NAME to album.name,
+                STATUS to album.status.name,
                 UPDATED_AT to OffsetDateTime.now(),
             )
         }
@@ -73,6 +75,7 @@ class AlbumRepositoryImpl(
         return Album(
             id = albumRecord.id,
             name = albumRecord.name,
+            status = albumRecord.status?.let { AlbumStatus.valueOf(it) } ?: AlbumStatus.DRAFT,
             photoIds = photoIds,
             familyId = albumRecord.familyId,
         )

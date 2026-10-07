@@ -6,6 +6,7 @@ import {
     AlbumDetail,
     FetchFeedParams,
     FetchRandomPhotoParams,
+    FetchAlbumRandomPhotosParams,
     FeedPageResponse,
     AlbumResource,
     AlbumResponse,
@@ -93,14 +94,31 @@ export const getImageUrl = (id: string): string => {
 export const saveAlbum = async ({
     albumName,
     photoIds,
+    status,
 }: AlbumResource): Promise<AlbumResponse> => {
     const url = new URL('/albums', API_BASE_URL);
     const response = await fetch(url.toString(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ albumName, photoIds }),
+        body: JSON.stringify({ albumName, photoIds, status }),
     });
     if (!response.ok) throw new Error('Failed to save album');
+    return response.json();
+};
+
+export const fetchAlbumRandomPhotos = async ({
+    albumId,
+    startInclusive,
+    endExclusive,
+    count,
+}: FetchAlbumRandomPhotosParams): Promise<MemoryFeedItem[]> => {
+    const url = new URL(`/albums/${albumId}/photos/random`, API_BASE_URL);
+    if (startInclusive) url.searchParams.append('startInclusive', startInclusive);
+    url.searchParams.append('endExclusive', endExclusive);
+    if (count !== undefined) url.searchParams.append('count', String(count));
+
+    const response = await fetch(url.toString());
+    if (!response.ok) throw new Error('Failed to fetch album random photos');
     return response.json();
 };
 

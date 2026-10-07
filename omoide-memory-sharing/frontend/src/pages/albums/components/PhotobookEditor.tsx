@@ -4,18 +4,13 @@ import { usePhotobookSelection } from '@/shared/hooks/usePhotobookSelection';
 import { useAlbumDownloadJob } from '@/shared/hooks/useAlbumDownloadJob';
 import { PhotobookSelectionView } from './PhotobookSelectionView';
 import { PhotobookPreviewView } from './PhotobookPreviewView';
-import {
-    PhotobookState,
-    SelectingState,
-    PreviewingState,
-    CreatingState,
-} from './types';
-import { saveAlbum, updateAlbum } from '@/shared/api';
+import { PhotobookState } from './types';
+import { updateAlbum } from '@/shared/api';
 
 export interface PhotobookEditorProps {
-    albumId?: string;
+    albumId: string;
     initialPhotos?: MemoryFeedItem[];
-    initialAlbumName?: string;
+    initialAlbumName: string;
     initialMaxCount?: number;
     title: string;
     previewTitle: string;
@@ -38,7 +33,7 @@ export function PhotobookEditor({
     onComplete,
     onCancel,
 }: PhotobookEditorProps) {
-    const [state, setState] = useState<PhotobookState>(new SelectingState());
+    const [state, setState] = useState<PhotobookState>({ value: 'selecting' });
 
     const {
         selectedPhotoIds,
@@ -55,6 +50,7 @@ export function PhotobookEditor({
         selectMonthTab,
         selectDateRange,
     } = usePhotobookSelection({
+        albumId,
         initialPhotos,
         initialAlbumName,
         initialMaxCount,
@@ -62,7 +58,7 @@ export function PhotobookEditor({
 
     const { startDownload } = useAlbumDownloadJob();
 
-    if (state instanceof SelectingState) {
+    if (state.value === 'selecting') {
         return (
             <PhotobookSelectionView
                 selectedPhotoIds={selectedPhotoIds}
@@ -77,35 +73,33 @@ export function PhotobookEditor({
                 onSelectDateRange={selectDateRange}
                 onChangeMaxCount={setMaxCount}
                 onFillRemaining={fillRemaining}
-                onConfirm={() => setState(new PreviewingState())}
+                onConfirm={() => setState({ value: 'previewing' })}
                 onBackToMain={onCancel}
             />
         );
     }
 
-    const handleCreateAlbum = async (albumName: string) => {
+    const handleConfirmAlbum = async (albumName: string) => {
         const photoIds = selectedPhotos
             .map(p => p.id)
             .filter((id): id is string => id !== null);
         if (photoIds.length === 0) return;
 
-        setState(new CreatingState(albumId ? 'アルバムを更新中...' : 'アルバムを作成中...'));
+        setState({ value: 'confirming', message: 'アルバムを確定中...' });
         try {
-            const resource = { albumName, photoIds };
-            const resultAlbum = albumId
-                ? await updateAlbum({ albumId, resource })
-                : await saveAlbum(resource);
+            const resource = { albumName, photoIds, status: 'CONFIRMED' as const };
+            await updateAlbum({ albumId, resource });
 
-            setState(new CreatingState('ダウンロード準備中...'));
+            setState({ value: 'confirming', message: 'ダウンロード準備中...' });
             await startDownload({
-                albumId: resultAlbum.albumId,
+                albumId,
                 onProgress: (percentage) =>
-                    setState(new CreatingState(`ZIPファイル作成中... (${percentage}%)`)),
+                    setState({ value: 'confirming', message: `ZIPファイル作成中... (${percentage}%)` }),
             });
-            setState(new SelectingState());
+            setState({ value: 'selecting' });
             onComplete();
         } catch {
-            setState(new PreviewingState());
+            setState({ value: 'previewing' });
         }
     };
 
@@ -126,8 +120,9 @@ export function PhotobookEditor({
             isSelectingRandom={isSelectingRandom}
             onDeletePhoto={handleDeletePhoto}
             onReplacePhoto={replacePhoto}
-            onBackToSelect={() => setState(new SelectingState())}
-            onCreateAlbum={handleCreateAlbum}
+            onBackToSelect={() => setState({ value: 'selecting' })}
+            onCreateAlbum={handleConfirmAlbum}
         />
     );
 }
+

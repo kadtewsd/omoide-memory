@@ -1,6 +1,7 @@
 package com.kasakaid.omoidememory.service.command
 
 import com.kasakaid.omoidememory.domain.model.Album
+import com.kasakaid.omoidememory.domain.model.AlbumStatus
 import com.kasakaid.omoidememory.domain.repository.AlbumRepository
 import com.kasakaid.omoidememory.shared.adapter.NotFoundException
 import org.springframework.stereotype.Service
@@ -14,11 +15,13 @@ class AlbumCommandService(
         albumName: String,
         photoIds: List<UUID>,
         familyId: String,
+        status: AlbumStatus,
     ): Album {
         val album =
             Album(
                 id = UUID.randomUUID(),
                 name = albumName,
+                status = status,
                 photoIds = photoIds,
                 familyId = familyId,
             )
@@ -29,6 +32,7 @@ class AlbumCommandService(
         albumId: UUID,
         albumName: String,
         photoIds: List<UUID>,
+        status: AlbumStatus,
     ): Album {
         val album =
             albumRepository.get(albumId = albumId)
@@ -36,6 +40,7 @@ class AlbumCommandService(
         val renewed =
             album.renew(
                 name = albumName,
+                status = status,
                 photoIds = photoIds,
             )
         return albumRepository.update(album = renewed, existence = album)

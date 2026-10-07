@@ -5,10 +5,12 @@ import com.kasakaid.omoidememory.service.query.album.AlbumDetailDto
 import com.kasakaid.omoidememory.service.query.album.AlbumDownloadJobManager
 import com.kasakaid.omoidememory.service.query.album.AlbumQueryService
 import com.kasakaid.omoidememory.service.query.album.AlbumSummaryDto
+import com.kasakaid.omoidememory.service.query.shared.memoryfeed.MemoryFeedDto
 import com.kasakaid.omoidememory.shared.spring.familyId
 import org.springframework.core.env.Environment
 import org.springframework.core.io.buffer.DataBuffer
 import org.springframework.core.io.buffer.DefaultDataBufferFactory
+import org.springframework.format.annotation.DateTimeFormat
 import org.springframework.http.ContentDisposition
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
@@ -22,10 +24,12 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import reactor.core.publisher.Flux
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
+import java.time.OffsetDateTime
 import java.util.UUID
 
 @RestController
@@ -56,10 +60,12 @@ class AlbumController(
                 albumName = resource.albumName,
                 photoIds = resource.photoIds,
                 familyId = environment.familyId(),
+                status = resource.status,
             )
         return AlbumResponse(
             albumId = album.id,
             albumName = album.name,
+            status = album.status,
             count = album.photoIds.size,
         )
     }
@@ -74,13 +80,34 @@ class AlbumController(
                 albumId = albumId,
                 albumName = resource.albumName,
                 photoIds = resource.photoIds,
+                status = resource.status,
             )
         return AlbumResponse(
             albumId = album.id,
             albumName = album.name,
+            status = album.status,
             count = album.photoIds.size,
         )
     }
+
+    @GetMapping("/{albumId}/photos/random")
+    suspend fun getRandomPhotos(
+        @PathVariable albumId: UUID,
+        @RequestParam(required = false)
+        @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+        startInclusive: OffsetDateTime?,
+        @RequestParam(required = true)
+        @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+        endExclusive: OffsetDateTime,
+        @RequestParam(required = false)
+        count: Int?,
+    ): List<MemoryFeedDto> =
+        albumQueryService.getRandomPhotosForAlbum(
+            albumId = albumId,
+            startInclusive = startInclusive,
+            endExclusive = endExclusive,
+            count = count ?: 1,
+        )
 
     @PostMapping("/{albumId}/download-jobs")
     fun startAlbumDownloadJob(

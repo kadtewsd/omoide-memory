@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { MemoryFeedItem } from '@/shared/types';
 import { ContentNotFound } from '@/shared/components/ContentNotFound';
-import { CreateAlbumModal } from '@/shared/components/CreateAlbumModal';
 import { getImageUrl } from '@/shared/api';
 import { CancelButton, PrimaryButton } from '@/shared/components/button';
-import { PhotobookState, CreatingState } from './types';
+import { PhotobookState } from './types';
 
 export interface PhotobookPreviewViewProps {
     selectedPhotos: MemoryFeedItem[];
@@ -22,7 +21,7 @@ export interface PhotobookPreviewViewProps {
 /**
  * フォトブック・アルバムプレビューフェーズ。
  * 選択済み写真を追加順で全件グリッド表示し、タップでアクションシートを表示する。
- * 写真の削除・差し替え、およびアルバムの新規作成/保存・ダウンロードを実行する。
+ * 写真の削除・差し替え、およびアルバムの確定・ZIPダウンロードを実行する。
  */
 export function PhotobookPreviewView({
     selectedPhotos,
@@ -37,16 +36,14 @@ export function PhotobookPreviewView({
     onCreateAlbum,
 }: PhotobookPreviewViewProps) {
     const [actionTargetId, setActionTargetId] = useState<string | null>(null);
-    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
     const handlePhotoTap = (photoId: string) => {
-        if (state instanceof CreatingState) return;
+        if (state.value === 'confirming') return;
         setActionTargetId(photoId);
     };
 
-    const handleCreateAlbumSubmit = async (albumName: string) => {
-        setIsCreateModalOpen(false);
-        await onCreateAlbum(albumName);
+    const handleConfirm = async () => {
+        await onCreateAlbum(defaultAlbumName);
     };
 
     const handleDelete = () => {
@@ -69,8 +66,8 @@ export function PhotobookPreviewView({
                         <button
                             type="button"
                             onClick={onBackToSelect}
-                            disabled={state instanceof CreatingState}
-                            className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-600 hover:text-gray-900 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-colors"
+                            disabled={state.value === 'confirming'}
+                            className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-600 hover:text-gray-900 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-colors cursor-pointer"
                             aria-label="選択に戻る"
                         >
                             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -85,20 +82,20 @@ export function PhotobookPreviewView({
                         </span>
                     </div>
 
-                    {state instanceof CreatingState ? (
+                    {state.value === 'confirming' ? (
                         <div className="px-4 py-2 text-sm font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-xl min-h-[44px] flex items-center gap-2">
                             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600" />
                             <span>{state.message}</span>
                         </div>
                     ) : (
                         <PrimaryButton
-                            onClick={() => setIsCreateModalOpen(true)}
+                            onClick={handleConfirm}
                             disabled={selectedPhotos.length === 0}
                         >
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                             </svg>
-                            <span>アルバムを保存・ダウンロード</span>
+                            <span>アルバムを確定・ダウンロード</span>
                         </PrimaryButton>
                     )}
                 </div>
@@ -180,15 +177,6 @@ export function PhotobookPreviewView({
                     </div>
                 </div>
             )}
-
-            {/* アルバム名入力モーダル */}
-            <CreateAlbumModal
-                isOpen={isCreateModalOpen}
-                selectedCount={selectedPhotos.length}
-                defaultAlbumName={defaultAlbumName}
-                onClose={() => setIsCreateModalOpen(false)}
-                onSubmit={handleCreateAlbumSubmit}
-            />
 
             {/* コンテンツ選出中オーバーレイ */}
             {isSelectingRandom && (
