@@ -1,8 +1,8 @@
 import { useState, useCallback, useEffect } from 'react';
-import { fetchCapturedYearMonths, fetchAlbumRandomPhotos, addContent } from '@/shared/api';
+import { fetchCapturedYearMonths, fetchAlbumRandomPhotos, addContent, clearAlbumContentsAndChangePeriod } from '@/shared/api';
 import { MemoryFeedItem, PhotobookPeriod } from '@/shared/types';
 import { isoToJstYearMonth, getCurrentYearMonth } from '@/shared/hooks/useFeed';
-import { getPeriodIsoRange } from '@/shared/hooks/usePhotobookPhotos';
+import { periodRangeToDates } from '@/shared/components/PeriodSelector';
 
 /** フォトブック選択の絶対上限枚数（サービス仕様の制限値） */
 export const PHOTOBOOK_ABSOLUTE_MAX = 200;
@@ -24,6 +24,7 @@ export interface UsePhotobookSelectionParams {
     initialPhotos?: MemoryFeedItem[];
     initialAlbumName: string;
     initialMaxCount?: number;
+    initialPeriod?: PhotobookPeriod;
 }
 
 export interface UsePhotobookSelectionResult {
@@ -52,13 +53,16 @@ export function usePhotobookSelection({
     initialPhotos = [],
     initialAlbumName,
     initialMaxCount = PHOTOBOOK_ABSOLUTE_MAX,
+    initialPeriod,
 }: UsePhotobookSelectionParams): UsePhotobookSelectionResult {
     const [selectedPhotos, setSelectedPhotos] = useState<MemoryFeedItem[]>(initialPhotos);
     const [savingPhotoIds, setSavingPhotoIds] = useState<Set<string>>(new Set());
-    const [period, setPeriod] = useState<PhotobookPeriod>({
-        type: 'MONTH_TAB',
-        yearMonth: getCurrentYearMonth(),
-    });
+    const [period, setPeriod] = useState<PhotobookPeriod>(
+        initialPeriod ?? {
+            type: 'MONTH_TAB',
+            yearMonth: getCurrentYearMonth(),
+        }
+    );
     const [monthTabs, setMonthTabs] = useState<string[]>([]);
     const [maxCount, setMaxCount] = useState<number>(initialMaxCount);
     const [isSelectingRandom, setIsSelectingRandom] = useState(false);
@@ -79,10 +83,17 @@ export function usePhotobookSelection({
                 );
                 if (yearMonths.length > 0) {
                     setMonthTabs(yearMonths);
-                    setPeriod({
-                        type: 'MONTH_TAB',
-                        yearMonth: yearMonths[0],
-                    });
+                    if (!initialPeriod) {
+                        const defaultYm = yearMonths[0];
+                        setPeriod({
+                            type: 'MONTH_TAB',
+                            yearMonth: defaultYm,
+                        });
+                        const { periodFrom, periodTo } = periodRangeToDates({ fromYearMonth: defaultYm, toYearMonth: defaultYm });
+                        clearAlbumContentsAndChangePeriod({ albumId, periodFrom, periodTo }).catch(err =>
+                            console.error('アルバム期間の初期更新に失敗しました:', err)
+                        );
+                    }
                 }
             } catch (err) {
                 console.error('年月の取得に失敗しました:', err);
@@ -90,7 +101,7 @@ export function usePhotobookSelection({
         };
 
         initYearMonths();
-    }, []);
+    }, [albumId, initialPeriod]);
 
     const togglePhotoSelection = useCallback(async (photo: MemoryFeedItem) => {
         if (photo.id === null) return;
@@ -137,15 +148,10 @@ export function usePhotobookSelection({
         const remaining = maxCount - selectedPhotos.length;
         if (remaining <= 0) return;
 
-        const { startInclusive, endExclusive } = getPeriodIsoRange(period);
-        if (!endExclusive) return;
-
         setIsSelectingRandom(true);
         try {
             const newlySelected = await fetchAlbumRandomPhotos({
                 albumId,
-                startInclusive: startInclusive || undefined,
-                endExclusive,
                 count: remaining,
             });
 
@@ -167,21 +173,16 @@ export function usePhotobookSelection({
         } finally {
             setIsSelectingRandom(false);
         }
-    }, [albumId, maxCount, selectedPhotos, period]);
+    }, [albumId, maxCount, selectedPhotos]);
 
     /**
      * 差し替え: サーバー側で albumId の既存写真を除外した上で同期間の別の写真を1件選出
      */
     const replacePhoto = useCallback(async (targetId: string) => {
-        const { startInclusive, endExclusive } = getPeriodIsoRange(period);
-        if (!endExclusive) return;
-
         setIsSelectingRandom(true);
         try {
             const candidates = await fetchAlbumRandomPhotos({
                 albumId,
-                startInclusive: startInclusive || undefined,
-                endExclusive,
                 count: 1,
             });
 
@@ -202,29 +203,44 @@ export function usePhotobookSelection({
         } finally {
             setIsSelectingRandom(false);
         }
-    }, [albumId, period, selectedPhotos]);
+    }, [albumId, selectedPhotos]);
 
     /**
      * 年月タブ選択: 単月モードに切り替え、カレンダー選択を解除
      */
-    const selectMonthTab = useCallback((ym: string) => {
+    const selectMonthTab = useCallback(async (ym: string) => {
         setPeriod({
             type: 'MONTH_TAB',
             yearMonth: ym,
         });
-    }, []);
+        setSelectedPhotos([]);
+        const { periodFrom, periodTo } = periodRangeToDates({ fromYearMonth: ym, toYearMonth: ym });
+        try {
+            await clearAlbumContentsAndChangePeriod({ albumId, periodFrom, periodTo });
+        } catch (err) {
+            console.error('アルバムコンテンツの削除と期間更新に失敗しました:', err);
+        }
+    }, [albumId]);
 
     /**
      * カレンダー期間選択: 期間モードに切り替え、年月タブの選択を解除
      */
-    const selectDateRange = useCallback((params: { fromYearMonth: string; toYearMonth: string }) => {
+    const selectDateRange = useCallback(async (params: { fromYearMonth: string; toYearMonth: string }) => {
         const isConflict = params.fromYearMonth > params.toYearMonth;
+        const toYearMonth = isConflict ? params.fromYearMonth : params.toYearMonth;
         setPeriod({
             type: 'DATE_RANGE',
             fromYearMonth: params.fromYearMonth,
-            toYearMonth: isConflict ? params.fromYearMonth : params.toYearMonth,
+            toYearMonth,
         });
-    }, []);
+        setSelectedPhotos([]);
+        const { periodFrom, periodTo } = periodRangeToDates({ fromYearMonth: params.fromYearMonth, toYearMonth });
+        try {
+            await clearAlbumContentsAndChangePeriod({ albumId, periodFrom, periodTo });
+        } catch (err) {
+            console.error('アルバムコンテンツの削除と期間更新に失敗しました:', err);
+        }
+    }, [albumId]);
 
     return {
         selectedPhotoIds,

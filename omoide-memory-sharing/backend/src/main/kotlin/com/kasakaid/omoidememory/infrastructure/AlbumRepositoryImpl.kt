@@ -7,7 +7,6 @@ import com.kasakaid.omoidememory.domain.repository.AlbumRepository
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.ALBUM
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.ALBUM_CONTENT
 import com.kasakaid.omoidememory.r2dbc.DSLGenerator
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.reactive.asFlow
 import org.jooq.Field
@@ -28,6 +27,8 @@ class AlbumRepositoryImpl(
                 FAMILY_ID to album.familyId,
                 NAME to album.name,
                 STATUS to album.status.name,
+                PERIOD_FROM to album.periodFrom,
+                PERIOD_TO to album.periodTo,
                 CREATED_AT to OffsetDateTime.now(),
                 UPDATED_AT to OffsetDateTime.now(),
             )
@@ -60,6 +61,8 @@ class AlbumRepositoryImpl(
             status = albumRecord.status?.let { AlbumStatus.valueOf(it) } ?: AlbumStatus.DRAFT,
             contents = contents,
             familyId = albumRecord.familyId,
+            periodFrom = albumRecord.periodFrom!!,
+            periodTo = albumRecord.periodTo!!,
         )
     }
 
@@ -73,6 +76,22 @@ class AlbumRepositoryImpl(
             ).asFlow()
             .collect {}
         return album
+    }
+
+    override suspend fun update(album: Album) {
+        Flux
+            .from(
+                dslContext
+                    .invoke()
+                    .update(ALBUM)
+                    .set(ALBUM.NAME, album.name)
+                    .set(ALBUM.STATUS, album.status.name)
+                    .set(ALBUM.PERIOD_FROM, album.periodFrom)
+                    .set(ALBUM.PERIOD_TO, album.periodTo)
+                    .set(ALBUM.UPDATED_AT, OffsetDateTime.now())
+                    .where(ALBUM.ID.eq(album.id)),
+            ).asFlow()
+            .collect {}
     }
 
     override suspend fun addContent(
@@ -104,6 +123,17 @@ class AlbumRepositoryImpl(
                     .set(ALBUM_CONTENT.PHOTO_ID, content.photoId)
                     .set(ALBUM_CONTENT.CAPTURED_AT, content.capturedAt)
                     .set(ALBUM_CONTENT.UPDATED_AT, OffsetDateTime.now()),
+            ).asFlow()
+            .collect {}
+    }
+
+    override suspend fun deleteContents(albumId: UUID) {
+        Flux
+            .from(
+                dslContext
+                    .invoke()
+                    .deleteFrom(ALBUM_CONTENT)
+                    .where(ALBUM_CONTENT.ALBUM_ID.eq(albumId)),
             ).asFlow()
             .collect {}
     }

@@ -1,11 +1,17 @@
 package com.kasakaid.omoidememory.adapter
 
 import com.kasakaid.omoidememory.domain.model.AlbumStatus
+import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.util.UUID
 
 class CreateAlbumResource(
     val albumName: String,
+)
+
+class ClearAlbumContentsResource(
+    val periodFrom: LocalDate,
+    val periodTo: LocalDate,
 )
 
 class AddContentResource(

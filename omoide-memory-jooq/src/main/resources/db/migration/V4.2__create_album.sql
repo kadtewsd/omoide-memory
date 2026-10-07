@@ -4,6 +4,8 @@ CREATE TABLE omoide_memory.album (
     name                   VARCHAR(255) NOT NULL,
     status                 VARCHAR(50) NOT NULL DEFAULT 'DRAFT',
     family_id              VARCHAR(255) NOT NULL,
+    period_from            DATE NOT NULL,
+    period_to              DATE NOT NULL,
     album_created_date     DATE,
     album_vendor           VARCHAR(255),
     completion_evidence_url TEXT,
@@ -18,6 +20,8 @@ COMMENT ON COLUMN omoide_memory.album.id IS 'サロゲートキー';
 COMMENT ON COLUMN omoide_memory.album.name IS 'アルバム名';
 COMMENT ON COLUMN omoide_memory.album.status IS 'アルバム状態 (DRAFT: 未確定, CONFIRMED: 確定)';
 COMMENT ON COLUMN omoide_memory.album.family_id IS '家族ID';
+COMMENT ON COLUMN omoide_memory.album.period_from IS '対象期間 開始日（当日含む）';
+COMMENT ON COLUMN omoide_memory.album.period_to IS '対象期間 終了日（当日含む）';
 COMMENT ON COLUMN omoide_memory.album.album_created_date IS 'アルバム作成日';
 COMMENT ON COLUMN omoide_memory.album.album_vendor IS 'アルバム作成業者';
 COMMENT ON COLUMN omoide_memory.album.completion_evidence_url IS '依頼完了証跡URL';

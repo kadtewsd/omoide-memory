@@ -6,10 +6,11 @@ import io.r2dbc.spi.ConnectionFactory
 import io.r2dbc.spi.Statement
 import org.jooq.tools.r2dbc.LoggingConnection
 import org.reactivestreams.Publisher
+import org.springframework.r2dbc.connection.TransactionAwareConnectionFactoryProxy
 import reactor.core.publisher.Mono
 
 class R2DBCLoggingConnectionFactory(
-    private val delegate: ConnectionFactory,
+    private val delegate: TransactionAwareConnectionFactoryProxy,
     private val mdc: Map<String, String?> = emptyMap(),
 ) : ConnectionFactory by delegate {
     fun withMdc(mdc: Map<String, String?>) = R2DBCLoggingConnectionFactory(delegate, mdc)
@@ -28,6 +29,21 @@ class R2DBCLoggingConnection(
     private val mdc: Map<String, String?>,
 ) : LoggingConnection(delegate) {
     private val log = KotlinLogging.logger {}
+
+    override fun beginTransaction(): Publisher<Void> =
+        Mono.from(delegate.beginTransaction()).doOnSubscribe {
+            log.info { "=== [R2DBC Transaction BEGIN] ===" }
+        }
+
+    override fun commitTransaction(): Publisher<Void> =
+        Mono.from(delegate.commitTransaction()).doOnSubscribe {
+            log.info { "=== [R2DBC Transaction COMMIT] ===" }
+        }
+
+    override fun rollbackTransaction(): Publisher<Void> =
+        Mono.from(delegate.rollbackTransaction()).doOnSubscribe {
+            log.info { "=== [R2DBC Transaction ROLLBACK] ===" }
+        }
 
     override fun createStatement(sql: String): Statement {
         val original = delegate.createStatement(sql)

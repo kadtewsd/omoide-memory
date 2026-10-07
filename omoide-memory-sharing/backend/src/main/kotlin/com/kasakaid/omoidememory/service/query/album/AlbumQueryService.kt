@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.reactive.asFlow
 import org.springframework.stereotype.Service
 import java.time.OffsetDateTime
+import java.time.ZoneOffset
 import java.util.UUID
 
 @Service
@@ -95,44 +96,60 @@ class AlbumQueryService(
             albumName = albumRecord.name,
             count = photoIds.size,
             createdAt = albumRecord.createdAt!!,
+            periodFrom = albumRecord.periodFrom!!,
+            periodTo = albumRecord.periodTo!!,
             photos = feedDtos,
         )
     }
 
     suspend fun getRandomPhotosForAlbum(
         albumId: UUID,
-        startInclusive: OffsetDateTime?,
-        endExclusive: OffsetDateTime,
         count: Int,
-    ): List<MemoryFeedDto> =
-        ALBUM_CONTENT.run {
-            val excludedPhotoIds =
-                dslContext
-                    .invoke()
-                    .select(PHOTO_ID)
-                    .from(ALBUM_CONTENT)
-                    .where(ALBUM_ID.eq(albumId))
-                    .asFlow()
-                    .toList()
-                    .mapNotNull { it.value1() }
-                    .toSet()
+    ): List<MemoryFeedDto> {
+        val albumRecord =
+            dslContext
+                .invoke()
+                .selectFrom(ALBUM)
+                .where(ALBUM.ID.eq(albumId))
+                .asFlow()
+                .toList()
+                .firstOrNull() ?: throw NotFoundException("Album not found with id: $albumId")
 
-            val feedResponse =
-                memmoryFeedQueryService.fetchFeedPage(
-                    condition =
-                        OmoideCondition(
-                            startInclusive = startInclusive,
-                            endExclusive = endExclusive,
-                            cursor = null,
-                            filterMode = FilterMode.ALL,
-                            contentType = ContentType.PHOTO,
-                        ),
-                    limit = Int.MAX_VALUE,
-                )
+        val excludedPhotoIds =
+            dslContext
+                .invoke()
+                .select(ALBUM_CONTENT.PHOTO_ID)
+                .from(ALBUM_CONTENT)
+                .where(ALBUM_CONTENT.ALBUM_ID.eq(albumId))
+                .asFlow()
+                .toList()
+                .mapNotNull { it.value1() }
+                .toSet()
 
-            return feedResponse.items
-                .filterNot { item -> item.id != null && excludedPhotoIds.contains(item.id) }
-                .shuffled()
-                .take(count)
-        }
+        val jstOffset = ZoneOffset.ofHours(9)
+        val startInclusive = albumRecord.periodFrom!!.atStartOfDay().atOffset(jstOffset)
+        val endExclusive =
+            albumRecord.periodTo!!
+                .plusDays(1)
+                .atStartOfDay()
+                .atOffset(jstOffset)
+
+        val feedResponse =
+            memmoryFeedQueryService.fetchFeedPage(
+                condition =
+                    OmoideCondition(
+                        startInclusive = startInclusive,
+                        endExclusive = endExclusive,
+                        cursor = null,
+                        filterMode = FilterMode.ALL,
+                        contentType = ContentType.PHOTO,
+                    ),
+                limit = Int.MAX_VALUE,
+            )
+
+        return feedResponse.items
+            .filterNot { item -> item.id != null && excludedPhotoIds.contains(item.id) }
+            .shuffled()
+            .take(count)
+    }
 }

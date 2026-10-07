@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { MemoryFeedItem } from '@/shared/types';
+import { MemoryFeedItem, PhotobookPeriod } from '@/shared/types';
 import { usePhotobookSelection } from '@/shared/hooks/usePhotobookSelection';
 import { useAlbumDownloadJob } from '@/shared/hooks/useAlbumDownloadJob';
 import { PhotobookSelectionView } from './PhotobookSelectionView';
@@ -12,6 +12,7 @@ export interface PhotobookEditorProps {
     initialPhotos?: MemoryFeedItem[];
     initialAlbumName: string;
     initialMaxCount?: number;
+    initialPeriod?: PhotobookPeriod;
     title: string;
     previewTitle: string;
     onComplete: () => void;
@@ -28,6 +29,7 @@ export function PhotobookEditor({
     initialPhotos,
     initialAlbumName,
     initialMaxCount,
+    initialPeriod,
     title,
     previewTitle,
     onComplete,
@@ -55,6 +57,7 @@ export function PhotobookEditor({
         initialPhotos,
         initialAlbumName,
         initialMaxCount,
+        initialPeriod,
     });
 
     const { startDownload } = useAlbumDownloadJob();
