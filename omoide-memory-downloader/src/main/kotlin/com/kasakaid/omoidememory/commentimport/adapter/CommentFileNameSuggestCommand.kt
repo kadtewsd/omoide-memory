@@ -63,12 +63,7 @@ class CommentFileNameSuggestCommand(
         val csvLines =
             listOf("コメントファイルのコンテンツ名,コメント内容,曖昧検索でのパターン,DBファイル名,試行結果の型") +
                 checkResults.zip(orphanRecords).map { (result, record) ->
-                    val commentBody = record.omoideComment.commentBody
-                    when (result) {
-                        is ExactlyMatched -> "${result.fileName},$commentBody,,,${result::class.simpleName}"
-                        is MatchedFile -> "${result.fileName},$commentBody,${result.likePattern},${result.actualFileName},${result::class.simpleName}"
-                        is Missed -> "${result.fileName},$commentBody,,,${result::class.simpleName}"
-                    }
+                    result.csvLine(record.omoideComment.commentBody)
                 }
 
         Files.write(
