@@ -51,6 +51,7 @@ object PostProcess {
         pushNotification: PushNotification,
         projectId: String,
     ) {
+        if (successCount == 0 && failureCount == 0) return
         either {
             val accessToken = pushNotification.accessToken.bind()
             val messageText = "成功 : ${successCount}件、失敗 : ${failureCount}件で完了しました"
