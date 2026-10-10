@@ -37,9 +37,12 @@ export function FeedPhotoCard({ item, mode, onClick }: Props) {
         }
     };
 
+    const isRandomSelected = mode instanceof Select && item.isRandom;
+    const containerStyleName = isRandomSelected ? 'ring-2 ring-emerald-400' : mode.styleName;
+
     return (
         <div
-            className={`group relative rounded-2xl overflow-hidden cursor-pointer bg-gray-100 transition-transform active:scale-95 aspect-square ${mode.styleName}`}
+            className={`group relative rounded-2xl overflow-hidden cursor-pointer bg-gray-100 transition-transform active:scale-95 aspect-square ${containerStyleName}`}
             onClick={handleClick}
         >
             {/* Selection Checkbox */}
@@ -87,6 +90,14 @@ export function FeedPhotoCard({ item, mode, onClick }: Props) {
 
             {/* Gradient overlay */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+
+            {/* Random Pick! Badge */}
+            {isRandomSelected && (
+                <div className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-0.5 bg-emerald-500/80 backdrop-blur-sm py-0.5">
+                    <span className="text-[10px] leading-none">✨</span>
+                    <span className="text-[9px] font-bold text-white leading-none tracking-tight">Random Pick!</span>
+                </div>
+            )}
 
             {(item.commentCount || 0) > 0 && (
                 <div className="absolute bottom-2 left-2 flex items-center gap-1 text-white text-xs drop-shadow-md">

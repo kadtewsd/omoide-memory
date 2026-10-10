@@ -64,9 +64,13 @@ export function PhotobookEditor({
     const { startDownload } = useAlbumDownloadJob();
 
     if (state.value === 'selecting') {
+        const randomPhotoIds = new Set(
+            selectedPhotos.filter(p => p.isRandom && p.id !== null).map(p => p.id as string)
+        );
         return (
             <PhotobookSelectionView
                 selectedPhotoIds={selectedPhotoIds}
+                randomPhotoIds={randomPhotoIds}
                 selectedCount={selectedPhotos.length}
                 savingPhotoIds={savingPhotoIds}
                 maxCount={maxCount}
