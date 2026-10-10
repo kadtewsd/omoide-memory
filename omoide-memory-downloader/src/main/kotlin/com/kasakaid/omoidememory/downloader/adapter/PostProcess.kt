@@ -63,7 +63,10 @@ object PostProcess {
                         "body" to messageText,
                     ) +
                     pushNotification.pushIcon.fold(
-                        ifLeft = { emptyMap() },
+                        ifLeft = { error ->
+                            logger.warn(error.e) { "PUSH 通知用アイコンの生成に失敗したため、アイコンなしで送信します" }
+                            emptyMap()
+                        },
                         ifRight = { mapOf("icon_base64" to it) },
                     ),
                 "android" to
@@ -78,7 +81,7 @@ object PostProcess {
                 )
             }
         }.onLeft { error ->
-            logger.warn { "アクセストークンの取得に失敗したため PUSH 通知をスキップします: ${error.e.message}" }
+            logger.error(error.e) { "アクセストークンの取得に失敗したため PUSH 通知をスキップします" }
         }
     }
 
@@ -89,21 +92,30 @@ object PostProcess {
     ) {
         runCatching {
             val fcmEndpointUrl = URL("https://fcm.googleapis.com/v1/projects/%s/messages:send".format(projectId))
-            (fcmEndpointUrl.openConnection() as HttpURLConnection)
-                .apply {
-                    requestMethod = "POST"
-                    setRequestProperty("Authorization", "Bearer $accessToken")
-                    setRequestProperty("Content-Type", "application/json; UTF-8")
-                    doOutput = true
-                    outputStream.use { stream: OutputStream ->
-                        stream.write(body.toByteArray(Charsets.UTF_8))
-                    }
-                }.let {
-                    logger.warn { "PUSH 通知の送信に失敗しました (HTTP ${it.responseCode})" }
+            (fcmEndpointUrl.openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                setRequestProperty("Authorization", "Bearer $accessToken")
+                setRequestProperty("Content-Type", "application/json; UTF-8")
+                doOutput = true
+                outputStream.use { stream: OutputStream ->
+                    stream.write(body.toByteArray(Charsets.UTF_8))
                 }
-        }.onFailure { e ->
-            logger.error(e) { "PUSH 通知の送信中に例外が発生しました" }
-        }
+            }
+        }.fold(
+            onSuccess = { conn ->
+                val responseCode = conn.responseCode
+                if (responseCode in 200..299) {
+                    val responseBody = conn.inputStream.bufferedReader().use { it.readText() }
+                    logger.info { "PUSH 通知の送信に成功しました (HTTP $responseCode): $responseBody" }
+                } else {
+                    val errorBody = conn.errorStream?.bufferedReader()?.use { it.readText() } ?: "レスポンスボディなし"
+                    logger.error { "PUSH 通知の送信に失敗しました (HTTP $responseCode): $errorBody" }
+                }
+            },
+            onFailure = { e ->
+                logger.error(e) { "PUSH 通知の送信中に例外が発生しました" }
+            },
+        )
     }
 
     fun onSuccess(filePath: FileIOFinish): FileIOFinish =
