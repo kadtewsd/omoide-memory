@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.reactive.asFlow
+import kotlinx.coroutines.reactive.awaitFirstOrDefault
 import org.jooq.Condition
 import org.jooq.impl.DSL
 import org.springframework.stereotype.Service
@@ -36,22 +37,28 @@ class MemoryContentsQueryService(
         }
 
     suspend fun fetchPhoto(condition: Condition): List<SyncedOmoidePhoto> =
-        dslContext
-            .invoke()
-            .selectFrom(SYNCED_OMOIDE_PHOTO)
-            .where(condition)
-            .asFlow()
-            .map { record -> record.into(SyncedOmoidePhoto::class.java) }
-            .toList()
+        SYNCED_OMOIDE_PHOTO.run {
+            dslContext
+                .invoke()
+                .selectFrom(SYNCED_OMOIDE_PHOTO)
+                .where(condition)
+                .orderBy(CAPTURE_TIME.asc(), ID.asc())
+                .asFlow()
+                .map { record -> record.into(SyncedOmoidePhoto::class.java) }
+                .toList()
+        }
 
     suspend fun fetchVideo(condition: Condition): List<SyncedOmoideVideo> =
-        dslContext
-            .invoke()
-            .selectFrom(SYNCED_OMOIDE_VIDEO)
-            .where(condition)
-            .asFlow()
-            .map { record -> record.into(SyncedOmoideVideo::class.java) }
-            .toList()
+        SYNCED_OMOIDE_VIDEO.run {
+            dslContext
+                .invoke()
+                .selectFrom(SYNCED_OMOIDE_VIDEO)
+                .where(condition)
+                .orderBy(CAPTURE_TIME.asc(), ID.asc())
+                .asFlow()
+                .map { record -> record.into(SyncedOmoideVideo::class.java) }
+                .toList()
+        }
 
     suspend fun fetchComment(condition: Condition): List<CommentOmoide> =
         dslContext
