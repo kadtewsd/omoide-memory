@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createAlbum } from '@/shared/api';
 import { CancelButton, PrimaryButton } from '@/shared/components/button';
+import { getCurrentYearMonth } from '@/shared/hooks/useFeed';
 import { PhotobookEditor } from './components';
 
 type CreatePageState =
@@ -46,6 +47,7 @@ export function AlbumCreatePage() {
             <PhotobookEditor
                 albumId={state.albumId}
                 initialAlbumName={state.albumName}
+                initialPeriod={{ type: 'MONTH_TAB', yearMonth: getCurrentYearMonth() }}
                 title={`写真を選択: ${state.albumName}`}
                 previewTitle={`アルバム確認: ${state.albumName}`}
                 onComplete={handleBack}

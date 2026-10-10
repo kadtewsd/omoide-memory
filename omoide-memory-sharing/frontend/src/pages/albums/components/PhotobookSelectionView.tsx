@@ -10,6 +10,7 @@ import { PrimaryButton } from '@/shared/components/button';
 
 export interface PhotobookSelectionViewProps {
     selectedPhotoIds: Set<string>;
+    randomPhotoIds: Set<string>;
     selectedCount: number;
     savingPhotoIds: Set<string>;
     maxCount: number;
@@ -33,6 +34,7 @@ export interface PhotobookSelectionViewProps {
  */
 export function PhotobookSelectionView({
     selectedPhotoIds,
+    randomPhotoIds,
     selectedCount,
     savingPhotoIds,
     maxCount,
@@ -197,10 +199,13 @@ export function PhotobookSelectionView({
                         const isSelected = item.id !== null && selectedPhotoIds.has(item.id);
                         const isSavingThisPhoto = item.id !== null && savingPhotoIds.has(item.id);
                         const isAtLimit = selectedCount >= maxCount && !isSelected;
+                        const enrichedItem = isSelected && item.id !== null && randomPhotoIds.has(item.id)
+                            ? { ...item, isRandom: true }
+                            : item;
                         return (
                             <div key={item.id} className={isAtLimit ? 'opacity-50' : ''}>
                                 <FeedPhotoCard
-                                    item={item}
+                                    item={enrichedItem}
                                     mode={new Select(isSelected, () => onTogglePhoto(item), isSavingThisPhoto)}
                                     onClick={() => onTogglePhoto(item)}
                                 />

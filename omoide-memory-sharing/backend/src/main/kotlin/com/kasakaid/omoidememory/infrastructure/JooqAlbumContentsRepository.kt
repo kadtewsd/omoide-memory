@@ -1,6 +1,5 @@
 package com.kasakaid.omoidememory.infrastructure
 
-import com.kasakaid.omoidememory.domain.model.Album
 import com.kasakaid.omoidememory.domain.model.AlbumContent
 import com.kasakaid.omoidememory.domain.model.AlbumId
 import com.kasakaid.omoidememory.domain.repository.AlbumContentsRepository
@@ -79,6 +78,20 @@ class JooqAlbumContentsRepository(
                     .invoke()
                     .deleteFrom(ALBUM_CONTENT)
                     .where(ALBUM_CONTENT.ALBUM_ID.eq(albumId)),
+            ).asFlow()
+            .collect {}
+    }
+
+    override suspend fun deleteByPhotoId(
+        albumId: AlbumId,
+        photoId: UUID,
+    ) {
+        Flux
+            .from(
+                dslContext
+                    .invoke()
+                    .deleteFrom(ALBUM_CONTENT)
+                    .where(ALBUM_CONTENT.ALBUM_ID.eq(albumId).and(ALBUM_CONTENT.PHOTO_ID.eq(photoId))),
             ).asFlow()
             .collect {}
     }

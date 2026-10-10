@@ -1,11 +1,13 @@
 package com.kasakaid.omoidememory.adapter
 
 import com.kasakaid.omoidememory.service.command.AlbumCommandService
+import com.kasakaid.omoidememory.service.query.album.AlbumCurrentStateDto
 import com.kasakaid.omoidememory.service.query.album.AlbumDetailDto
 import com.kasakaid.omoidememory.service.query.album.AlbumDownloadJobManager
 import com.kasakaid.omoidememory.service.query.album.AlbumQueryService
 import com.kasakaid.omoidememory.service.query.album.AlbumSummaryDto
 import com.kasakaid.omoidememory.service.query.shared.memoryfeed.MemoryFeedDto
+import com.kasakaid.omoidememory.shared.adapter.NotFoundException
 import com.kasakaid.omoidememory.shared.spring.familyId
 import org.springframework.core.env.Environment
 import org.springframework.core.io.buffer.DataBuffer
@@ -100,20 +102,41 @@ class AlbumController(
         @PathVariable albumId: UUID,
         @RequestParam(required = false)
         count: Int?,
-    ): List<MemoryFeedDto> =
-        albumQueryService
-            .getRandomPhotosForAlbum(
+    ): AlbumCurrentStateDto {
+        val randomPhotos =
+            albumQueryService.getRandomPhotosForAlbum(
                 albumId = albumId,
                 count = count ?: 1,
-            ).also {
-                it.forEach {
-                    albumCommandService.addContent(
-                        albumId = albumId,
-                        photoId = it.id!!,
-                        capturedAt = it.captureTime,
-                    )
-                }
-            }
+            )
+        randomPhotos.forEach {
+            albumCommandService.addContent(
+                albumId = albumId,
+                photoId = it.id!!,
+                capturedAt = it.captureTime,
+            )
+        }
+        val randomlyAddedPhotoIds = randomPhotos.mapNotNull { it.id }.toSet()
+        return albumQueryService.getAlbumCurrentState(
+            albumId = albumId,
+            randomlyAddedPhotoIds = randomlyAddedPhotoIds,
+        )
+    }
+
+    @PostMapping("/{albumId}/contents/{photoId}/replace")
+    suspend fun replaceContent(
+        @PathVariable albumId: UUID,
+        @PathVariable photoId: UUID,
+    ): MemoryFeedDto {
+        albumCommandService.removeContent(albumId = albumId, photoId = photoId)
+        val candidates = albumQueryService.getRandomPhotosForAlbum(albumId = albumId, count = 1)
+        val newPhoto = candidates.firstOrNull() ?: throw NotFoundException("No replacement photo found for album: $albumId")
+        albumCommandService.addContent(
+            albumId = albumId,
+            photoId = newPhoto.id!!,
+            capturedAt = newPhoto.captureTime,
+        )
+        return newPhoto
+    }
 
     @PostMapping("/{albumId}/download-jobs")
     fun startAlbumDownloadJob(

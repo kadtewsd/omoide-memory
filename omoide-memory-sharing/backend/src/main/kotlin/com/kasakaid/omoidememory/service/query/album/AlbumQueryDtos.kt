@@ -22,3 +22,17 @@ class AlbumDetailDto(
     val periodTo: LocalDate,
     val photos: List<MemoryFeedDto>,
 )
+
+class AlbumContentDto(
+    val id: UUID?,
+    val type: String?,
+    val commentedAt: OffsetDateTime,
+    val captureTime: OffsetDateTime?,
+    val commentCount: Int,
+    val isRandom: Boolean,
+)
+
+class AlbumCurrentStateDto(
+    val albumId: UUID,
+    val photos: List<AlbumContentDto>,
+)

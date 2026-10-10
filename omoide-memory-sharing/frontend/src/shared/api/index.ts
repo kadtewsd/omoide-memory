@@ -7,6 +7,7 @@ import {
     FetchFeedParams,
     FetchRandomPhotoParams,
     FetchAlbumRandomPhotosParams,
+    AlbumCurrentState,
     FeedPageResponse,
     AlbumResponse,
     AddContentResource,
@@ -142,12 +143,25 @@ export const confirmAlbum = async (albumId: string): Promise<void> => {
 export const fetchAlbumRandomPhotos = async ({
     albumId,
     count,
-}: FetchAlbumRandomPhotosParams): Promise<MemoryFeedItem[]> => {
+}: FetchAlbumRandomPhotosParams): Promise<AlbumCurrentState> => {
     const url = new URL(`/albums/${albumId}/photos/random`, API_BASE_URL);
     if (count !== undefined) url.searchParams.append('count', String(count));
 
     const response = await fetch(url.toString(), { method: 'POST' });
     if (!response.ok) throw new Error('Failed to fetch album random photos');
+    return response.json();
+};
+
+export const replaceAlbumContent = async ({
+    albumId,
+    photoId,
+}: {
+    albumId: string;
+    photoId: string;
+}): Promise<MemoryFeedItem> => {
+    const url = new URL(`/albums/${albumId}/contents/${photoId}/replace`, API_BASE_URL);
+    const response = await fetch(url.toString(), { method: 'POST' });
+    if (!response.ok) throw new Error('Failed to replace album content');
     return response.json();
 };
 

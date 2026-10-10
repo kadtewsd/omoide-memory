@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { fetchCapturedYearMonths, fetchAlbumRandomPhotos, addContent, clearAlbumContentsAndChangePeriod } from '@/shared/api';
+import { fetchCapturedYearMonths, fetchAlbumRandomPhotos, replaceAlbumContent, addContent, clearAlbumContentsAndChangePeriod } from '@/shared/api';
 import { MemoryFeedItem, PhotobookPeriod } from '@/shared/types';
 import { isoToJstYearMonth, getCurrentYearMonth } from '@/shared/hooks/useFeed';
 import { periodRangeToDates } from '@/shared/components/PeriodSelector';
@@ -37,10 +37,11 @@ export interface UsePhotobookSelectionResult {
     fileNamePrefix: string;
     isSelectingRandom: boolean;
     setMaxCount: (count: number) => void;
+    setSelectedPhotos: (photos: MemoryFeedItem[]) => void;
     togglePhotoSelection: (photo: MemoryFeedItem) => Promise<void>;
     clearSelection: () => void;
     fillRemaining: () => Promise<void>;
-    replacePhoto: (targetId: string) => Promise<void>;
+    replacePhoto: (targetId: string) => Promise<{ oldPhoto: MemoryFeedItem; newPhoto: MemoryFeedItem } | null>;
     selectMonthTab: (ym: string) => void;
     selectDateRange: (params: { fromYearMonth: string; toYearMonth: string }) => void;
 }
@@ -84,15 +85,10 @@ export function usePhotobookSelection({
                 if (yearMonths.length > 0) {
                     setMonthTabs(yearMonths);
                     if (!initialPeriod) {
-                        const defaultYm = yearMonths[0];
                         setPeriod({
                             type: 'MONTH_TAB',
-                            yearMonth: defaultYm,
+                            yearMonth: yearMonths[0],
                         });
-                        const { periodFrom, periodTo } = periodRangeToDates({ fromYearMonth: defaultYm, toYearMonth: defaultYm });
-                        clearAlbumContentsAndChangePeriod({ albumId, periodFrom, periodTo }).catch(err =>
-                            console.error('アルバム期間の初期更新に失敗しました:', err)
-                        );
                     }
                 }
             } catch (err) {
@@ -141,7 +137,8 @@ export function usePhotobookSelection({
     }, []);
 
     /**
-     * 自動補完: サーバー側で albumId の既存写真を除外した上でランダムに (maxCount - 現在の選択数) 件選出
+     * 自動補完: サーバー側で albumId の既存写真を除外した上でランダムに (maxCount - 現在の選択数) 件選出。
+     * レスポンスはアルバムの最新状態（capturedAt ASC 順）なのでそのまま selectedPhotos に置き換える。
      */
     const fillRemaining = useCallback(async () => {
         const remaining = maxCount - selectedPhotos.length;
@@ -149,14 +146,11 @@ export function usePhotobookSelection({
 
         setIsSelectingRandom(true);
         try {
-            const newlySelected = await fetchAlbumRandomPhotos({
+            const albumCurrentState = await fetchAlbumRandomPhotos({
                 albumId,
                 count: remaining,
             });
-
-            if (newlySelected.length > 0) {
-                setSelectedPhotos([...selectedPhotos, ...newlySelected]);
-            }
+            setSelectedPhotos(albumCurrentState.photos);
         } catch (err) {
             console.error('ランダム選出に失敗しました:', err);
         } finally {
@@ -165,25 +159,21 @@ export function usePhotobookSelection({
     }, [albumId, maxCount, selectedPhotos]);
 
     /**
-     * 差し替え: サーバー側で albumId の既存写真を除外した上で同期間の別の写真を1件選出
+     * 差し替え: 旧写真を削除し、サーバー側でランダムに1件選出・保存。
+     * { oldPhoto, newPhoto } を返して呼び出し元がダイアログを制御する。
+     * 呼び出し元がダイアログで OK を押した時点で selectedPhotos を capturedAt ASC でソートして反映する。
      */
-    const replacePhoto = useCallback(async (targetId: string) => {
+    const replacePhoto = useCallback(async (targetId: string): Promise<{ oldPhoto: MemoryFeedItem; newPhoto: MemoryFeedItem } | null> => {
+        const oldPhoto = selectedPhotos.find(p => p.id === targetId);
+        if (!oldPhoto) return null;
+
         setIsSelectingRandom(true);
         try {
-            const candidates = await fetchAlbumRandomPhotos({
-                albumId,
-                count: 1,
-            });
-
-            const newPhoto = candidates.length > 0 ? candidates[0] : null;
-            if (newPhoto) {
-                setSelectedPhotos(selectedPhotos.map(p => (p.id === targetId ? newPhoto : p)));
-            } else {
-                // 候補がないので削除
-                setSelectedPhotos(selectedPhotos.filter(p => p.id !== targetId));
-            }
+            const newPhoto = await replaceAlbumContent({ albumId, photoId: targetId });
+            return { oldPhoto, newPhoto };
         } catch (err) {
             console.error('写真差し替えに失敗しました:', err);
+            return null;
         } finally {
             setIsSelectingRandom(false);
         }
@@ -236,6 +226,7 @@ export function usePhotobookSelection({
         fileNamePrefix,
         isSelectingRandom,
         setMaxCount,
+        setSelectedPhotos,
         togglePhotoSelection,
         clearSelection,
         fillRemaining,
