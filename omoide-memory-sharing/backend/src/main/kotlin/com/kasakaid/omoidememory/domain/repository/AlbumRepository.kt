@@ -10,14 +10,4 @@ interface AlbumRepository {
     suspend fun save(album: Album): Album
 
     suspend fun update(album: Album)
-
-    suspend fun addContent(
-        albumId: UUID,
-        contentId: UUID,
-        content: AlbumContent,
-    )
-
-    suspend fun deleteContents(albumId: UUID)
-
-    suspend fun confirm(albumId: UUID)
 }

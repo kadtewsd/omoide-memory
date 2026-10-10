@@ -76,15 +76,13 @@ class AlbumController(
         )
     }
 
-    @PutMapping("/{albumId}/contents/{contentId}")
+    @PutMapping("/{albumId}/contents")
     suspend fun addContent(
         @PathVariable albumId: UUID,
-        @PathVariable contentId: UUID,
         @RequestBody resource: AddContentResource,
     ) {
         albumCommandService.addContent(
             albumId = albumId,
-            contentId = contentId,
             photoId = resource.photoId,
             capturedAt = resource.capturedAt,
         )
