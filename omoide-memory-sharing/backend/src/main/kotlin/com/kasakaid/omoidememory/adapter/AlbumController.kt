@@ -95,16 +95,25 @@ class AlbumController(
         albumCommandService.confirm(albumId = albumId)
     }
 
-    @GetMapping("/{albumId}/photos/random")
+    @PostMapping("/{albumId}/photos/random")
     suspend fun getRandomPhotos(
         @PathVariable albumId: UUID,
         @RequestParam(required = false)
         count: Int?,
     ): List<MemoryFeedDto> =
-        albumQueryService.getRandomPhotosForAlbum(
-            albumId = albumId,
-            count = count ?: 1,
-        )
+        albumQueryService
+            .getRandomPhotosForAlbum(
+                albumId = albumId,
+                count = count ?: 1,
+            ).also {
+                it.forEach {
+                    albumCommandService.addContent(
+                        albumId = albumId,
+                        photoId = it.id!!,
+                        capturedAt = it.captureTime,
+                    )
+                }
+            }
 
     @PostMapping("/{albumId}/download-jobs")
     fun startAlbumDownloadJob(

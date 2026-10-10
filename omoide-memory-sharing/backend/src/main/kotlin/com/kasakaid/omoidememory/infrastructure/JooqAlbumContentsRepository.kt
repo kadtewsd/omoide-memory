@@ -65,8 +65,8 @@ class JooqAlbumContentsRepository(
                     .invoke()
                     .insertInto(ALBUM_CONTENT)
                     .columns(columns)
-                    .values(
-                        insertMap.map { DSL.row(it) },
+                    .valuesOfRows(
+                        insertMap.map { DSL.row(it.values) },
                     ),
             ).asFlow()
             .collect {}

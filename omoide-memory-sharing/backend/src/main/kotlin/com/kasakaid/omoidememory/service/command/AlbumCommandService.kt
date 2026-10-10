@@ -44,7 +44,6 @@ class AlbumCommandService(
         photoId: UUID,
         capturedAt: OffsetDateTime?,
     ) {
-        albumRepository.get(albumId = albumId) ?: throw NotFoundException("Album not found with id: $albumId")
         albumContentsRepository.add(
             AlbumContent(
                 albumId = albumId,
