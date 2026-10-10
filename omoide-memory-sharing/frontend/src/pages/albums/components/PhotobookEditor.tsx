@@ -47,6 +47,7 @@ export function PhotobookEditor({
         fileNamePrefix,
         isSelectingRandom,
         setMaxCount,
+        setSelectedPhotos,
         togglePhotoSelection,
         fillRemaining,
         replacePhoto,
@@ -111,6 +112,31 @@ export function PhotobookEditor({
         }
     };
 
+    const handleReplacePhoto = async (targetId: string) => {
+        const result = await replacePhoto(targetId);
+        if (result) {
+            setState({ value: 'replace-confirming', oldPhoto: result.oldPhoto, newPhoto: result.newPhoto });
+        }
+    };
+
+    const handleConfirmReplace = () => {
+        if (state.value !== 'replace-confirming') return;
+        const newPhoto = state.newPhoto;
+        const nextPhotos = selectedPhotos
+            .map(p => (p.id === state.oldPhoto.id ? newPhoto : p))
+            .sort((a, b) => {
+                const aTime = a.captureTime ?? a.commentedAt;
+                const bTime = b.captureTime ?? b.commentedAt;
+                return aTime < bTime ? -1 : aTime > bTime ? 1 : 0;
+            });
+        setSelectedPhotos(nextPhotos);
+        setState({ value: 'previewing' });
+    };
+
+    const handleCancelReplace = () => {
+        setState({ value: 'previewing' });
+    };
+
     return (
         <PhotobookPreviewView
             selectedPhotos={selectedPhotos}
@@ -120,7 +146,9 @@ export function PhotobookEditor({
             state={state}
             isSelectingRandom={isSelectingRandom}
             onDeletePhoto={handleDeletePhoto}
-            onReplacePhoto={replacePhoto}
+            onReplacePhoto={handleReplacePhoto}
+            onConfirmReplace={handleConfirmReplace}
+            onCancelReplace={handleCancelReplace}
             onBackToSelect={() => setState({ value: 'selecting' })}
             onCreateAlbum={handleConfirmAlbum}
         />

@@ -14,6 +14,8 @@ export interface PhotobookPreviewViewProps {
     isSelectingRandom: boolean;
     onDeletePhoto: (targetId: string) => void;
     onReplacePhoto: (targetId: string) => Promise<void>;
+    onConfirmReplace: () => void;
+    onCancelReplace: () => void;
     onBackToSelect: () => void;
     onCreateAlbum: () => Promise<void>;
 }
@@ -31,13 +33,17 @@ export function PhotobookPreviewView({
     isSelectingRandom,
     onDeletePhoto,
     onReplacePhoto,
+    onConfirmReplace,
+    onCancelReplace,
     onBackToSelect,
     onCreateAlbum,
 }: PhotobookPreviewViewProps) {
     const [actionTargetId, setActionTargetId] = useState<string | null>(null);
 
+    const isInteractable = state.value !== 'confirming' && state.value !== 'replace-confirming';
+
     const handlePhotoTap = (photoId: string) => {
-        if (state.value === 'confirming') return;
+        if (!isInteractable) return;
         setActionTargetId(photoId);
     };
 
@@ -53,8 +59,9 @@ export function PhotobookPreviewView({
 
     const handleReplace = async () => {
         if (actionTargetId === null) return;
-        await onReplacePhoto(actionTargetId);
+        const targetId = actionTargetId;
         setActionTargetId(null);
+        await onReplacePhoto(targetId);
     };
 
     return (
@@ -65,7 +72,7 @@ export function PhotobookPreviewView({
                         <button
                             type="button"
                             onClick={onBackToSelect}
-                            disabled={state.value === 'confirming'}
+                            disabled={!isInteractable}
                             className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-600 hover:text-gray-900 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-colors cursor-pointer"
                             aria-label="選択に戻る"
                         >
@@ -89,7 +96,7 @@ export function PhotobookPreviewView({
                     ) : (
                         <PrimaryButton
                             onClick={handleConfirm}
-                            disabled={selectedPhotos.length === 0}
+                            disabled={selectedPhotos.length === 0 || !isInteractable}
                         >
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -110,7 +117,7 @@ export function PhotobookPreviewView({
                         {selectedPhotos.map(photo => (
                             <div
                                 key={photo.id}
-                                className="relative rounded-2xl overflow-hidden cursor-pointer bg-gray-100 aspect-square active:scale-95 transition-transform"
+                                className={`relative rounded-2xl overflow-hidden cursor-pointer bg-gray-100 aspect-square active:scale-95 transition-transform ${photo.isRandom ? 'ring-2 ring-emerald-400' : ''}`}
                                 onClick={() => photo.id !== null && handlePhotoTap(photo.id)}
                                 role="button"
                                 aria-label="写真の操作"
@@ -124,6 +131,13 @@ export function PhotobookPreviewView({
                                     />
                                 ) : (
                                     <ContentNotFound />
+                                )}
+                                {photo.isRandom && (
+                                    <div className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-0.5 bg-emerald-500/80 backdrop-blur-sm py-0.5">
+                                        {/* ✨ U+2728 SPARKLES */}
+                                        <span className="text-[10px] leading-none">✨</span>
+                                        <span className="text-[9px] font-bold text-white leading-none tracking-tight">Random Pick!</span>
+                                    </div>
                                 )}
                             </div>
                         ))}
@@ -173,6 +187,58 @@ export function PhotobookPreviewView({
                             onClick={() => setActionTargetId(null)}
                             className="w-full py-3 min-h-[48px]"
                         />
+                    </div>
+                </div>
+            )}
+
+            {/* 差し替え確認ダイアログ */}
+            {state.value === 'replace-confirming' && (
+                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-5 space-y-4">
+                        <h3 className="text-base font-bold text-gray-900 text-center">写真を差し替えますか？</h3>
+                        <div className="flex items-center gap-3">
+                            <div className="flex-1 space-y-1">
+                                <p className="text-[10px] font-semibold text-gray-500 text-center">変更前</p>
+                                <div className="aspect-square rounded-xl overflow-hidden bg-gray-100">
+                                    {state.oldPhoto.id && (
+                                        <img
+                                            src={getImageUrl(state.oldPhoto.id)}
+                                            alt="変更前の写真"
+                                            className="w-full h-full object-cover"
+                                        />
+                                    )}
+                                </div>
+                            </div>
+                            <span className="text-gray-400 text-xl font-bold flex-shrink-0">→</span>
+                            <div className="flex-1 space-y-1">
+                                <p className="text-[10px] font-semibold text-emerald-600 text-center">変更後</p>
+                                <div className="aspect-square rounded-xl overflow-hidden bg-gray-100 ring-2 ring-emerald-400">
+                                    {state.newPhoto.id && (
+                                        <img
+                                            src={getImageUrl(state.newPhoto.id)}
+                                            alt="変更後の写真"
+                                            className="w-full h-full object-cover"
+                                        />
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                        <div className="flex gap-2">
+                            <button
+                                type="button"
+                                onClick={onCancelReplace}
+                                className="flex-1 px-4 py-2.5 text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors min-h-[44px]"
+                            >
+                                戻す
+                            </button>
+                            <button
+                                type="button"
+                                onClick={onConfirmReplace}
+                                className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-emerald-500 hover:bg-emerald-600 rounded-xl transition-colors min-h-[44px]"
+                            >
+                                OK
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

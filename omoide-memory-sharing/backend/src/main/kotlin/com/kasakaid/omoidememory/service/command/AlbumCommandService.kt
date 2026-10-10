@@ -57,4 +57,11 @@ class AlbumCommandService(
         val album = albumRepository.get(albumId = albumId) ?: throw NotFoundException("Album not found with id: $albumId")
         albumRepository.update(album.confirm())
     }
+
+    suspend fun removeContent(
+        albumId: UUID,
+        photoId: UUID,
+    ) {
+        albumContentsRepository.deleteByPhotoId(albumId = albumId, photoId = photoId)
+    }
 }

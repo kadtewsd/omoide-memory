@@ -152,4 +152,49 @@ class AlbumQueryService(
             .shuffled()
             .take(count)
     }
+
+    suspend fun getAlbumCurrentState(
+        albumId: UUID,
+        randomlyAddedPhotoIds: Set<UUID>,
+    ): AlbumCurrentStateDto {
+        val photoIds =
+            dslContext
+                .invoke()
+                .select(ALBUM_CONTENT.PHOTO_ID)
+                .from(ALBUM_CONTENT)
+                .where(ALBUM_CONTENT.ALBUM_ID.eq(albumId))
+                .orderBy(ALBUM_CONTENT.CAPTURED_AT.asc().nullsLast(), ALBUM_CONTENT.ID.asc())
+                .asFlow()
+                .toList()
+                .map { it.value1()!! }
+
+        val photos =
+            if (photoIds.isNotEmpty()) {
+                memoryContentsQueryService.fetchPhoto(SYNCED_OMOIDE_PHOTO.ID.`in`(photoIds))
+            } else {
+                emptyList()
+            }
+
+        val feedDtos =
+            MemoryFeedDtoConverter.convert(
+                Triple(photos, emptyList<SyncedOmoideVideo>(), emptyList<CommentOmoide>()),
+            )
+
+        val photoIdOrder = photoIds.withIndex().associate { (index, id) -> id to index }
+        val albumContents =
+            feedDtos
+                .sortedWith(compareBy(nullsLast()) { photoIdOrder[it.id] })
+                .map { dto ->
+                    AlbumContentDto(
+                        id = dto.id,
+                        type = dto.type,
+                        commentedAt = dto.commentedAt,
+                        captureTime = dto.captureTime,
+                        commentCount = dto.commentCount,
+                        isRandom = dto.id != null && randomlyAddedPhotoIds.contains(dto.id),
+                    )
+                }
+
+        return AlbumCurrentStateDto(albumId = albumId, photos = albumContents)
+    }
 }

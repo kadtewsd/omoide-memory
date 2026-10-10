@@ -7,6 +7,7 @@ export interface MemoryFeedItem {
     commentedAt: string; // ISO 8601 string from OffsetDateTime
     captureTime?: string | null;
     commentCount?: number;
+    isRandom?: boolean;
 }
 
 export interface Comment {
@@ -80,6 +81,12 @@ export interface FetchRandomPhotoParams {
 export interface FetchAlbumRandomPhotosParams {
     albumId: string;
     count?: number;
+}
+
+/** POST /albums/{albumId}/photos/random のレスポンス */
+export interface AlbumCurrentState {
+    albumId: string;
+    photos: MemoryFeedItem[];
 }
 
 export interface ClearAlbumContentsParams {
