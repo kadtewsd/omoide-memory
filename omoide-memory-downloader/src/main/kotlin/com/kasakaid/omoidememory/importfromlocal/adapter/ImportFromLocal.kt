@@ -2,6 +2,7 @@ package com.kasakaid.omoidememory.importfromlocal.adapter
 
 import com.kasakaid.omoidememory.APPLICATION_RUNNER_KEY
 import com.kasakaid.omoidememory.downloader.adapter.PostProcess
+import com.kasakaid.omoidememory.downloader.adapter.google.PushNotification
 import com.kasakaid.omoidememory.downloader.domain.DriveService
 import com.kasakaid.omoidememory.importfromlocal.service.ImportLocalFileService
 import com.kasakaid.omoidememory.importfromlocal.service.ImportMode
@@ -93,6 +94,21 @@ class ImportFromLocal(
                         else -> PostProcess.onUnmanaged(e)
                     }
                 }
+            }
+            val projectId = System.getenv("FCM_PROJECT_ID")
+            val deviceToken = System.getenv("DEVICE_TOKEN")
+            if (!projectId.isNullOrBlank() && !deviceToken.isNullOrBlank()) {
+                val saPath = System.getenv("GOOGLE_SA_CREDENTIAL_PATH")
+                val iconPathStr = System.getenv("DOWNLOAD_COMPLETE_PUSH_ICON")
+                PostProcess.sendNotification(
+                    pushNotification =
+                        PushNotification(
+                            iconPath = Path.of(iconPathStr),
+                            saPath = saPath,
+                            deviceToken = deviceToken,
+                        ),
+                    projectId = projectId,
+                )
             }
             logger.info { "ローカルファイルからのインポート処理を終了しました" }
         }
