@@ -85,15 +85,10 @@ export function usePhotobookSelection({
                 if (yearMonths.length > 0) {
                     setMonthTabs(yearMonths);
                     if (!initialPeriod) {
-                        const defaultYm = yearMonths[0];
                         setPeriod({
                             type: 'MONTH_TAB',
-                            yearMonth: defaultYm,
+                            yearMonth: yearMonths[0],
                         });
-                        const { periodFrom, periodTo } = periodRangeToDates({ fromYearMonth: defaultYm, toYearMonth: defaultYm });
-                        clearAlbumContentsAndChangePeriod({ albumId, periodFrom, periodTo }).catch(err =>
-                            console.error('アルバム期間の初期更新に失敗しました:', err)
-                        );
                     }
                 }
             } catch (err) {
