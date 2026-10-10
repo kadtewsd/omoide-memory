@@ -2,6 +2,7 @@ package com.kasakaid.omoidememory.service.command
 
 import com.kasakaid.omoidememory.domain.model.Album
 import com.kasakaid.omoidememory.domain.model.AlbumContent
+import com.kasakaid.omoidememory.domain.repository.AlbumContentsRepository
 import com.kasakaid.omoidememory.domain.repository.AlbumRepository
 import com.kasakaid.omoidememory.shared.adapter.NotFoundException
 import org.springframework.stereotype.Service
@@ -14,6 +15,7 @@ import java.util.UUID
 @Transactional
 class AlbumCommandService(
     private val albumRepository: AlbumRepository,
+    private val albumContentsRepository: AlbumContentsRepository,
 ) {
     suspend fun createAlbum(
         albumName: String,
@@ -33,26 +35,26 @@ class AlbumCommandService(
         periodTo: LocalDate,
     ) {
         val album = albumRepository.get(albumId = albumId) ?: throw NotFoundException("Album not found with id: $albumId")
-        albumRepository.deleteContents(albumId = albumId)
+        albumContentsRepository.deleteBy(albumId = albumId)
         albumRepository.update(album = album.clearContentsAndChangePeriod(periodFrom = periodFrom, periodTo = periodTo))
     }
 
     suspend fun addContent(
         albumId: UUID,
-        contentId: UUID,
         photoId: UUID,
         capturedAt: OffsetDateTime?,
     ) {
-        albumRepository.get(albumId = albumId) ?: throw NotFoundException("Album not found with id: $albumId")
-        albumRepository.addContent(
-            albumId = albumId,
-            contentId = contentId,
-            content = AlbumContent(photoId = photoId, capturedAt = capturedAt),
+        albumContentsRepository.add(
+            AlbumContent(
+                albumId = albumId,
+                photoId = photoId,
+                capturedAt = capturedAt,
+            ),
         )
     }
 
     suspend fun confirm(albumId: UUID) {
-        albumRepository.get(albumId = albumId) ?: throw NotFoundException("Album not found with id: $albumId")
-        albumRepository.confirm(albumId = albumId)
+        val album = albumRepository.get(albumId = albumId) ?: throw NotFoundException("Album not found with id: $albumId")
+        albumRepository.update(album.confirm())
     }
 }

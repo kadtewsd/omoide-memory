@@ -122,7 +122,6 @@ export function usePhotobookSelection({
             try {
                 await addContent({
                     albumId,
-                    contentId: crypto.randomUUID(),
                     resource: { photoId, capturedAt: photo.captureTime ?? null },
                 });
             } catch (err) {
@@ -156,17 +155,7 @@ export function usePhotobookSelection({
             });
 
             if (newlySelected.length > 0) {
-                const nextPhotos = [...selectedPhotos, ...newlySelected];
-                setSelectedPhotos(nextPhotos);
-                await Promise.all(
-                    newlySelected.map(photo =>
-                        addContent({
-                            albumId,
-                            contentId: crypto.randomUUID(),
-                            resource: { photoId: photo.id!, capturedAt: photo.captureTime ?? null },
-                        })
-                    )
-                );
+                setSelectedPhotos([...selectedPhotos, ...newlySelected]);
             }
         } catch (err) {
             console.error('ランダム選出に失敗しました:', err);
@@ -189,11 +178,6 @@ export function usePhotobookSelection({
             const newPhoto = candidates.length > 0 ? candidates[0] : null;
             if (newPhoto) {
                 setSelectedPhotos(selectedPhotos.map(p => (p.id === targetId ? newPhoto : p)));
-                await addContent({
-                    albumId,
-                    contentId: crypto.randomUUID(),
-                    resource: { photoId: newPhoto.id!, capturedAt: newPhoto.captureTime ?? null },
-                });
             } else {
                 // 候補がないので削除
                 setSelectedPhotos(selectedPhotos.filter(p => p.id !== targetId));

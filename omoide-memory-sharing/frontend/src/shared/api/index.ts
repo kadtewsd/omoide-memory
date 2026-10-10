@@ -119,14 +119,12 @@ export const clearAlbumContentsAndChangePeriod = async ({
 
 export const addContent = async ({
     albumId,
-    contentId,
     resource,
 }: {
     albumId: string;
-    contentId: string;
     resource: AddContentResource;
 }): Promise<void> => {
-    const url = new URL(`/albums/${albumId}/contents/${contentId}`, API_BASE_URL);
+    const url = new URL(`/albums/${albumId}/contents`, API_BASE_URL);
     const response = await fetch(url.toString(), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -148,7 +146,7 @@ export const fetchAlbumRandomPhotos = async ({
     const url = new URL(`/albums/${albumId}/photos/random`, API_BASE_URL);
     if (count !== undefined) url.searchParams.append('count', String(count));
 
-    const response = await fetch(url.toString());
+    const response = await fetch(url.toString(), { method: 'POST' });
     if (!response.ok) throw new Error('Failed to fetch album random photos');
     return response.json();
 };
