@@ -13,8 +13,9 @@ interface AlbumContentsRepository {
 
     suspend fun deleteBy(albumId: AlbumId)
 
-    suspend fun deleteByPhotoId(
-        albumId: AlbumId,
-        photoId: UUID,
-    )
+    suspend fun deleteBy(id: AlbumContentId)
 }
+
+class AlbumContentId(
+    val value: UUID,
+)

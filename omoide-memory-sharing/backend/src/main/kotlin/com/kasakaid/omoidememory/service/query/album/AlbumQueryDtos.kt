@@ -1,6 +1,5 @@
 package com.kasakaid.omoidememory.service.query.album
 
-import com.kasakaid.omoidememory.service.query.shared.memoryfeed.MemoryFeedDto
 import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.util.UUID
@@ -13,6 +12,16 @@ class AlbumSummaryDto(
     val coverPhotoId: UUID?,
 )
 
+/** album_content.id（contentId）を含むアルバム詳細写真DTO。差し替えAPIの指定に使用する。 */
+class AlbumDetailPhotoDto(
+    val contentId: UUID,
+    val id: UUID?,
+    val type: String?,
+    val commentedAt: OffsetDateTime,
+    val captureTime: OffsetDateTime?,
+    val commentCount: Int,
+)
+
 class AlbumDetailDto(
     val albumId: UUID,
     val albumName: String,
@@ -20,10 +29,11 @@ class AlbumDetailDto(
     val createdAt: OffsetDateTime,
     val periodFrom: LocalDate,
     val periodTo: LocalDate,
-    val photos: List<MemoryFeedDto>,
+    val photos: List<AlbumDetailPhotoDto>,
 )
 
 class AlbumContentDto(
+    val contentId: UUID,
     val id: UUID?,
     val type: String?,
     val commentedAt: OffsetDateTime,
