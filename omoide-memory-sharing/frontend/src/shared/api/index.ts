@@ -154,13 +154,13 @@ export const fetchAlbumRandomPhotos = async ({
 
 export const replaceAlbumContent = async ({
     albumId,
-    photoId,
+    contentId,
 }: {
     albumId: string;
-    photoId: string;
+    contentId: string;
 }): Promise<MemoryFeedItem> => {
-    const url = new URL(`/albums/${albumId}/contents/${photoId}/replace`, API_BASE_URL);
-    const response = await fetch(url.toString(), { method: 'POST' });
+    const replaceAlbumContentUrl = new URL(`/albums/${albumId}/contents/${contentId}/replace`, API_BASE_URL);
+    const response = await fetch(replaceAlbumContentUrl.toString(), { method: 'POST' });
     if (!response.ok) throw new Error('Failed to replace album content');
     return response.json();
 };

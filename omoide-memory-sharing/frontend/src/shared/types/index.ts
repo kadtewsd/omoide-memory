@@ -8,6 +8,8 @@ export interface MemoryFeedItem {
     captureTime?: string | null;
     commentCount?: number;
     isRandom?: boolean;
+    /** album_content.id。アルバムコンテキストでのみ存在する。差し替えAPI（replaceAlbumContent）の指定に使用する。 */
+    contentId?: string;
 }
 
 export interface Comment {
@@ -28,6 +30,11 @@ export interface AlbumSummary {
     coverPhotoId: string | null;
 }
 
+/** GET /albums/{albumId} のレスポンス内写真アイテム。contentId（album_content.id）を必ず保持する。 */
+export interface AlbumDetailPhotoItem extends MemoryFeedItem {
+    contentId: string;
+}
+
 export interface AlbumDetail {
     albumId: string;
     albumName: string;
@@ -35,8 +42,9 @@ export interface AlbumDetail {
     createdAt: string;
     periodFrom: string;
     periodTo: string;
-    photos: MemoryFeedItem[];
+    photos: AlbumDetailPhotoItem[];
 }
+
 
 /** `fetchFeed` のパラメータ */
 export interface FetchFeedParams {
@@ -83,10 +91,10 @@ export interface FetchAlbumRandomPhotosParams {
     count?: number;
 }
 
-/** POST /albums/{albumId}/photos/random のレスポンス */
+/** POST /albums/{albumId}/photos/random のレスポンス。各写真は contentId（album_content.id）を保持する。 */
 export interface AlbumCurrentState {
     albumId: string;
-    photos: MemoryFeedItem[];
+    photos: AlbumDetailPhotoItem[];
 }
 
 export interface ClearAlbumContentsParams {

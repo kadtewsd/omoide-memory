@@ -159,17 +159,17 @@ export function usePhotobookSelection({
     }, [albumId, maxCount, selectedPhotos]);
 
     /**
-     * 差し替え: 旧写真を削除し、サーバー側でランダムに1件選出・保存。
+     * 差し替え: album_content.id（contentId）で旧レコードを削除し、サーバー側でランダムに1件選出・保存。
      * { oldPhoto, newPhoto } を返して呼び出し元がダイアログを制御する。
      * 呼び出し元がダイアログで OK を押した時点で selectedPhotos を capturedAt ASC でソートして反映する。
      */
-    const replacePhoto = useCallback(async (targetId: string): Promise<{ oldPhoto: MemoryFeedItem; newPhoto: MemoryFeedItem } | null> => {
-        const oldPhoto = selectedPhotos.find(p => p.id === targetId);
-        if (!oldPhoto) return null;
+    const replacePhoto = useCallback(async (targetPhotoId: string): Promise<{ oldPhoto: MemoryFeedItem; newPhoto: MemoryFeedItem } | null> => {
+        const oldPhoto = selectedPhotos.find(p => p.id === targetPhotoId);
+        if (!oldPhoto || !oldPhoto.contentId) return null;
 
         setIsSelectingRandom(true);
         try {
-            const newPhoto = await replaceAlbumContent({ albumId, photoId: targetId });
+            const newPhoto = await replaceAlbumContent({ albumId, contentId: oldPhoto.contentId });
             return { oldPhoto, newPhoto };
         } catch (err) {
             console.error('写真差し替えに失敗しました:', err);

@@ -2,6 +2,7 @@ package com.kasakaid.omoidememory.infrastructure
 
 import com.kasakaid.omoidememory.domain.model.AlbumContent
 import com.kasakaid.omoidememory.domain.model.AlbumId
+import com.kasakaid.omoidememory.domain.repository.AlbumContentId
 import com.kasakaid.omoidememory.domain.repository.AlbumContentsRepository
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.ALBUM_CONTENT
 import com.kasakaid.omoidememory.r2dbc.DSLGenerator
@@ -28,7 +29,7 @@ class JooqAlbumContentsRepository(
                 .asFlow()
                 .toList()
                 .map {
-                    AlbumContent(albumId = it.albumId, photoId = it.photoId, capturedAt = it.capturedAt)
+                    AlbumContent(id = it.id, albumId = it.albumId, photoId = it.photoId, capturedAt = it.capturedAt)
                 }
         }
 
@@ -48,7 +49,7 @@ class JooqAlbumContentsRepository(
             ALBUM_CONTENT.run {
                 albumContent.map {
                     mapOf(
-                        ID to UUID.randomUUID(),
+                        ID to it.id,
                         ALBUM_ID to it.albumId,
                         PHOTO_ID to it.photoId,
                         CAPTURED_AT to it.capturedAt,
@@ -82,16 +83,13 @@ class JooqAlbumContentsRepository(
             .collect {}
     }
 
-    override suspend fun deleteByPhotoId(
-        albumId: AlbumId,
-        photoId: UUID,
-    ) {
+    override suspend fun deleteBy(id: AlbumContentId) {
         Flux
             .from(
                 dslContext
                     .invoke()
                     .deleteFrom(ALBUM_CONTENT)
-                    .where(ALBUM_CONTENT.ALBUM_ID.eq(albumId).and(ALBUM_CONTENT.PHOTO_ID.eq(photoId))),
+                    .where(ALBUM_CONTENT.ID.eq(id.value)),
             ).asFlow()
             .collect {}
     }

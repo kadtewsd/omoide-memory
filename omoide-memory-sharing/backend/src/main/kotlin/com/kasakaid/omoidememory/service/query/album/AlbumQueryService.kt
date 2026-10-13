@@ -71,16 +71,18 @@ class AlbumQueryService(
                 .toList()
                 .firstOrNull() ?: throw NotFoundException("Album not found with id: $albumId")
 
-        val photoIds =
+        val albumContentRows =
             dslContext
                 .invoke()
-                .select(ALBUM_CONTENT.PHOTO_ID)
+                .select(ALBUM_CONTENT.ID, ALBUM_CONTENT.PHOTO_ID)
                 .from(ALBUM_CONTENT)
                 .where(ALBUM_CONTENT.ALBUM_ID.eq(albumId))
                 .orderBy(ALBUM_CONTENT.CAPTURED_AT.asc().nullsLast(), ALBUM_CONTENT.ID.asc())
                 .asFlow()
                 .toList()
-                .map { it.value1()!! }
+
+        val contentIdByPhotoId = albumContentRows.associate { it.value2()!! to it.value1()!! }
+        val photoIds = albumContentRows.map { it.value2()!! }
 
         val photos =
             if (photoIds.isNotEmpty()) {
@@ -91,6 +93,22 @@ class AlbumQueryService(
 
         val feedDtos = MemoryFeedDtoConverter.convert(Triple(photos, emptyList<SyncedOmoideVideo>(), emptyList<CommentOmoide>()))
 
+        val photoIdOrder = photoIds.withIndex().associate { (index, id) -> id to index }
+        val albumDetailPhotos =
+            feedDtos
+                .sortedWith(compareBy(nullsLast()) { photoIdOrder[it.id] })
+                .mapNotNull { dto ->
+                    val contentId = dto.id?.let { contentIdByPhotoId[it] } ?: return@mapNotNull null
+                    AlbumDetailPhotoDto(
+                        contentId = contentId,
+                        id = dto.id,
+                        type = dto.type,
+                        commentedAt = dto.commentedAt,
+                        captureTime = dto.captureTime,
+                        commentCount = dto.commentCount,
+                    )
+                }
+
         return AlbumDetailDto(
             albumId = albumId,
             albumName = albumRecord.name,
@@ -98,7 +116,7 @@ class AlbumQueryService(
             createdAt = albumRecord.createdAt!!,
             periodFrom = albumRecord.periodFrom!!,
             periodTo = albumRecord.periodTo!!,
-            photos = feedDtos,
+            photos = albumDetailPhotos,
         )
     }
 
@@ -157,16 +175,18 @@ class AlbumQueryService(
         albumId: UUID,
         randomlyAddedPhotoIds: Set<UUID>,
     ): AlbumCurrentStateDto {
-        val photoIds =
+        val albumContentRows =
             dslContext
                 .invoke()
-                .select(ALBUM_CONTENT.PHOTO_ID)
+                .select(ALBUM_CONTENT.ID, ALBUM_CONTENT.PHOTO_ID)
                 .from(ALBUM_CONTENT)
                 .where(ALBUM_CONTENT.ALBUM_ID.eq(albumId))
                 .orderBy(ALBUM_CONTENT.CAPTURED_AT.asc().nullsLast(), ALBUM_CONTENT.ID.asc())
                 .asFlow()
                 .toList()
-                .map { it.value1()!! }
+
+        val contentIdByPhotoId = albumContentRows.associate { it.value2()!! to it.value1()!! }
+        val photoIds = albumContentRows.map { it.value2()!! }
 
         val photos =
             if (photoIds.isNotEmpty()) {
@@ -184,14 +204,16 @@ class AlbumQueryService(
         val albumContents =
             feedDtos
                 .sortedWith(compareBy(nullsLast()) { photoIdOrder[it.id] })
-                .map { dto ->
+                .mapNotNull { dto ->
+                    val contentId = dto.id?.let { contentIdByPhotoId[it] } ?: return@mapNotNull null
                     AlbumContentDto(
+                        contentId = contentId,
                         id = dto.id,
                         type = dto.type,
                         commentedAt = dto.commentedAt,
                         captureTime = dto.captureTime,
                         commentCount = dto.commentCount,
-                        isRandom = dto.id != null && randomlyAddedPhotoIds.contains(dto.id),
+                        isRandom = randomlyAddedPhotoIds.contains(dto.id),
                     )
                 }
 

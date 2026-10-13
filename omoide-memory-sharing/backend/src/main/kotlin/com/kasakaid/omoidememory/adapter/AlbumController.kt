@@ -1,13 +1,14 @@
 package com.kasakaid.omoidememory.adapter
 
+import com.kasakaid.omoidememory.domain.repository.AlbumContentId
 import com.kasakaid.omoidememory.service.command.AlbumCommandService
+import com.kasakaid.omoidememory.service.command.AlbumContentReplaceService
 import com.kasakaid.omoidememory.service.query.album.AlbumCurrentStateDto
 import com.kasakaid.omoidememory.service.query.album.AlbumDetailDto
 import com.kasakaid.omoidememory.service.query.album.AlbumDownloadJobManager
 import com.kasakaid.omoidememory.service.query.album.AlbumQueryService
 import com.kasakaid.omoidememory.service.query.album.AlbumSummaryDto
 import com.kasakaid.omoidememory.service.query.shared.memoryfeed.MemoryFeedDto
-import com.kasakaid.omoidememory.shared.adapter.NotFoundException
 import com.kasakaid.omoidememory.shared.spring.familyId
 import org.springframework.core.env.Environment
 import org.springframework.core.io.buffer.DataBuffer
@@ -40,6 +41,7 @@ import java.util.UUID
 @CrossOrigin
 class AlbumController(
     private val albumCommandService: AlbumCommandService,
+    private val albumContentReplaceService: AlbumContentReplaceService,
     private val albumDownloadJobManager: AlbumDownloadJobManager,
     private val albumQueryService: AlbumQueryService,
     private val environment: Environment,
@@ -122,21 +124,15 @@ class AlbumController(
         )
     }
 
-    @PostMapping("/{albumId}/contents/{photoId}/replace")
+    @PostMapping("/{albumId}/contents/{contentId}/replace")
     suspend fun replaceContent(
         @PathVariable albumId: UUID,
-        @PathVariable photoId: UUID,
-    ): MemoryFeedDto {
-        albumCommandService.removeContent(albumId = albumId, photoId = photoId)
-        val candidates = albumQueryService.getRandomPhotosForAlbum(albumId = albumId, count = 1)
-        val newPhoto = candidates.firstOrNull() ?: throw NotFoundException("No replacement photo found for album: $albumId")
-        albumCommandService.addContent(
+        @PathVariable contentId: UUID,
+    ): MemoryFeedDto =
+        albumContentReplaceService.replaceContent(
             albumId = albumId,
-            photoId = newPhoto.id!!,
-            capturedAt = newPhoto.captureTime,
+            albumContentId = AlbumContentId(contentId),
         )
-        return newPhoto
-    }
 
     @PostMapping("/{albumId}/download-jobs")
     fun startAlbumDownloadJob(

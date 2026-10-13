@@ -43,25 +43,18 @@ class AlbumCommandService(
         albumId: UUID,
         photoId: UUID,
         capturedAt: OffsetDateTime?,
-    ) {
+    ): AlbumContent =
         albumContentsRepository.add(
-            AlbumContent(
-                albumId = albumId,
-                photoId = photoId,
-                capturedAt = capturedAt,
-            ),
+            content =
+                AlbumContent(
+                    albumId = albumId,
+                    photoId = photoId,
+                    capturedAt = capturedAt,
+                ),
         )
-    }
 
     suspend fun confirm(albumId: UUID) {
         val album = albumRepository.get(albumId = albumId) ?: throw NotFoundException("Album not found with id: $albumId")
-        albumRepository.update(album.confirm())
-    }
-
-    suspend fun removeContent(
-        albumId: UUID,
-        photoId: UUID,
-    ) {
-        albumContentsRepository.deleteByPhotoId(albumId = albumId, photoId = photoId)
+        albumRepository.update(album = album.confirm())
     }
 }
