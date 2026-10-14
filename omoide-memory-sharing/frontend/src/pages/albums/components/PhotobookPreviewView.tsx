@@ -15,7 +15,7 @@ export interface PhotobookPreviewViewProps {
     onDeletePhoto: (targetId: string) => void;
     onReplacePhoto: (targetId: string) => Promise<void>;
     onConfirmReplace: () => void;
-    onCancelReplace: () => void;
+    onReplaceAgain: () => Promise<void>;
     onBackToSelect: () => void;
     onCreateAlbum: () => Promise<void>;
 }
@@ -34,7 +34,7 @@ export function PhotobookPreviewView({
     onDeletePhoto,
     onReplacePhoto,
     onConfirmReplace,
-    onCancelReplace,
+    onReplaceAgain,
     onBackToSelect,
     onCreateAlbum,
 }: PhotobookPreviewViewProps) {
@@ -226,10 +226,10 @@ export function PhotobookPreviewView({
                         <div className="flex gap-2">
                             <button
                                 type="button"
-                                onClick={onCancelReplace}
-                                className="flex-1 px-4 py-2.5 text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors min-h-[44px]"
+                                onClick={onReplaceAgain}
+                                className="flex-1 px-4 py-2.5 text-sm font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors min-h-[44px]"
                             >
-                                戻す
+                                別の写真に差し替え
                             </button>
                             <button
                                 type="button"

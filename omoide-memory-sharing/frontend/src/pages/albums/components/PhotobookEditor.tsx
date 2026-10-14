@@ -137,8 +137,9 @@ export function PhotobookEditor({
         setState({ value: 'previewing' });
     };
 
-    const handleCancelReplace = () => {
-        setState({ value: 'previewing' });
+    const handleReplaceAgain = async () => {
+        if (state.value !== 'replace-confirming' || state.newPhoto.id === null) return;
+        await handleReplacePhoto(state.newPhoto.id);
     };
 
     return (
@@ -152,7 +153,7 @@ export function PhotobookEditor({
             onDeletePhoto={handleDeletePhoto}
             onReplacePhoto={handleReplacePhoto}
             onConfirmReplace={handleConfirmReplace}
-            onCancelReplace={handleCancelReplace}
+            onReplaceAgain={handleReplaceAgain}
             onBackToSelect={() => setState({ value: 'selecting' })}
             onCreateAlbum={handleConfirmAlbum}
         />
