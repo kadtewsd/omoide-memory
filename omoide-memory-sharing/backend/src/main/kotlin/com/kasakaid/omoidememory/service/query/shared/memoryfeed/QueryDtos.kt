@@ -39,7 +39,7 @@ enum class FilterMode {
     ALL,
 }
 
-enum class ContentType {
+enum class QueryContentType {
     PHOTO,
     VIDEO,
     ALL,
@@ -50,5 +50,5 @@ class OmoideCondition(
     val endExclusive: OffsetDateTime?,
     val cursor: FeedCursor?,
     val filterMode: FilterMode,
-    val contentType: ContentType,
+    val contentType: QueryContentType,
 )

@@ -8,6 +8,7 @@ import {
     FetchRandomPhotoParams,
     FetchAlbumRandomPhotosParams,
     AlbumCurrentState,
+    AlbumContentItem,
     FeedPageResponse,
     AlbumResponse,
     AddContentResource,
@@ -124,7 +125,7 @@ export const addContent = async ({
 }: {
     albumId: string;
     resource: AddContentResource;
-}): Promise<void> => {
+}): Promise<AlbumContentItem> => {
     const url = new URL(`/albums/${albumId}/contents`, API_BASE_URL);
     const response = await fetch(url.toString(), {
         method: 'PUT',
@@ -132,6 +133,7 @@ export const addContent = async ({
         body: JSON.stringify(resource),
     });
     if (!response.ok) throw new Error('Failed to add content');
+    return response.json();
 };
 
 export const confirmAlbum = async (albumId: string): Promise<void> => {
@@ -154,12 +156,12 @@ export const fetchAlbumRandomPhotos = async ({
 
 export const replaceAlbumContent = async ({
     albumId,
-    contentId,
+    albumContentId,
 }: {
     albumId: string;
-    contentId: string;
-}): Promise<MemoryFeedItem> => {
-    const replaceAlbumContentUrl = new URL(`/albums/${albumId}/contents/${contentId}/replace`, API_BASE_URL);
+    albumContentId: string;
+}): Promise<AlbumContentItem> => {
+    const replaceAlbumContentUrl = new URL(`/albums/${albumId}/contents/${albumContentId}/replace`, API_BASE_URL);
     const response = await fetch(replaceAlbumContentUrl.toString(), { method: 'POST' });
     if (!response.ok) throw new Error('Failed to replace album content');
     return response.json();

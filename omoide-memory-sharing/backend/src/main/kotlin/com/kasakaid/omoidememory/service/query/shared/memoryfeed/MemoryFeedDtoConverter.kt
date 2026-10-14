@@ -3,6 +3,7 @@ package com.kasakaid.omoidememory.service.query.shared.memoryfeed
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.pojos.CommentOmoide
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.pojos.SyncedOmoidePhoto
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.pojos.SyncedOmoideVideo
+import com.kasakaid.omoidememory.service.query.shared.ContentType
 import java.time.OffsetDateTime
 
 object MemoryFeedDtoConverter {
@@ -51,7 +52,7 @@ object MemoryFeedDtoConverter {
     ): MemoryFeedDto =
         MemoryFeedDto(
             id = photo.id,
-            type = "PHOTO",
+            type = ContentType.PHOTO.value,
             commentedAt = comments.mapNotNull { it.commentedAt }.minOrNull() ?: photo.captureTime ?: OffsetDateTime.now(),
             captureTime = photo.captureTime,
             commentCount = comments.size,
@@ -65,7 +66,7 @@ object MemoryFeedDtoConverter {
 
         return MemoryFeedDto(
             id = video.id,
-            type = "VIDEO",
+            type = ContentType.VIDEO.value,
             commentedAt = commentedAt,
             captureTime = video.captureTime,
             commentCount = comments.size,

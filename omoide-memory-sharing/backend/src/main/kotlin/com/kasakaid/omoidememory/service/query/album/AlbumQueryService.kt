@@ -8,17 +8,16 @@ import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.ALBUM_CONT
 import com.kasakaid.omoidememory.jooq.omoide_memory.tables.references.SYNCED_OMOIDE_PHOTO
 import com.kasakaid.omoidememory.r2dbc.DSLGenerator
 import com.kasakaid.omoidememory.service.query.shared.MemoryContentsQueryService
-import com.kasakaid.omoidememory.service.query.shared.memoryfeed.ContentType
 import com.kasakaid.omoidememory.service.query.shared.memoryfeed.FilterMode
 import com.kasakaid.omoidememory.service.query.shared.memoryfeed.MemoryFeedDto
 import com.kasakaid.omoidememory.service.query.shared.memoryfeed.MemoryFeedDtoConverter
 import com.kasakaid.omoidememory.service.query.shared.memoryfeed.OmoideCondition
 import com.kasakaid.omoidememory.service.query.shared.memoryfeed.OmoideMemoryFeedQueryService
+import com.kasakaid.omoidememory.service.query.shared.memoryfeed.QueryContentType
 import com.kasakaid.omoidememory.shared.adapter.NotFoundException
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.reactive.asFlow
 import org.springframework.stereotype.Service
-import java.time.OffsetDateTime
 import java.time.ZoneOffset
 import java.util.UUID
 
@@ -160,7 +159,7 @@ class AlbumQueryService(
                         endExclusive = endExclusive,
                         cursor = null,
                         filterMode = FilterMode.ALL,
-                        contentType = ContentType.PHOTO,
+                        contentType = QueryContentType.PHOTO,
                     ),
                 limit = Int.MAX_VALUE,
             )
@@ -207,12 +206,10 @@ class AlbumQueryService(
                 .mapNotNull { dto ->
                     val contentId = dto.id?.let { contentIdByPhotoId[it] } ?: return@mapNotNull null
                     AlbumContentDto(
-                        contentId = contentId,
-                        id = dto.id,
+                        albumContentId = contentId,
+                        photoId = dto.id,
                         type = dto.type,
-                        commentedAt = dto.commentedAt,
                         captureTime = dto.captureTime,
-                        commentCount = dto.commentCount,
                         isRandom = randomlyAddedPhotoIds.contains(dto.id),
                     )
                 }

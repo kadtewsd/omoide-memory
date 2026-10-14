@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { MemoryFeedItem } from '@/shared/types';
+import { AlbumContentItem } from '@/shared/types';
 import { ContentNotFound } from '@/shared/components/ContentNotFound';
 import { getImageUrl } from '@/shared/api';
 import { CancelButton, PrimaryButton } from '@/shared/components/button';
 import { PhotobookState } from './types';
 
 export interface PhotobookPreviewViewProps {
-    selectedPhotos: MemoryFeedItem[];
+    selectedPhotos: AlbumContentItem[];
     maxCount: number;
     defaultAlbumName: string;
     title: string;
@@ -116,15 +116,15 @@ export function PhotobookPreviewView({
                     <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-1 sm:gap-2">
                         {selectedPhotos.map(photo => (
                             <div
-                                key={photo.id}
+                                key={photo.albumContentId}
                                 className={`relative rounded-2xl overflow-hidden cursor-pointer bg-gray-100 aspect-square active:scale-95 transition-transform ${photo.isRandom ? 'ring-2 ring-emerald-400' : ''}`}
-                                onClick={() => photo.id !== null && handlePhotoTap(photo.id)}
+                                onClick={() => photo.photoId !== null && handlePhotoTap(photo.photoId)}
                                 role="button"
                                 aria-label="写真の操作"
                             >
-                                {photo.id ? (
+                                {photo.photoId ? (
                                     <img
-                                        src={getImageUrl(photo.id)}
+                                        src={getImageUrl(photo.photoId)}
                                         alt="選択済み写真"
                                         className="w-full h-full object-cover"
                                         loading="lazy"
@@ -200,9 +200,9 @@ export function PhotobookPreviewView({
                             <div className="flex-1 space-y-1">
                                 <p className="text-[10px] font-semibold text-gray-500 text-center">変更前</p>
                                 <div className="aspect-square rounded-xl overflow-hidden bg-gray-100">
-                                    {state.oldPhoto.id && (
+                                    {state.oldPhoto.photoId && (
                                         <img
-                                            src={getImageUrl(state.oldPhoto.id)}
+                                            src={getImageUrl(state.oldPhoto.photoId)}
                                             alt="変更前の写真"
                                             className="w-full h-full object-cover"
                                         />
@@ -213,9 +213,9 @@ export function PhotobookPreviewView({
                             <div className="flex-1 space-y-1">
                                 <p className="text-[10px] font-semibold text-emerald-600 text-center">変更後</p>
                                 <div className="aspect-square rounded-xl overflow-hidden bg-gray-100 ring-2 ring-emerald-400">
-                                    {state.newPhoto.id && (
+                                    {state.newPhoto.photoId && (
                                         <img
-                                            src={getImageUrl(state.newPhoto.id)}
+                                            src={getImageUrl(state.newPhoto.photoId)}
                                             alt="変更後の写真"
                                             className="w-full h-full object-cover"
                                         />
