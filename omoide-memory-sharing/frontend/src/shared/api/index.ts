@@ -15,6 +15,7 @@ import {
     ContentsCountResponse,
     FetchContentsCountParams,
     ClearAlbumContentsParams,
+    DeleteAlbumContentParams,
 } from '@/shared/types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
@@ -165,6 +166,17 @@ export const replaceAlbumContent = async ({
     const response = await fetch(replaceAlbumContentUrl.toString(), { method: 'POST' });
     if (!response.ok) throw new Error('Failed to replace album content');
     return response.json();
+};
+
+export const deleteAlbumContent = async ({
+    albumId,
+    albumContentId,
+}: DeleteAlbumContentParams): Promise<void> => {
+    const url = new URL(`/albums/${albumId}/album-contents/${albumContentId}`, API_BASE_URL);
+    const response = await fetch(url.toString(), {
+        method: 'DELETE',
+    });
+    if (!response.ok) throw new Error('Failed to delete album content');
 };
 
 export const startAlbumDownloadJob = async (

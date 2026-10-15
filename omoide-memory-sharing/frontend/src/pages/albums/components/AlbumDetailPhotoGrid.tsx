@@ -1,4 +1,4 @@
-import { AlbumDetail, MemoryFeedItem } from '@/shared/types';
+import { AlbumDetail, AlbumDetailPhotoItem, MemoryFeedItem } from '@/shared/types';
 import { FeedPhotoCard } from '@/shared/components/feed/FeedPhotoCard';
 import { View } from '@/shared/components/feed/FeedPhotoCardMode';
 import { AlbumDetailState } from './types';
@@ -8,7 +8,7 @@ export interface AlbumDetailPhotoGridProps {
     state: AlbumDetailState;
     loading: boolean;
     onPhotoClick: (item: MemoryFeedItem) => void;
-    onToggleDeleteTarget: (photoId: string) => void;
+    onToggleDeleteTarget: (contentId: string) => void;
 }
 
 export function AlbumDetailPhotoGrid({
@@ -38,7 +38,7 @@ export function AlbumDetailPhotoGrid({
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
             {albumDetail.photos.map((item) => (
                 <PhotoGridItem
-                    key={item.id}
+                    key={item.contentId}
                     item={item}
                     state={state}
                     onPhotoClick={onPhotoClick}
@@ -50,10 +50,10 @@ export function AlbumDetailPhotoGrid({
 }
 
 interface PhotoGridItemProps {
-    item: MemoryFeedItem;
+    item: AlbumDetailPhotoItem;
     state: AlbumDetailState;
     onPhotoClick: (item: MemoryFeedItem) => void;
-    onToggleDeleteTarget: (photoId: string) => void;
+    onToggleDeleteTarget: (contentId: string) => void;
 }
 
 function PhotoGridItem({
@@ -77,25 +77,20 @@ function PhotoGridItem({
                 </div>
             );
 
-        case 'delete': {
-            const isDeleteTarget = item.id !== null && state.deleteTargetIds.has(item.id);
+        case 'delete':
             return (
                 <div
                     className="relative aspect-square rounded-xl overflow-hidden shadow-sm cursor-pointer"
-                    onClick={() => {
-                        if (item.id !== null) {
-                            onToggleDeleteTarget(item.id);
-                        }
-                    }}
+                    onClick={() => onToggleDeleteTarget(item.contentId)}
                 >
-                    <div className={`w-full h-full transition-opacity ${isDeleteTarget ? 'opacity-40' : ''}`}>
+                    <div className={`w-full h-full transition-opacity ${state.deleteTargetIds.has(item.contentId) ? 'opacity-40' : ''}`}>
                         <FeedPhotoCard
                             item={item}
                             mode={new View()}
                             onClick={() => {}}
                         />
                     </div>
-                    {isDeleteTarget ? (
+                    {state.deleteTargetIds.has(item.contentId) ? (
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                             <div className="bg-red-500 rounded-full p-1.5">
                                 <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -114,6 +109,5 @@ function PhotoGridItem({
                     )}
                 </div>
             );
-        }
     }
 }

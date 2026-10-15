@@ -19,7 +19,7 @@ export interface AlbumDetailModalProps {
     /** 写真クリック時に詳細モーダルを開くコールバック */
     onPhotoClick: (item: MemoryFeedItem) => void;
     /** 写真の削除対象選択を切り替えるコールバック */
-    onToggleDeleteTarget: (photoId: string) => void;
+    onToggleDeleteTarget: (contentId: string) => void;
     /** 削除モードを開始するコールバック */
     onStartDelete: () => void;
     /** 削除モードをキャンセルして通常表示に戻るコールバック */
