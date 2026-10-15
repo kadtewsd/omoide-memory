@@ -19,7 +19,13 @@ export function AlbumListPage() {
                 albumId={editingAlbum.albumId}
                 title={`アルバム編集: ${editingAlbum.albumName}`}
                 previewTitle={`アルバム確認: ${editingAlbum.albumName}`}
-                initialPhotos={editingAlbum.photos}
+                initialPhotos={editingAlbum.photos.map(p => ({
+                    albumContentId: p.contentId,
+                    photoId: p.id,
+                    type: p.type,
+                    captureTime: p.captureTime ?? null,
+                    isRandom: false,
+                }))}
                 initialAlbumName={editingAlbum.albumName}
                 initialPeriod={datesToPhotobookPeriod(editingAlbum.periodFrom, editingAlbum.periodTo)}
                 initialMaxCount={

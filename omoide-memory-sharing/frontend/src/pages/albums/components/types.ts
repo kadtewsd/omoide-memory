@@ -1,10 +1,10 @@
-import { MemoryFeedItem } from '@/shared/types';
+import { AlbumContentItem } from '@/shared/types';
 
 export type PhotobookState =
     | { value: 'selecting' }
     | { value: 'previewing' }
     | { value: 'confirming'; message: string }
-    | { value: 'replace-confirming'; oldPhoto: MemoryFeedItem; newPhoto: MemoryFeedItem };
+    | { value: 'replace-confirming'; oldPhoto: AlbumContentItem; newPhoto: AlbumContentItem };
 
 export type AlbumDetailState =
     | { value: 'view' }

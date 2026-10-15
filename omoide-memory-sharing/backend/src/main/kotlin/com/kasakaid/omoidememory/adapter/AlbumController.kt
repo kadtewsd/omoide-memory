@@ -3,12 +3,12 @@ package com.kasakaid.omoidememory.adapter
 import com.kasakaid.omoidememory.domain.repository.AlbumContentId
 import com.kasakaid.omoidememory.service.command.AlbumCommandService
 import com.kasakaid.omoidememory.service.command.AlbumContentReplaceService
+import com.kasakaid.omoidememory.service.query.album.AlbumContentDto
 import com.kasakaid.omoidememory.service.query.album.AlbumCurrentStateDto
 import com.kasakaid.omoidememory.service.query.album.AlbumDetailDto
 import com.kasakaid.omoidememory.service.query.album.AlbumDownloadJobManager
 import com.kasakaid.omoidememory.service.query.album.AlbumQueryService
 import com.kasakaid.omoidememory.service.query.album.AlbumSummaryDto
-import com.kasakaid.omoidememory.service.query.shared.memoryfeed.MemoryFeedDto
 import com.kasakaid.omoidememory.shared.spring.familyId
 import org.springframework.core.env.Environment
 import org.springframework.core.io.buffer.DataBuffer
@@ -84,13 +84,16 @@ class AlbumController(
     suspend fun addContent(
         @PathVariable albumId: UUID,
         @RequestBody resource: AddContentResource,
-    ) {
-        albumCommandService.addContent(
-            albumId = albumId,
-            photoId = resource.photoId,
-            capturedAt = resource.capturedAt,
+    ): AlbumContentDto =
+        AlbumContentDto(
+            content =
+                albumCommandService.addContent(
+                    albumId = albumId,
+                    photoId = resource.photoId,
+                    capturedAt = resource.capturedAt,
+                ),
+            isRandom = true,
         )
-    }
 
     @PostMapping("/{albumId}/confirm")
     suspend fun confirm(
@@ -128,7 +131,7 @@ class AlbumController(
     suspend fun replaceContent(
         @PathVariable albumId: UUID,
         @PathVariable contentId: UUID,
-    ): MemoryFeedDto =
+    ): AlbumContentDto =
         albumContentReplaceService.replaceContent(
             albumId = albumId,
             albumContentId = AlbumContentId(contentId),

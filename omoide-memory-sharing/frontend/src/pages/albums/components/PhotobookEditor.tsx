@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { MemoryFeedItem, PhotobookPeriod } from '@/shared/types';
+import { PhotobookPeriod, AlbumContentItem } from '@/shared/types';
 import { usePhotobookSelection } from '@/shared/hooks/usePhotobookSelection';
 import { useAlbumDownloadJob } from '@/shared/hooks/useAlbumDownloadJob';
 import { PhotobookSelectionView } from './PhotobookSelectionView';
@@ -9,7 +9,7 @@ import { confirmAlbum } from '@/shared/api';
 
 export interface PhotobookEditorProps {
     albumId: string;
-    initialPhotos?: MemoryFeedItem[];
+    initialPhotos?: AlbumContentItem[];
     initialAlbumName: string;
     initialMaxCount?: number;
     initialPeriod?: PhotobookPeriod;
@@ -65,7 +65,7 @@ export function PhotobookEditor({
 
     if (state.value === 'selecting') {
         const randomPhotoIds = new Set(
-            selectedPhotos.filter(p => p.isRandom && p.id !== null).map(p => p.id as string)
+            selectedPhotos.filter(p => p.isRandom && p.photoId !== null).map(p => p.photoId as string)
         );
         return (
             <PhotobookSelectionView
@@ -110,14 +110,16 @@ export function PhotobookEditor({
     };
 
     const handleDeletePhoto = (targetId: string) => {
-        const targetPhoto = selectedPhotos.find(p => p.id === targetId);
+        const targetPhoto = selectedPhotos.find(p => p.photoId === targetId);
         if (targetPhoto) {
-            togglePhotoSelection(targetPhoto);
+            setSelectedPhotos(selectedPhotos.filter(p => p.photoId !== targetId));
         }
     };
 
     const handleReplacePhoto = async (targetId: string) => {
-        const result = await replacePhoto(targetId);
+        const targetPhoto = selectedPhotos.find(p => p.photoId === targetId);
+        if (!targetPhoto) return;
+        const result = await replacePhoto(targetPhoto);
         if (result) {
             setState({ value: 'replace-confirming', oldPhoto: result.oldPhoto, newPhoto: result.newPhoto });
         }
@@ -127,18 +129,26 @@ export function PhotobookEditor({
         if (state.value !== 'replace-confirming') return;
         const newPhoto = state.newPhoto;
         const nextPhotos = selectedPhotos
-            .map(p => (p.id === state.oldPhoto.id ? newPhoto : p))
+            .map(p => (p.photoId === state.oldPhoto.photoId ? newPhoto : p))
             .sort((a, b) => {
-                const aTime = a.captureTime ?? a.commentedAt;
-                const bTime = b.captureTime ?? b.commentedAt;
+                const aTime = a.captureTime;
+                const bTime = b.captureTime;
+                if (!aTime && !bTime) return 0;
+                if (!aTime) return 1;
+                if (!bTime) return -1;
                 return aTime < bTime ? -1 : aTime > bTime ? 1 : 0;
             });
         setSelectedPhotos(nextPhotos);
         setState({ value: 'previewing' });
     };
 
-    const handleCancelReplace = () => {
-        setState({ value: 'previewing' });
+    const handleReplaceAgain = async () => {
+        if (state.value !== 'replace-confirming') return;
+        const currentOldPhoto = state.oldPhoto;
+        const result = await replacePhoto(state.newPhoto);
+        if (result) {
+            setState({ value: 'replace-confirming', oldPhoto: currentOldPhoto, newPhoto: result.newPhoto });
+        }
     };
 
     return (
@@ -152,7 +162,7 @@ export function PhotobookEditor({
             onDeletePhoto={handleDeletePhoto}
             onReplacePhoto={handleReplacePhoto}
             onConfirmReplace={handleConfirmReplace}
-            onCancelReplace={handleCancelReplace}
+            onReplaceAgain={handleReplaceAgain}
             onBackToSelect={() => setState({ value: 'selecting' })}
             onCreateAlbum={handleConfirmAlbum}
         />

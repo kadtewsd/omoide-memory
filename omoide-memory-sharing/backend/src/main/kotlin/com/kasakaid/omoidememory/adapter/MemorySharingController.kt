@@ -6,7 +6,6 @@ import com.kasakaid.omoidememory.service.query.shared.MemoryContentsQueryService
 import com.kasakaid.omoidememory.service.query.shared.PhotoQueryService
 import com.kasakaid.omoidememory.service.query.shared.VideoQueryService
 import com.kasakaid.omoidememory.service.query.shared.memoryfeed.CommentDto
-import com.kasakaid.omoidememory.service.query.shared.memoryfeed.ContentType
 import com.kasakaid.omoidememory.service.query.shared.memoryfeed.ContentsCountResponse
 import com.kasakaid.omoidememory.service.query.shared.memoryfeed.FeedCursor
 import com.kasakaid.omoidememory.service.query.shared.memoryfeed.FeedPageResponse
@@ -14,6 +13,7 @@ import com.kasakaid.omoidememory.service.query.shared.memoryfeed.FilterMode
 import com.kasakaid.omoidememory.service.query.shared.memoryfeed.MemoryFeedDto
 import com.kasakaid.omoidememory.service.query.shared.memoryfeed.OmoideCondition
 import com.kasakaid.omoidememory.service.query.shared.memoryfeed.OmoideMemoryFeedQueryService
+import com.kasakaid.omoidememory.service.query.shared.memoryfeed.QueryContentType
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.reactive.awaitSingle
 import org.springframework.format.annotation.DateTimeFormat
@@ -50,7 +50,7 @@ class MemorySharingController(
         cursorCaptureTime: OffsetDateTime?,
         @RequestParam(required = false) cursorId: UUID?,
         @RequestParam(required = false) mode: FilterMode = FilterMode.ALL,
-        @RequestParam(required = false) contentType: ContentType = ContentType.ALL,
+        @RequestParam(required = false) contentType: QueryContentType = QueryContentType.ALL,
         @RequestParam(required = false) limit: Int?,
     ): FeedPageResponse {
         val cursor =
@@ -82,7 +82,7 @@ class MemorySharingController(
         @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
         endExclusive: OffsetDateTime?,
         @RequestParam(required = false) mode: FilterMode = FilterMode.ALL,
-        @RequestParam(required = false) contentType: ContentType = ContentType.ALL,
+        @RequestParam(required = false) contentType: QueryContentType = QueryContentType.ALL,
     ): ContentsCountResponse {
         val count =
             memmoryFeedQueryService.count(
@@ -115,7 +115,7 @@ class MemorySharingController(
                         endExclusive = endExclusive,
                         cursor = null,
                         filterMode = FilterMode.ALL,
-                        contentType = ContentType.PHOTO,
+                        contentType = QueryContentType.PHOTO,
                     ),
                 limit = Int.MAX_VALUE,
             )

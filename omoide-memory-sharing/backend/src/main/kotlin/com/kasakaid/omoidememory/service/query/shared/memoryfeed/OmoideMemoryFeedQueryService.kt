@@ -18,9 +18,9 @@ class OmoideMemoryFeedQueryService(
     ): FeedPageResponse {
         val (commentMap, rawRecords) =
             when (condition.contentType) {
-                ContentType.ALL -> all.fetchPage(condition = condition, limit = limit)
-                ContentType.PHOTO -> photo.fetchPage(condition = condition, limit = limit)
-                ContentType.VIDEO -> video.fetchPage(condition = condition, limit = limit)
+                QueryContentType.ALL -> all.fetchPage(condition = condition, limit = limit)
+                QueryContentType.PHOTO -> photo.fetchPage(condition = condition, limit = limit)
+                QueryContentType.VIDEO -> video.fetchPage(condition = condition, limit = limit)
             }
 
         return OmoideUnionRecordList(
@@ -31,9 +31,9 @@ class OmoideMemoryFeedQueryService(
 
     suspend fun count(condition: OmoideCondition): Int =
         when (condition.contentType) {
-            ContentType.ALL -> all.count(condition = condition)
-            ContentType.PHOTO -> photo.count(condition = condition)
-            ContentType.VIDEO -> video.count(condition = condition)
+            QueryContentType.ALL -> all.count(condition = condition)
+            QueryContentType.PHOTO -> photo.count(condition = condition)
+            QueryContentType.VIDEO -> video.count(condition = condition)
         }
 }
 
