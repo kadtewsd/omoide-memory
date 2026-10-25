@@ -39,34 +39,43 @@ class SyncedMemoryRepository(
 
     private suspend fun savePhoto(memory: OmoideMemory.Photo) {
         SYNCED_OMOIDE_PHOTO.run {
+            val insertOnlyFields =
+                mapOf(
+                    ID to MyUUIDGenerator.generateUUIDv7(),
+                    FILE_NAME to memory.name,
+                    CREATED_BY to "downloader",
+                    CREATED_AT to OffsetDateTime.now(),
+                )
+            val updatableFields =
+                mapOf(
+                    FAMILY_ID to memory.familyId,
+                    SERVER_PATH to memory.localPath.toString(),
+                    CAPTURE_TIME to memory.captureTime,
+                    LATITUDE to memory.latitude?.toBigDecimal(),
+                    LONGITUDE to memory.longitude?.toBigDecimal(),
+                    ALTITUDE to memory.altitude?.toBigDecimal(),
+                    LOCATION_NAME to memory.locationName,
+                    DEVICE_MAKE to memory.deviceMake,
+                    DEVICE_MODEL to memory.deviceModel,
+                    APERTURE to memory.aperture?.toBigDecimal(),
+                    SHUTTER_SPEED to memory.shutterSpeed,
+                    ISO_SPEED to memory.isoSpeed,
+                    FOCAL_LENGTH to memory.focalLength?.toBigDecimal(),
+                    FOCAL_LENGTH_35MM to memory.focalLength35mm,
+                    WHITE_BALANCE to memory.whiteBalance,
+                    IMAGE_WIDTH to memory.imageWidth,
+                    IMAGE_HEIGHT to memory.imageHeight,
+                    ORIENTATION to memory.orientation?.toShort(),
+                    FILE_SIZE to memory.fileSize,
+                    DRIVE_FILE_ID to memory.driveFileId,
+                )
             dslContext
                 .invoke()
                 .insertInto(this)
-                .set(ID, MyUUIDGenerator.generateUUIDv7())
-                .set(FILE_NAME, memory.name)
-                .set(FAMILY_ID, memory.familyId)
-                .set(SERVER_PATH, memory.localPath.toString())
-                .set(CAPTURE_TIME, memory.captureTime)
-                .set(LATITUDE, memory.latitude?.toBigDecimal())
-                .set(LONGITUDE, memory.longitude?.toBigDecimal())
-                .set(ALTITUDE, memory.altitude?.toBigDecimal())
-                .set(LOCATION_NAME, memory.locationName)
-                .set(DEVICE_MAKE, memory.deviceMake)
-                .set(DEVICE_MODEL, memory.deviceModel)
-                .set(APERTURE, memory.aperture?.toBigDecimal())
-                .set(SHUTTER_SPEED, memory.shutterSpeed)
-                .set(ISO_SPEED, memory.isoSpeed)
-                .set(FOCAL_LENGTH, memory.focalLength?.toBigDecimal())
-                .set(FOCAL_LENGTH_35MM, memory.focalLength35mm)
-                .set(WHITE_BALANCE, memory.whiteBalance)
-                .set(IMAGE_WIDTH, memory.imageWidth)
-                .set(IMAGE_HEIGHT, memory.imageHeight)
-                .set(ORIENTATION, memory.orientation?.toShort())
-                .set(FILE_SIZE, memory.fileSize)
-                .set(DRIVE_FILE_ID, memory.driveFileId)
-                .set(CREATED_BY, "downloader")
-                .set(CREATED_AT, OffsetDateTime.now())
-                .onDuplicateKeyIgnore()
+                .set(insertOnlyFields + updatableFields)
+                .onConflict(FILE_NAME)
+                .doUpdate()
+                .set(updatableFields)
                 .returning()
                 .awaitFirstOrNull()
         }
@@ -74,18 +83,22 @@ class SyncedMemoryRepository(
 
     private suspend fun saveVideo(memory: OmoideMemory.Video) {
         SYNCED_OMOIDE_VIDEO.run {
-            val baseFields =
+            val insertOnlyFields =
+                mapOf(
+                    ID to MyUUIDGenerator.generateUUIDv7(),
+                    FILE_NAME to memory.name,
+                    CREATED_BY to "downloader",
+                    CREATED_AT to OffsetDateTime.now(),
+                )
+
+            val baseUpdatableFields =
                 memory.run {
                     mapOf(
-                        ID to MyUUIDGenerator.generateUUIDv7(),
-                        FILE_NAME to name,
                         FAMILY_ID to familyId,
                         SERVER_PATH to localPath.toString(),
                         CAPTURE_TIME to captureTime,
                         FILE_SIZE to fileSize,
                         DRIVE_FILE_ID to driveFileId,
-                        CREATED_BY to "downloader",
-                        CREATED_AT to OffsetDateTime.now(),
                     )
                 }
 
@@ -106,11 +119,14 @@ class SyncedMemoryRepository(
                         THUMBNAIL_MIME_TYPE to thumbnailMimeType,
                     )
                 }
+            val updatableFields = baseUpdatableFields + metadataFields
             dslContext
                 .invoke()
                 .insertInto(this)
-                .set(baseFields + metadataFields)
-                .onDuplicateKeyIgnore()
+                .set(insertOnlyFields + updatableFields)
+                .onConflict(FILE_NAME)
+                .doUpdate()
+                .set(updatableFields)
                 .returning()
                 .awaitFirstOrNull()
         }

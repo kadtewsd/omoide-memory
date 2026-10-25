@@ -16,7 +16,7 @@ import java.time.Instant
 private val logger = KotlinLogging.logger {}
 
 // すでにダウンロードしたというマーク
-private const val DOWNLOADED_PROPERTY_KEY = "downloaded"
+const val DOWNLOADED_PROPERTY_KEY = "downloaded"
 
 /** アップローダーとの共通規約として定義した固定ファイル名。 */
 private const val DEVICE_TOKEN_FILE_NAME = "device_token"
