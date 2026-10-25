@@ -7,6 +7,7 @@ import com.google.api.services.drive.DriveScopes
 import com.google.api.services.drive.model.File
 import com.google.auth.http.HttpCredentialsAdapter
 import com.google.auth.oauth2.ServiceAccountCredentials
+import com.kasakaid.omoidememory.downloader.adapter.google.DOWNLOADED_PROPERTY_KEY
 import com.kasakaid.omoidememory.downloader.adapter.google.createDriveService
 import com.kasakaid.omoidememory.downloader.adapter.google.download
 import com.kasakaid.omoidememory.downloader.adapter.google.listFiles
@@ -48,7 +49,8 @@ class SaDriveService(
         withContext(Dispatchers.IO) {
             logger.info { "Processing folder: $folderId using Service Account" }
             driverService.listFiles(
-                query = "'$folderId' in parents and trashed = false and mimeType != 'application/vnd.google-apps.folder'",
+                query =
+                    "'$folderId' in parents and trashed = false and mimeType != 'application/vnd.google-apps.folder' and not (properties has { key='$DOWNLOADED_PROPERTY_KEY' and value='true' })",
             )
         }
 

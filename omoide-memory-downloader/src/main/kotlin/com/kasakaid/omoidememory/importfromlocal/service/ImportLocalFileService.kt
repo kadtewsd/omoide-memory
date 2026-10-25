@@ -69,16 +69,6 @@ class ImportLocalFileService(
                         filePath = localFile.path,
                     ).right()
 
-        val exists =
-            when (mediaType) {
-                MediaType.PHOTO -> syncedMemoryRepository.existsPhotoByFileName(localFile.name)
-                MediaType.VIDEO -> syncedMemoryRepository.existsVideoByFileName(localFile.name)
-            }
-
-        if (exists) {
-            syncedMemoryRepository.deleteByFileName(localFile.name)
-        }
-
         val omoideMemory: Either<DriveService.WriteError, OmoideMemory> =
             omoideMemoryFactory.createOmoideMemoryFrom(
                 sourcePath = localFile.path,

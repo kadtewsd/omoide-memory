@@ -39,7 +39,6 @@ class DownloadFileBackUpService(
         either {
             logger.info { "取得対象ファイル: ${sourceFile.name}" }
 
-            // Check if already exists in DB to skip
             val type =
                 MediaType.of(sourceFile.name).getOrNull() ?: run {
                     return FileIOFinish
@@ -48,19 +47,6 @@ class DownloadFileBackUpService(
                             filePath = Path.of(sourceFile.name),
                         ).right()
                 }
-
-            when (type) {
-                MediaType.PHOTO -> syncedMemoryRepository.existsPhotoByFileName(sourceFile.name)
-                MediaType.VIDEO -> syncedMemoryRepository.existsVideoByFileName(sourceFile.name)
-            }.let { exists ->
-                if (exists) {
-                    return FileIOFinish
-                        .Skip(
-                            reason = "ファイルは既に存在するためスキップします: ${sourceFile.name}",
-                            filePath = Path.of(sourceFile.name),
-                        ).right()
-                }
-            }
 
             val tempPath = tempDir.resolve(sourceFile.name)
             try {
