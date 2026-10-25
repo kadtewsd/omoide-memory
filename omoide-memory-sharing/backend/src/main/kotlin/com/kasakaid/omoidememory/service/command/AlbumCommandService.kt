@@ -2,6 +2,7 @@ package com.kasakaid.omoidememory.service.command
 
 import com.kasakaid.omoidememory.domain.model.Album
 import com.kasakaid.omoidememory.domain.model.AlbumContent
+import com.kasakaid.omoidememory.domain.repository.AlbumContentId
 import com.kasakaid.omoidememory.domain.repository.AlbumContentsRepository
 import com.kasakaid.omoidememory.domain.repository.AlbumRepository
 import com.kasakaid.omoidememory.shared.adapter.NotFoundException
@@ -56,5 +57,13 @@ class AlbumCommandService(
     suspend fun confirm(albumId: UUID) {
         val album = albumRepository.get(albumId = albumId) ?: throw NotFoundException("Album not found with id: $albumId")
         albumRepository.update(album = album.confirm())
+    }
+
+    suspend fun deleteContent(
+        albumId: UUID,
+        albumContentId: AlbumContentId,
+    ) {
+        val album = albumRepository.get(albumId = albumId) ?: throw NotFoundException("Album not found with id: $albumId")
+        albumContentsRepository.deleteBy(id = albumContentId)
     }
 }

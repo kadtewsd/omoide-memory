@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { AlbumSummary, AlbumDetail, MemoryFeedItem } from '@/shared/types';
-import { fetchAlbums, fetchAlbumDetail, getImageUrl } from '@/shared/api';
+import { fetchAlbums, fetchAlbumDetail, deleteAlbumContent, getImageUrl } from '@/shared/api';
 import { useAlbumDownloadJob } from '@/shared/hooks/useAlbumDownloadJob';
 import { AlbumDetailState } from './types';
 import { AlbumDetailModal } from './AlbumDetailModal';
@@ -98,16 +98,16 @@ export function AlbumGrid({ onPhotoClick, onEditAlbum }: AlbumGridProps) {
     };
 
     /** 削除対象写真の選択状態をトグル */
-    const handleToggleDeleteTarget = (photoId: string) => {
+    const handleToggleDeleteTarget = (contentId: string) => {
         switch (detailState.value) {
             case 'view':
                 return;
             case 'delete': {
                 const next = new Set(detailState.deleteTargetIds);
-                if (next.has(photoId)) {
-                    next.delete(photoId);
+                if (next.has(contentId)) {
+                    next.delete(contentId);
                 } else {
-                    next.add(photoId);
+                    next.add(contentId);
                 }
                 setDetailState({ value: 'delete', deleteTargetIds: next });
                 break;
@@ -115,7 +115,7 @@ export function AlbumGrid({ onPhotoClick, onEditAlbum }: AlbumGridProps) {
         }
     };
 
-    /** 選択した写真をアルバムから除外（TODO: 写真削除APIが未実装のため現在は UI のみ更新） */
+    /** 選択した写真をアルバムから削除 */
     const handleCommitDelete = async () => {
         if (!albumDetail) return;
         switch (detailState.value) {
@@ -125,9 +125,20 @@ export function AlbumGrid({ onPhotoClick, onEditAlbum }: AlbumGridProps) {
                 if (submitting) return;
                 setSubmitting(true);
                 try {
-                    // TODO: DELETE /albums/{albumId}/contents/{contentId} 実装後に対応
-                    closeModal();
+                    await Promise.all(
+                        Array.from(detailState.deleteTargetIds).map((albumContentId) =>
+                            deleteAlbumContent({
+                                albumId: albumDetail.albumId,
+                                albumContentId,
+                            })
+                        )
+                    );
+                    const updatedDetail = await fetchAlbumDetail(albumDetail.albumId);
+                    setAlbumDetail(updatedDetail);
+                    setDetailState({ value: 'view' });
                     await handleReload();
+                } catch (err) {
+                    console.error('Failed to delete album contents:', err);
                 } finally {
                     setSubmitting(false);
                 }

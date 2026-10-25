@@ -140,3 +140,10 @@ export interface AddContentResource {
     photoId: string;
     capturedAt: string | null;
 }
+
+/** DELETE /albums/{albumId}/album-contents/{albumContentId} パラメータ */
+export interface DeleteAlbumContentParams {
+    albumId: string;
+    albumContentId: string;
+}
+

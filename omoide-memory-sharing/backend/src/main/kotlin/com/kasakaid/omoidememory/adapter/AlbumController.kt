@@ -127,6 +127,17 @@ class AlbumController(
         )
     }
 
+    @DeleteMapping("/{albumId}/album-contents/{albumContentId}")
+    suspend fun deleteContent(
+        @PathVariable albumId: UUID,
+        @PathVariable albumContentId: UUID,
+    ) {
+        albumCommandService.deleteContent(
+            albumId = albumId,
+            albumContentId = AlbumContentId(albumContentId),
+        )
+    }
+
     @PostMapping("/{albumId}/contents/{contentId}/replace")
     suspend fun replaceContent(
         @PathVariable albumId: UUID,
